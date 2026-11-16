@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ventas_app.models import Integrante, Plan, Venta
@@ -92,3 +92,24 @@ def obtener_venta(db: Session, venta_id: int) -> Venta:
         raise VentaNoEncontradaError(venta_id)
 
     return venta
+
+
+def listar_ventas(db: Session) -> list[tuple[Venta, int]]:
+    """Lista las ventas de la más reciente a la más antigua.
+
+    Cada elemento incluye la venta con su plan precargado y la cantidad de
+    integrantes, calculada en la misma consulta para evitar N+1.
+    """
+    cantidad_integrantes = (
+        select(func.count(Integrante.id))
+        .where(Integrante.venta_id == Venta.id)
+        .correlate(Venta)
+        .scalar_subquery()
+    )
+    filas = db.execute(
+        select(Venta, cantidad_integrantes.label("cantidad_integrantes"))
+        .options(joinedload(Venta.plan))
+        .order_by(Venta.creado_en.desc(), Venta.id.desc())
+    ).all()
+
+    return [(venta, int(cantidad)) for venta, cantidad in filas]

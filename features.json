@@ -28,7 +28,7 @@
       "id": "F05",
       "titulo": "Panel de ventas",
       "descripcion": "Panel simple de listado de ventas (GET /ventas) mostrando estado (PENDIENTE_VERIFICACION, APROBADA, OBSERVADA), titular, plan y total.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F06",

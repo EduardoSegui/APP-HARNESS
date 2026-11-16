@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from ventas_app.database import get_db
 from ventas_app.models import Parentesco, Plan
+from ventas_app.services.ventas import listar_ventas
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = PACKAGE_DIR / "templates"
@@ -76,4 +77,14 @@ def mostrar_wizard(request: Request, db: SessionDep) -> HTMLResponse:
             "parentescos": [parentesco.value for parentesco in Parentesco],
             "provincias": PROVINCIAS,
         },
+    )
+
+
+@router.get("/ventas", response_class=HTMLResponse, name="panel_ventas")
+def mostrar_panel_ventas(request: Request, db: SessionDep) -> HTMLResponse:
+    """Renderiza el panel de ventas registradas."""
+    return templates.TemplateResponse(
+        request=request,
+        name="panel.html",
+        context={"ventas": listar_ventas(db)},
     )

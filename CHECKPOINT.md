@@ -7,13 +7,13 @@
 
 ## Estado actual
 
-- **Última sesión:** Sesión 04 — Wizard web de 3 etapas (2026-11-16).
-- **Feature verificada:** F04 — Wizard web de 3 etapas.
-- **Tests:** `70 passed` (`uv run pytest -v`).
+- **Última sesión:** Sesión 05 — Panel de ventas (2026-11-16).
+- **Feature verificada:** F05 — Panel de ventas.
+- **Tests:** `76 passed` (`uv run pytest -v`).
 - **Harness:** `./init.sh` OK.
 - **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git); tests aislados en SQLite temporal.
-- **Próxima feature:** **F05** — Panel de ventas.
-- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F04.
+- **Próxima feature:** **F06** — Servidor MCP.
+- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F05.
 
 ---
 
@@ -466,3 +466,104 @@ Ejecutar **F05 — Panel de ventas**:
 4. Agregar el enlace al panel desde el comprobante si el alcance de F05 lo permite.
 5. Escribir tests de render/listado; ejecutar `./init.sh` y `uv run pytest`.
 6. Verificar, marcar F05 con `"passes": true`, actualizar este checkpoint y commitear.
+
+---
+
+## Sesión 05 — Panel de ventas
+
+**Fecha:** 2026-11-16
+
+**Rol ejercido:** Builder + Verifier (fases separadas)
+
+**Feature:** F05
+
+**Estado:** verificada y aprobada
+
+### Objetivo
+
+Implementar el panel HTML de solo lectura en `GET /ventas`, listando las ventas de la más reciente a la más antigua con titular, plan, cantidad de integrantes, total y estado, e incorporar el enlace al panel desde el comprobante del wizard.
+
+### Entregables
+
+#### Backend
+
+- `src/ventas_app/routers/web.py`:
+  - Nueva ruta `GET /ventas` que renderiza `panel.html`.
+- `src/ventas_app/services/ventas.py`:
+  - `listar_ventas(db)` devuelve cada venta con su plan precargado y el conteo de integrantes.
+  - El conteo se resuelve con una subconsulta correlacionada y el plan con `joinedload`, evitando N+1.
+  - Orden: `creado_en DESC`, con `id DESC` como desempate.
+
+#### Templates
+
+- `src/ventas_app/templates/panel.html`:
+  - Tabla responsive con ID, titular, plan, integrantes, total y estado.
+  - Badges de estado con los colores requeridos.
+  - Estado vacío explícito con enlace para cargar la primera venta.
+  - Enlace “+ Nueva venta” hacia el wizard.
+- `src/ventas_app/templates/comprobante.html`:
+  - Enlace “Ir al panel de ventas” hacia `GET /ventas`, pendiente desde F04.
+
+#### Tests
+
+- `tests/test_panel.py`: 6 tests de:
+  - Estado vacío.
+  - Listado completo con titular, plan, integrantes, total y estado.
+  - Orden de más reciente a más antigua.
+  - Badges de los tres estados.
+  - Venta histórica con plan luego desactivado.
+  - Enlace al panel desde el comprobante.
+
+### Verificación ejecutada
+
+| Comprobación | Comando / escenario | Resultado |
+|---|---|---|
+| Harness completo | `./init.sh` | OK |
+| Suite de tests | `uv run pytest -v` | `76 passed` |
+| Panel vacío | `GET /ventas` sin ventas | `200`, sin tabla, mensaje “Todavía no hay ventas registradas” y CTA al wizard |
+| Flujo feliz | Tres ventas con estados distintos | Filas en orden `#3`, `#2`, `#1` |
+| Contenido | Plan Integral + 2 adherentes | Titular, plan, `2` integrantes, `$182.000` y `PENDIENTE_VERIFICACION` |
+| Sin adherentes | Plan Esencial | `0` integrantes y `$45.000` |
+| Badge ámbar | `PENDIENTE_VERIFICACION` | Fondo `rgb(254, 243, 199)` |
+| Badge verde | `APROBADA` | Fondo `rgb(220, 252, 231)` |
+| Badge rojo | `OBSERVADA` | Fondo `rgb(254, 226, 226)` |
+| Plan inactivo | Venta histórica con Plan Superior desactivado | La venta y su plan siguen visibles |
+| Responsive | Viewport de 390 px | Sin overflow de página; tabla con scroll horizontal (`overflow-x: auto`) |
+| Solo lectura | Panel renderizado | Sin formularios, botones ni acciones de edición |
+| Enlace del comprobante | Comprobante visible y clic en “Ir al panel de ventas” | Navega a `/ventas` |
+| Navegador | Chrome headless + CDP | Sin excepciones; captura visual revisada |
+| Artefactos | `git ls-files '*.db' '*.pyc' '.env'` | Sin resultados versionados |
+
+### Decisiones verificadas
+
+- El panel es exclusivamente de lectura; no se agregaron filtros, paginación ni acciones de escritura.
+- La cantidad de integrantes se calcula en la consulta y el plan se precarga, sin N+1.
+- Los estados se muestran con el código exacto del enum y el badge de color correspondiente.
+- Las ventas históricas se listan aunque su plan ya no esté activo.
+- La tabla se adapta con scroll horizontal en pantallas angostas.
+- El enlace al panel se incorporó al comprobante de F04 sin modificar el flujo de confirmación ya verificado.
+
+### Archivos de la feature
+
+```text
+src/ventas_app/routers/web.py
+src/ventas_app/services/ventas.py
+src/ventas_app/templates/panel.html
+src/ventas_app/templates/comprobante.html
+tests/test_panel.py
+```
+
+### Git
+
+- Commit de cierre: `feat(F05): panel de ventas`.
+- Incluye implementación, tests, actualización de `features.json` y este checkpoint.
+
+### Próximo paso
+
+Ejecutar **F06 — Servidor MCP**:
+
+1. Implementar `src/ventas_app/mcp_server.py` con las herramientas `listar_ventas_pendientes`, `obtener_detalle_venta` y `actualizar_estado_venta`.
+2. Respetar las transiciones permitidas y exigir observaciones al pasar a `OBSERVADA`.
+3. Escribir tests de las herramientas y de los casos inválidos.
+4. Ejecutar `./init.sh` y `uv run pytest`.
+5. Verificar, marcar F06 con `"passes": true`, actualizar este checkpoint y commitear.

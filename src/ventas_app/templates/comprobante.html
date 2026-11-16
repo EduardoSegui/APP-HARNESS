@@ -41,13 +41,22 @@
         La venta quedó pendiente de verificación por el agente auditor.
       </p>
 
-      <button
-        type="button"
-        id="btn-nueva-venta"
-        class="w-full rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-      >
-        Cargar otra venta
-      </button>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <a
+          id="enlace-panel-ventas"
+          href="/ventas"
+          class="rounded-lg bg-blue-600 px-5 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          Ir al panel de ventas
+        </a>
+        <button
+          type="button"
+          id="btn-nueva-venta"
+          class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          Cargar otra venta
+        </button>
+      </div>
     </div>
   </div>
 </section>
