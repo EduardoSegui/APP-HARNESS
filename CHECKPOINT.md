@@ -7,13 +7,13 @@
 
 ## Estado actual
 
-- **Última sesión:** Sesión 02 — Modelos, schemas y seed de planes (2026-11-16).
-- **Feature verificada:** F02 — Modelos, schemas y seed de planes.
-- **Tests:** `41 passed` (`uv run pytest -v`).
+- **Última sesión:** Sesión 03 — API REST de ventas y cotización (2026-11-16).
+- **Feature verificada:** F03 — API REST de ventas y cotización.
+- **Tests:** `65 passed` (`uv run pytest -v`).
 - **Harness:** `./init.sh` OK.
 - **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git); tests aislados en SQLite temporal.
-- **Próxima feature:** **F03** — API REST de ventas y cotización.
-- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F02.
+- **Próxima feature:** **F04** — Wizard web de 3 etapas.
+- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F03.
 
 ---
 
@@ -241,3 +241,116 @@ Ejecutar **F03 — API REST de ventas y cotización**:
 4. Devolver `201` con `VentaOut` y `404` para ventas inexistentes.
 5. Escribir tests de cálculo por plan, validaciones, atomicidad y errores; ejecutar `./init.sh` y `uv run pytest`.
 6. Verificar, marcar F03 con `"passes": true`, actualizar este checkpoint y commitear.
+
+---
+
+## Sesión 03 — API REST de ventas y cotización
+
+**Fecha:** 2026-11-16
+
+**Rol ejercido:** Builder + Verifier (fases separadas)
+
+**Feature:** F03
+
+**Estado:** verificada y aprobada
+
+### Objetivo
+
+Implementar la API REST mínima para crear y consultar ventas, con validación de entrada, verificación del plan, cálculo automático de `precio_total` en el servidor y persistencia atómica de la venta y sus integrantes.
+
+### Entregables
+
+#### Servicios
+
+- `src/ventas_app/services/pricing.py`:
+  - `calcular_precio_total(plan, cantidad_adherentes)`.
+  - Fórmula: `precio_titular + cantidad × precio_adherente`.
+  - Rechaza cantidades negativas.
+- `src/ventas_app/services/ventas.py`:
+  - `crear_venta(db, datos)`: busca el plan, exige `activo=True`, calcula el total, crea venta e integrantes y hace un único `commit`.
+  - Rollback explícito ante cualquier fallo de persistencia.
+  - `obtener_venta(db, venta_id)` con `joinedload(plan)` y `selectinload(integrantes)`.
+  - Excepciones de dominio `PlanNoDisponibleError` y `VentaNoEncontradaError`.
+
+#### Router y endpoints
+
+- `src/ventas_app/routers/api.py`:
+  - `POST /api/ventas` → `201` con `VentaOut`.
+  - `GET /api/ventas/{venta_id}` → `200` con detalle o `404`.
+  - Plan inexistente o inactivo → `400`.
+- `src/ventas_app/main.py`: registro del router en la app FastAPI.
+
+#### Tests
+
+- `tests/test_pricing.py`: 6 casos de cálculo y cantidad negativa.
+- `tests/test_api_ventas.py`: 18 tests de integración HTTP.
+- `tests/conftest.py`: fixture `client` con `TestClient` y lifespan/seed.
+
+### Verificación ejecutada
+
+| Comprobación | Comando / escenario | Resultado |
+|---|---|---|
+| Harness completo | `./init.sh` | OK |
+| Suite de tests | `uv run pytest -v` | `65 passed` |
+| Servidor real | Uvicorn con SQLite temporal | inicio correcto |
+| Healthcheck real | `GET /health` | `200` + `{"status":"ok"}` |
+| Alta válida | `POST /api/ventas` Plan Integral + 2 adherentes | `201`, total `182.000` |
+| Consulta | `GET /api/ventas/{id}` | `200`, plan e integrantes |
+| Venta inexistente | `GET /api/ventas/999999` | `404` |
+| CP inválido | `POST /api/ventas` | `422` |
+| Total impuesto por cliente | `precio_total` en el payload | `422` |
+| Plan inexistente | `POST /api/ventas` | `400` |
+| Plan inactivo | `POST /api/ventas` | `400` |
+| Precios vigentes | modificación de precios en DB y alta | total recalculado (`120.000`) |
+| Persistencia real | consulta posterior | 2 ventas y 4 integrantes |
+| Atomicidad | fallo de commit simulado | sin venta ni integrantes parciales |
+| Artefactos | `git ls-files '*.db' '*.pyc' '.env'` | sin resultados |
+
+### Casos borde verificados
+
+- Totales para los 3 planes, incluyendo ventas sin adherentes.
+- `precio_total`, `estado` y `observaciones` enviados por el cliente → `422`.
+- DNI duplicado en el grupo familiar y código postal inválido → `422`.
+- `plan_id=0` → `422`.
+- Plan inactivo o inexistente → `400`.
+- Venta inexistente → `404`.
+- Fallo de commit → rollback total.
+
+### Decisiones verificadas
+
+- El contrato de entrada mantiene campos planos (`nombre_titular`, `calle`, etc.) definidos en F02.
+- El total se calcula exclusivamente en el servidor con los precios de la base.
+- Los errores de plan no disponible se devuelven como `400`, permitido por el PRD.
+- `GET` precarga plan e integrantes para evitar consultas perezosas durante la serialización.
+- `VentaOut.plan` muestra los precios actuales del plan; `precio_total` es la foto al momento de la venta.
+- No se agregó `GET /api/planes` ni lógica de wizard/panel/MCP/auditor.
+
+### Archivos de la feature
+
+```text
+src/ventas_app/services/__init__.py
+src/ventas_app/services/pricing.py
+src/ventas_app/services/ventas.py
+src/ventas_app/routers/__init__.py
+src/ventas_app/routers/api.py
+src/ventas_app/main.py
+tests/conftest.py
+tests/test_pricing.py
+tests/test_api_ventas.py
+```
+
+### Git
+
+- Commit de cierre: `feat(F03): API REST de ventas y cotización`.
+- Incluye implementación, tests, actualización de `features.json` y este checkpoint.
+
+### Próximo paso
+
+Ejecutar **F04 — Wizard web de 3 etapas**:
+
+1. Implementar `GET /` con Jinja2 y Tailwind CDN.
+2. Construir el wizard de titular/adherentes, domicilio y plan/cotización con persistencia entre pasos.
+3. Agregar alta/baja dinámica de adherentes y resumen final con comprobante.
+4. Consumir `POST /api/ventas` respetando el contrato plano de F03.
+5. Escribir tests de render y flujo; ejecutar `./init.sh` y `uv run pytest`.
+6. Verificar, marcar F04 con `"passes": true`, actualizar este checkpoint y commitear.

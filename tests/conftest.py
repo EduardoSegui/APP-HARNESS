@@ -16,8 +16,11 @@ from sqlalchemy.orm import Session
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="ventas-app-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'ventas-test.db'}"
 
+from fastapi.testclient import TestClient  # noqa: E402
+
 from ventas_app import models  # noqa: E402, F401
 from ventas_app.database import Base, SessionLocal, engine  # noqa: E402
+from ventas_app.main import app  # noqa: E402
 from ventas_app.models import Integrante, Plan, Venta  # noqa: E402
 
 
@@ -47,3 +50,10 @@ def db() -> Iterator[Session]:
     """Sesión de base de datos para un test."""
     with SessionLocal() as session:
         yield session
+
+
+@pytest.fixture
+def client(limpiar_tablas: None) -> Iterator[TestClient]:
+    """Cliente HTTP con el ciclo de vida de la app y seed de planes."""
+    with TestClient(app) as test_client:
+        yield test_client

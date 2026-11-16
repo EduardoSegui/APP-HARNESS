@@ -16,7 +16,7 @@
       "id": "F03",
       "titulo": "API REST de ventas y cotización",
       "descripcion": "API REST POST /api/ventas y GET /api/ventas/{id} con validación de datos y cálculo automático de precio_total según plan y cantidad de adherentes.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F04",

@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from ventas_app.database import SessionLocal, init_db
+from ventas_app.routers.api import router as api_router
 from ventas_app.seed import seed_planes
 
 
@@ -26,6 +27,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(api_router)
 
 
 @app.get("/health", tags=["sistema"])
