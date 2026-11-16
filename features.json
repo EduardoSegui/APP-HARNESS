@@ -10,7 +10,7 @@
       "id": "F02",
       "titulo": "Modelos, schemas y seed de planes",
       "descripcion": "Modelos SQLAlchemy (Plan, Venta, Integrante), esquemas Pydantic v2 y seed automático de los 3 planes al iniciar la app.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F03",

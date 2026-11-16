@@ -7,13 +7,13 @@
 
 ## Estado actual
 
-- **Última sesión:** Sesión 01 — Inicialización del Harness (2026-11-16).
-- **Feature verificada:** F01 — Inicialización del proyecto y healthcheck.
-- **Tests:** `1 passed` (`uv run pytest`).
+- **Última sesión:** Sesión 02 — Modelos, schemas y seed de planes (2026-11-16).
+- **Feature verificada:** F02 — Modelos, schemas y seed de planes.
+- **Tests:** `41 passed` (`uv run pytest -v`).
 - **Harness:** `./init.sh` OK.
-- **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git).
-- **Próxima feature:** **F02** — Modelos SQLAlchemy, schemas Pydantic v2 y seed de planes.
-- **Árbol de trabajo esperado:** limpio tras el commit inicial.
+- **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git); tests aislados en SQLite temporal.
+- **Próxima feature:** **F03** — API REST de ventas y cotización.
+- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F02.
 
 ---
 
@@ -132,3 +132,112 @@ Ejecutar **F02 — Modelos, schemas y seed de planes**:
 3. Asegurar que `init_db()` cree las tablas y que el seed se ejecute al iniciar la app.
 4. Escribir tests de modelos, validadores y seed; ejecutar `./init.sh` y `uv run pytest`.
 5. Verificar, marcar F02 con `"passes": true`, actualizar este checkpoint y commitear.
+
+---
+
+## Sesión 02 — Modelos, schemas y seed de planes
+
+**Fecha:** 2026-11-16
+
+**Rol ejercido:** Builder + Verifier (fases separadas)
+
+**Feature:** F02
+
+**Estado:** verificada y aprobada
+
+### Objetivo
+
+Implementar la capa de persistencia y validación de F02: modelos SQLAlchemy (`Plan`, `Venta`, `Integrante`), schemas Pydantic v2 y seed automático e idempotente de los tres planes al iniciar la aplicación.
+
+### Entregables
+
+#### Modelos (`src/ventas_app/models.py`)
+
+- `EstadoVenta` y `Parentesco` como enums de dominio.
+- `Plan`: nombre único, `precio_titular > 0`, `precio_adherente >= 0`, `activo` por defecto.
+- `Venta`:
+  - Datos completos del titular y domicilio.
+  - `plan_id` FK, `precio_total > 0`, estado con CHECK de los 3 valores.
+  - `observaciones`, timestamps UTC, índices de estado y DNI.
+- `Integrante`:
+  - FK `venta_id` con `ON DELETE CASCADE`.
+  - `UNIQUE (venta_id, dni)`.
+  - CHECK de parentesco contra el catálogo del PRD.
+- Relaciones bidireccionales `Plan.ventas`, `Venta.integrantes`.
+
+#### Schemas (`src/ventas_app/schemas.py`)
+
+- `IntegranteIn` y `VentaIn` con `extra="forbid"`.
+- `PlanOut`, `IntegranteOut` y `VentaOut` con `from_attributes=True`.
+- Validación de nombres, DNI, email, teléfono, altura, código postal y fechas no futuras.
+- Normalización de espacios y de `piso_depto` vacío a `None`.
+- Validación de DNIs únicos en el grupo familiar (titular + adherentes).
+
+#### Seed (`src/ventas_app/seed.py`)
+
+- `PLANES_SEED` con los precios del PRD.
+- `seed_planes()` idempotente por nombre: inserta faltantes y no sobreescribe precios existentes.
+- Ejecución automática desde el `lifespan` de FastAPI.
+
+#### Integración y tests
+
+- `init_db()` importa los modelos antes de `create_all`.
+- `main.py` crea el esquema y ejecuta el seed al iniciar.
+- `tests/conftest.py` aísla toda la suite en una SQLite temporal, con limpieza por test.
+- `tests/test_models.py`, `tests/test_schemas.py` y `tests/test_seed.py`.
+
+### Verificación ejecutada
+
+| Comprobación | Comando / escenario | Resultado |
+|---|---|---|
+| Harness completo | `./init.sh` | OK |
+| Suite de tests | `uv run pytest -v` | `41 passed` |
+| Tablas | `init_db()` + `inspect(engine)` | `planes`, `ventas`, `integrantes` |
+| Healthcheck | `TestClient` → `GET /health` | `200` + `{"status":"ok"}` |
+| Seed al iniciar | dos arranques consecutivos de `TestClient(app)` | 3 planes, sin duplicados |
+| Precios | consulta ORM | Esencial 45.000/30.000; Integral 78.000/52.000; Superior 125.000/85.000 |
+| Schema válido | `VentaIn` con 1 adherente | OK; `piso_depto` vacío → `None` |
+| Casos inválidos | DNI duplicado, CP `C1043`, fecha futura, campo extra, email inválido | Rechazados con `ValidationError` |
+| Persistencia | venta + 2 integrantes | Estado `PENDIENTE_VERIFICACION`, relaciones y timestamps OK |
+| DNI duplicado | dos integrantes con el mismo DNI | `IntegrityError` por `UNIQUE (venta_id, dni)` |
+| Parentesco inválido | valor `Hija` fuera del catálogo | `IntegrityError` por CHECK |
+| Cascada | eliminar venta | integrantes eliminados |
+| Artefactos | `git ls-files '*.db' '*.pyc' '.env'` | sin resultados |
+
+### Decisiones verificadas
+
+- `VentaIn` usa campos planos (`nombre_titular`, etc.) alineados con el modelo; F03/F04 deben respetar ese contrato.
+- La edad mínima del titular no se valida en el schema: corresponde a la regla R1 del auditor (F07).
+- El email se valida con regex propio, sin agregar `email-validator`.
+- `seed_planes()` hace commit propio y está pensado para el arranque; no se anida en otras transacciones.
+- SQLite no conserva tzinfo en `DateTime(timezone=True)`; los timestamps se generan en UTC.
+
+### Archivos de la feature
+
+```text
+src/ventas_app/models.py
+src/ventas_app/schemas.py
+src/ventas_app/seed.py
+src/ventas_app/database.py
+src/ventas_app/main.py
+tests/conftest.py
+tests/test_models.py
+tests/test_schemas.py
+tests/test_seed.py
+```
+
+### Git
+
+- Implementación base: `b3c43df` — `F02: Modelos, schemas y seed de planes` (ya en `origin/main`).
+- Commit de cierre de verificación: `chore(F02): mark feature verified and update checkpoint`.
+
+### Próximo paso
+
+Ejecutar **F03 — API REST de ventas y cotización**:
+
+1. Implementar `POST /api/ventas` y `GET /api/ventas/{id}`.
+2. Recibir `VentaIn`, verificar que el plan exista y esté activo, y calcular `precio_total` en el servidor con los precios de la base.
+3. Persistir venta e integrantes en una única transacción, con estado inicial `PENDIENTE_VERIFICACION`.
+4. Devolver `201` con `VentaOut` y `404` para ventas inexistentes.
+5. Escribir tests de cálculo por plan, validaciones, atomicidad y errores; ejecutar `./init.sh` y `uv run pytest`.
+6. Verificar, marcar F03 con `"passes": true`, actualizar este checkpoint y commitear.
