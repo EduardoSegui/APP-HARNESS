@@ -22,7 +22,7 @@
       "id": "F04",
       "titulo": "Wizard web de 3 etapas",
       "descripcion": "Interfaz web (Wizard de 3 etapas en HTML + Tailwind CDN + JS) con persistencia de estado entre pasos, alta/baja dinámica de adherentes y resumen final con comprobante.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F05",

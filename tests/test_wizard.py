@@ -1,0 +1,141 @@
+"""Tests de renderizado y assets del wizard web (F04)."""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+from sqlalchemy import select, update
+
+from ventas_app.database import SessionLocal
+from ventas_app.models import Plan
+
+
+def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
+    respuesta = client.get("/")
+
+    assert respuesta.status_code == 200
+    assert "text/html" in respuesta.headers["content-type"]
+
+    html = respuesta.text
+
+    assert "cdn.tailwindcss.com" in html
+    assert 'id="wizard"' in html
+    assert 'id="template-integrante"' in html
+    assert 'id="integrantes-container"' in html
+    assert 'id="btn-agregar-integrante"' in html
+    assert 'id="btn-confirmar"' in html
+    assert 'id="comprobante"' in html
+    assert 'id="comprobante-total"' in html
+    assert "js/wizard.js" in html
+
+    assert "1. Titular y grupo familiar" in html
+    assert "2. Domicilio" in html
+    assert "3. Plan y cotización" in html
+    assert "Datos del titular" in html
+    assert "Grupo familiar" in html
+    assert "Domicilio" in html
+    assert "Resumen de cotización" in html
+
+    for campo in (
+        "titular.nombre",
+        "titular.apellido",
+        "titular.dni",
+        "titular.fecha_nacimiento",
+        "titular.email",
+        "titular.telefono",
+        "domicilio.calle",
+        "domicilio.altura",
+        "domicilio.piso_depto",
+        "domicilio.localidad",
+        "domicilio.provincia",
+        "domicilio.codigo_postal",
+    ):
+        assert f'data-state="{campo}"' in html
+
+    for parentesco in (
+        "Cónyuge/Pareja",
+        "Hijo/a",
+        "Nieto/a",
+        "Sobrino/a",
+        "Familiar a cargo",
+        "Amigo/Otro",
+    ):
+        assert parentesco in html
+
+    assert "Seleccioná un parentesco" in html
+    assert "Tierra del Fuego, Antártida e Islas del Atlántico Sur" in html
+
+    for plan, precio_titular, precio_adherente in (
+        ("Plan Esencial", "45000", "30000"),
+        ("Plan Integral", "78000", "52000"),
+        ("Plan Superior", "125000", "85000"),
+    ):
+        assert plan in html
+        assert f'data-precio-titular="{precio_titular}"' in html
+        assert f'data-precio-adherente="{precio_adherente}"' in html
+
+    assert html.index("Plan Esencial") < html.index("Plan Integral") < html.index("Plan Superior")
+    assert "$45.000" in html
+    assert "$78.000" in html
+    assert "$125.000" in html
+
+
+def test_wizard_excluye_planes_inactivos(client: TestClient) -> None:
+    with SessionLocal() as db:
+        db.add(
+            Plan(
+                nombre="Plan Oculto",
+                precio_titular=10_000,
+                precio_adherente=5_000,
+                activo=False,
+            )
+        )
+        db.commit()
+
+    html = client.get("/").text
+
+    assert "Plan Oculto" not in html
+    assert "Plan Esencial" in html
+    assert "Plan Integral" in html
+    assert "Plan Superior" in html
+
+
+def test_wizard_sin_planes_activos_muestra_un_aviso(client: TestClient) -> None:
+    with SessionLocal() as db:
+        db.execute(update(Plan).values(activo=False))
+        db.commit()
+
+    html = client.get("/").text
+
+    assert "No hay planes activos disponibles" in html
+    assert 'name="plan_id"' not in html
+
+
+def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
+    respuesta = client.get("/static/js/wizard.js")
+
+    assert respuesta.status_code == 200
+    assert "javascript" in respuesta.headers["content-type"]
+
+    js = respuesta.text
+
+    for fragmento in (
+        "sessionStorage",
+        'fetch("/api/ventas"',
+        "agregar-integrante",
+        "template-integrante",
+        "confirmarVenta",
+        "mostrarComprobante",
+        "precioTitular",
+        "precioAdherente",
+        "codigo_postal",
+    ):
+        assert fragmento in js
+
+
+def test_el_seed_del_wizard_no_duplica_planes(client: TestClient) -> None:
+    client.get("/")
+
+    with SessionLocal() as db:
+        nombres = list(db.scalars(select(Plan.nombre)).all())
+
+    assert sorted(nombres) == ["Plan Esencial", "Plan Integral", "Plan Superior"]

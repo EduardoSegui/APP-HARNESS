@@ -6,9 +6,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from ventas_app.database import SessionLocal, init_db
 from ventas_app.routers.api import router as api_router
+from ventas_app.routers.web import STATIC_DIR, router as web_router
 from ventas_app.seed import seed_planes
 
 
@@ -29,6 +31,8 @@ app = FastAPI(
 )
 
 app.include_router(api_router)
+app.include_router(web_router)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/health", tags=["sistema"])

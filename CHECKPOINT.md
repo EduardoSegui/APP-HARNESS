@@ -7,13 +7,13 @@
 
 ## Estado actual
 
-- **Última sesión:** Sesión 03 — API REST de ventas y cotización (2026-11-16).
-- **Feature verificada:** F03 — API REST de ventas y cotización.
-- **Tests:** `65 passed` (`uv run pytest -v`).
+- **Última sesión:** Sesión 04 — Wizard web de 3 etapas (2026-11-16).
+- **Feature verificada:** F04 — Wizard web de 3 etapas.
+- **Tests:** `70 passed` (`uv run pytest -v`).
 - **Harness:** `./init.sh` OK.
 - **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git); tests aislados en SQLite temporal.
-- **Próxima feature:** **F04** — Wizard web de 3 etapas.
-- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F03.
+- **Próxima feature:** **F05** — Panel de ventas.
+- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F04.
 
 ---
 
@@ -354,3 +354,115 @@ Ejecutar **F04 — Wizard web de 3 etapas**:
 4. Consumir `POST /api/ventas` respetando el contrato plano de F03.
 5. Escribir tests de render y flujo; ejecutar `./init.sh` y `uv run pytest`.
 6. Verificar, marcar F04 con `"passes": true`, actualizar este checkpoint y commitear.
+
+---
+
+## Sesión 04 — Wizard web de 3 etapas
+
+**Fecha:** 2026-11-16
+
+**Rol ejercido:** Builder + Verifier (fases separadas)
+
+**Feature:** F04
+
+**Estado:** verificada y aprobada
+
+### Objetivo
+
+Implementar la interfaz web de carga de ventas en tres etapas, con estado persistente en el navegador, adherentes dinámicos, vista previa de cotización y comprobante final generado a partir de la respuesta del servidor.
+
+### Entregables
+
+#### Rutas y assets
+
+- `src/ventas_app/routers/web.py`:
+  - `GET /` consulta los planes activos y renderiza el wizard.
+  - Catálogo de 24 jurisdicciones argentinas para el domicilio.
+  - Filtro Jinja `pesos` para mostrar montos con formato argentino.
+- `src/ventas_app/main.py`: registro del router web y montaje de `/static`.
+
+#### Templates
+
+- `src/ventas_app/templates/base.html`: layout común, Tailwind CDN, header y footer.
+- `src/ventas_app/templates/wizard.html`:
+  - Indicador de progreso de 3 etapas.
+  - Paso 1: titular y tarjetas dinámicas de adherentes.
+  - Paso 2: domicilio con `piso_depto` opcional.
+  - Paso 3: planes, cotización y confirmación.
+- `src/ventas_app/templates/comprobante.html`: comprobante con ID, fecha, titular, plan, adherentes, desglose, total y estado.
+
+#### JavaScript
+
+- `src/ventas_app/static/js/wizard.js`:
+  - Estado con titular, integrantes, domicilio, plan y paso actual.
+  - Persistencia en `sessionStorage`.
+  - Alta/baja dinámica de adherentes con ID temporal.
+  - Validación inline de campos, DNI único, fechas no futuras, CP y plan.
+  - Vista previa de cotización calculada en cliente.
+  - Envío del payload plano a `POST /api/ventas`.
+  - Visualización del comprobante usando el total devuelto por el servidor.
+  - Manejo de errores 400/422 y de red.
+
+#### Tests
+
+- `tests/test_wizard.py`: 5 tests de render, planes activos/inactivos, estado sin planes, assets JS e idempotencia del seed.
+
+### Verificación ejecutada
+
+| Comprobación | Comando / escenario | Resultado |
+|---|---|---|
+| Harness completo | `./init.sh` | OK |
+| Suite de tests | `uv run pytest -v` | `70 passed` |
+| Render inicial | `GET /` | `200`, HTML con 3 pasos, 3 planes y JS cargado |
+| Asset JS | `GET /static/js/wizard.js` | `200`, `text/javascript` |
+| Validación inicial | Avanzar con todo vacío | Permanece en paso 1 con errores |
+| Flujo feliz | Plan Integral + 1 adherente | Total `130.000`, comprobante `#1` |
+| Persistencia | Recarga en paso 2 | Paso, titular y adherente conservados |
+| Adherentes | Agregar 2 y eliminar 1 | Contador y cotización actualizados |
+| API real | `GET /api/ventas/1` | Total `130000`, estado `PENDIENTE_VERIFICACION` |
+| DNI duplicado | Titular y adherente con el mismo DNI | Bloqueado en paso 1 |
+| CP inválido | `123` | Bloqueado en paso 2 |
+| Sin adherentes | Plan Esencial + `piso_depto` vacío | Total `45.000`; `piso_depto=null` persistido |
+| Plan inactivo | Desactivar plan con la página abierta | `400` mostrado en UI; sin venta adicional |
+| Planes inactivos | Test de render | Excluidos del wizard |
+| Sin planes activos | Test de render | Aviso visible y sin radios |
+| Excepciones JS | Flujos de navegador | Ninguna |
+| Artefactos | `git ls-files '*.db' '*.pyc' '.env'` | Sin resultados versionados |
+
+### Decisiones verificadas
+
+- El wizard obtiene los planes activos directamente en `GET /`; no se agregó `GET /api/planes`.
+- La cotización del cliente es solo una vista previa. El total persistido y mostrado en el comprobante proviene del servidor.
+- El payload enviado mantiene el contrato plano de F03 y no incluye `precio_total`, `estado` ni `observaciones`.
+- El `_id` temporal de los adherentes queda solo en el estado del navegador.
+- `piso_depto` vacío se envía como `null`.
+- El enlace al panel de ventas se difiere a F05, cuando exista `GET /ventas`.
+- Tailwind se mantiene por CDN, sin build de frontend, conforme a la arquitectura.
+
+### Archivos de la feature
+
+```text
+src/ventas_app/routers/web.py
+src/ventas_app/main.py
+src/ventas_app/templates/base.html
+src/ventas_app/templates/wizard.html
+src/ventas_app/templates/comprobante.html
+src/ventas_app/static/js/wizard.js
+tests/test_wizard.py
+```
+
+### Git
+
+- Commit de cierre: `feat(F04): wizard web de 3 etapas`.
+- Incluye implementación, tests, actualización de `features.json` y este checkpoint.
+
+### Próximo paso
+
+Ejecutar **F05 — Panel de ventas**:
+
+1. Implementar `GET /ventas` con listado de ventas, plan y cantidad de integrantes.
+2. Mostrar titular, plan, total y badge de estado (`PENDIENTE_VERIFICACION`, `APROBADA`, `OBSERVADA`).
+3. Mantener el panel como solo lectura, sin acciones de escritura.
+4. Agregar el enlace al panel desde el comprobante si el alcance de F05 lo permite.
+5. Escribir tests de render/listado; ejecutar `./init.sh` y `uv run pytest`.
+6. Verificar, marcar F05 con `"passes": true`, actualizar este checkpoint y commitear.
