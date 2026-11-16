@@ -34,7 +34,7 @@
       "id": "F06",
       "titulo": "Servidor MCP",
       "descripcion": "Servidor MCP (src/ventas_app/mcp_server.py) con herramientas listar_ventas_pendientes, obtener_detalle_venta y actualizar_estado_venta.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F07",

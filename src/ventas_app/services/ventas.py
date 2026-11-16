@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from ventas_app.models import Integrante, Plan, Venta
+from ventas_app.models import EstadoVenta, Integrante, Plan, Venta
 from ventas_app.schemas import VentaIn
 from ventas_app.services.pricing import calcular_precio_total
 
@@ -92,6 +92,20 @@ def obtener_venta(db: Session, venta_id: int) -> Venta:
         raise VentaNoEncontradaError(venta_id)
 
     return venta
+
+
+def listar_ventas_pendientes(db: Session) -> list[Venta]:
+    """Lista las ventas pendientes de verificación en orden de llegada."""
+    return list(
+        db.scalars(
+            select(Venta)
+            .options(joinedload(Venta.plan))
+            .where(
+                Venta.estado == EstadoVenta.PENDIENTE_VERIFICACION.value
+            )
+            .order_by(Venta.creado_en.asc(), Venta.id.asc())
+        ).all()
+    )
 
 
 def listar_ventas(db: Session) -> list[tuple[Venta, int]]:

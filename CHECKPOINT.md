@@ -7,13 +7,13 @@
 
 ## Estado actual
 
-- **Última sesión:** Sesión 05 — Panel de ventas (2026-11-16).
-- **Feature verificada:** F05 — Panel de ventas.
-- **Tests:** `76 passed` (`uv run pytest -v`).
+- **Última sesión:** Sesión 06 — Servidor MCP (2026-11-16).
+- **Feature verificada:** F06 — Servidor MCP.
+- **Tests:** `93 passed` (`uv run pytest -v`).
 - **Harness:** `./init.sh` OK.
 - **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git); tests aislados en SQLite temporal.
-- **Próxima feature:** **F06** — Servidor MCP.
-- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F05.
+- **Próxima feature:** **F07** — Agente Auditor de Ventas.
+- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F06.
 
 ---
 
@@ -567,3 +567,112 @@ Ejecutar **F06 — Servidor MCP**:
 3. Escribir tests de las herramientas y de los casos inválidos.
 4. Ejecutar `./init.sh` y `uv run pytest`.
 5. Verificar, marcar F06 con `"passes": true`, actualizar este checkpoint y commitear.
+
+---
+
+## Sesión 06 — Servidor MCP
+
+**Fecha:** 2026-11-16
+
+**Rol ejercido:** Builder + Verifier (fases separadas)
+
+**Feature:** F06
+
+**Estado:** verificada y aprobada
+
+### Objetivo
+
+Implementar el servidor MCP local por transporte `stdio` con las tres herramientas de consulta y actualización de ventas, centralizando las transiciones de estado para que el futuro Agente Auditor reutilice exactamente las mismas reglas.
+
+### Entregables
+
+#### Servidor MCP
+
+- `src/ventas_app/mcp_server.py`:
+  - Servidor `MCPServer` del SDK oficial `mcp 2.3.0`.
+  - Transporte `stdio`; arranque con `uv run python -m ventas_app.mcp_server`.
+  - Herramienta `listar_ventas_pendientes()`.
+  - Herramienta `obtener_detalle_venta(venta_id)`.
+  - Herramienta `actualizar_estado_venta(venta_id, estado, observaciones)`.
+  - Cada herramienta abre su propia `SessionLocal` y la cierra en `finally`.
+  - Salidas JSON serializables con fechas ISO 8601.
+  - Errores de negocio expuestos como `ToolError`.
+
+#### Servicios de estado
+
+- `src/ventas_app/services/estados.py`:
+  - Transiciones desde `PENDIENTE_VERIFICACION` hacia `APROBADA` u `OBSERVADA`.
+  - Rechazo de estados terminales y destinos inválidos.
+  - `APROBADA` limpia siempre las observaciones.
+  - `OBSERVADA` exige observaciones no vacías y las normaliza.
+  - Escritura atómica con `commit`, `rollback` ante error y refresco posterior.
+
+#### Consulta de pendientes
+
+- `src/ventas_app/services/ventas.py`:
+  - `listar_ventas_pendientes(db)` con `joinedload` del plan.
+  - Orden FIFO por `creado_en` e `id`.
+  - Sin filtro por estado del plan: las ventas históricas con plan inactivo siguen pendientes de auditoría.
+
+#### Tests
+
+- `tests/test_mcp_server.py`: 17 tests de registro de herramientas, schema, listado, detalle, serialización, transiciones, observaciones, ventas inexistentes y planes inactivos.
+
+### Verificación ejecutada
+
+| Comprobación | Comando / escenario | Resultado |
+|---|---|---|
+| Harness completo | `./init.sh` | OK |
+| Suite de tests | `uv run pytest -v` | `93 passed` |
+| Inicialización MCP | Cliente real por `stdio` | Servidor `ventas-obra-social`, versión `0.1.0` |
+| Herramientas | `list_tools` por `stdio` | Las tres herramientas presentes |
+| Schema de actualización | `estado` | Enum cerrado `APROBADA` / `OBSERVADA` |
+| Listado | Cuatro ventas pendientes | IDs `1, 2, 3, 4` en orden FIFO |
+| Campos del resumen | `listar_ventas_pendientes` | ID, titular, plan, total y fecha ISO |
+| Detalle | Venta `#1` | Titular, domicilio, plan, 2 integrantes, total, estado y observaciones |
+| Aprobación | Venta `#1` con observaciones enviadas | `APROBADA` y observaciones `null` |
+| Observación | Venta `#2` con texto multilínea | `OBSERVADA`; texto normalizado y persistido |
+| Pendientes restantes | Tras procesar `#1` y `#2` | IDs `3, 4` |
+| Plan inactivo | Venta `#3` con Plan Superior desactivado | Sigue listada; el detalle muestra `activo: false` |
+| Venta ya aprobada | Reintento sobre `#1` | Error MCP; estado y observaciones sin cambios |
+| Venta ya observada | Reintento sobre `#2` | Error MCP; estado y observaciones sin cambios |
+| Observación vacía | `None`, `""`, espacios y tabs | Error MCP; venta sin modificar |
+| Estado arbitrario | `CANCELADA` por protocolo | Error de validación del schema MCP |
+| Venta inexistente | Detalle y actualización con ID `999999` | Error MCP en ambas herramientas |
+| Listado vacío | Tras procesar las cuatro ventas | `[]` |
+| Persistencia final | Consulta separada a SQLite | `#1 APROBADA`, `#2 OBSERVADA`, `#3 OBSERVADA`, `#4 APROBADA` |
+| Artefactos | `git ls-files '*.db' '*.pyc' '.env' '*.sqlite'` | Sin resultados versionados |
+
+### Decisiones verificadas
+
+- Se usa `MCPServer` porque el SDK instalado es `mcp 2.x`; `FastMCP` ya no está disponible.
+- Los errores de negocio esperados se convierten en `ToolError`; el SDK los presenta como errores de herramienta y no modifican la fila.
+- El detalle reutiliza `VentaOut` en modo JSON, manteniendo consistencia con la API.
+- El resumen de pendientes usa `precio_total` y `creado_en`, campos coherentes con el modelo y la API.
+- Las observaciones de una aprobación siempre se descartan, incluso si el cliente envía texto.
+- El servidor MCP requiere que la base haya sido inicializada por la aplicación; no crea tablas ni ejecuta el seed por sí mismo.
+
+### Archivos de la feature
+
+```text
+src/ventas_app/mcp_server.py
+src/ventas_app/services/estados.py
+src/ventas_app/services/ventas.py
+tests/test_mcp_server.py
+```
+
+### Git
+
+- Commit de cierre: `feat(F06): servidor MCP`.
+- Incluye implementación, tests, actualización de `features.json` y este checkpoint.
+
+### Próximo paso
+
+Ejecutar **F07 — Agente Auditor de Ventas**:
+
+1. Implementar `src/ventas_app/auditor.py` con las reglas `R1`–`R6`.
+2. Reutilizar los servicios de ventas y estados; no duplicar transiciones.
+3. Aplicar las reglas con fecha de referencia inyectable y no reprocesar ventas terminales.
+4. Registrar un resumen de aprobadas y observadas.
+5. Escribir tests de límites: 18 años hoy, DNI duplicado, CP inválido, plan inactivo y venta ya procesada.
+6. Ejecutar `./init.sh` y `uv run pytest`, verificar, marcar F07 con `"passes": true`, actualizar este checkpoint y commitear.
