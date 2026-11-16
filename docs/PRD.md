@@ -313,12 +313,16 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 
 ### 12.2 Agente Auditor
 
+- Se conecta al servidor MCP local por transporte `stdio`.
 - Recorre las ventas pendientes.
 - Aplica las reglas `R1`–`R6`.
-- Actualiza el estado y las observaciones mediante la misma lógica de negocio que el servidor MCP.
+- Actualiza el estado y las observaciones mediante las herramientas MCP, usando la misma lógica de negocio que el servidor.
 - Registra un resumen de la ejecución (cantidad de aprobadas y observadas).
 - No modifica ventas ya procesadas.
 - Es ejecutable de forma local y repetible.
+- Opcionalmente puede generar un resumen narrativo con un proveedor compatible
+  con OpenAI. El LLM no decide estados ni reemplaza las reglas; si falla o no
+  responde, la auditoría continúa con el resumen local.
 
 ---
 

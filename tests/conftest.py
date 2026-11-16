@@ -35,6 +35,18 @@ def base_de_datos_temporal() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def aislar_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Evita llamadas reales a un proveedor LLM durante la suite."""
+    for variable in (
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_MODEL",
+        "OPENAI_TIMEOUT",
+    ):
+        monkeypatch.delenv(variable, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def limpiar_tablas(base_de_datos_temporal: None) -> Iterator[None]:
     """Deja las tablas vacías antes de cada test."""
     with SessionLocal() as db:

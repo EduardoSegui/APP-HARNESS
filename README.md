@@ -20,6 +20,29 @@ uv run uvicorn ventas_app.main:app --reload --port 8000
 curl http://localhost:8000/health   # {"status":"ok"}
 ```
 
+## Auditor
+
+El auditor se conecta al servidor MCP por `stdio` y procesa las ventas pendientes:
+
+```bash
+uv run python -m ventas_app.auditor
+```
+
+Las reglas `R1`–`R6` son determinísticas. Opcionalmente, si se configura un
+proveedor compatible con OpenAI, se agrega un resumen narrativo de la corrida:
+
+```bash
+export OPENAI_API_KEY="..."
+export OPENAI_BASE_URL="http://localhost:11434/v1"  # opcional, por ejemplo Ollama
+export OPENAI_MODEL="qwen2.5"                       # opcional
+export OPENAI_TIMEOUT="15"                          # opcional, segundos
+uv run python -m ventas_app.auditor
+```
+
+Sin `OPENAI_API_KEY` no se llama al LLM. Si la API tarda o falla, el auditor
+emite una advertencia y continúa con el resumen local; nunca delega la decisión
+de estado al modelo.
+
 ## Verificación
 
 ```bash

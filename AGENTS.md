@@ -30,9 +30,9 @@ Un mismo agente puede actuar como Builder y luego como Verifier, pero debe hacer
 
 ## Estado actual del proyecto
 
-- **Última sesión:** Sesión 01 — Inicialización del Harness.
-- **Feature inicial:** F01 (estructura, SQLite y `/health`).
-- **Próximo paso:** consultar `CHECKPOINT.md` y `features.json`; si F01 ya está aprobada, ejecutar F02.
+- **Última sesión:** Sesión 07 — Agente Auditor de Ventas.
+- **Feature inicial:** F01 (estructura, SQLite y `/health`) — completada.
+- **Próximo paso:** plan F01–F07 completado; consultar `CHECKPOINT.md` y `features.json` para el estado final.
 
 La fuente de verdad es siempre `features.json`; este resumen no reemplaza su lectura.
 

@@ -7,13 +7,13 @@
 
 ## Estado actual
 
-- **Última sesión:** Sesión 06 — Servidor MCP (2026-11-16).
-- **Feature verificada:** F06 — Servidor MCP.
-- **Tests:** `93 passed` (`uv run pytest -v`).
+- **Última sesión:** Sesión 07 — Agente Auditor de Ventas (2026-11-16).
+- **Feature verificada:** F07 — Agente Auditor de Ventas.
+- **Tests:** `167 passed` (`uv run pytest -v`).
 - **Harness:** `./init.sh` OK.
 - **Base de datos:** `ventas.db` local generada al iniciar (ignorada por Git); tests aislados en SQLite temporal.
-- **Próxima feature:** **F07** — Agente Auditor de Ventas.
-- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F06.
+- **Próxima feature:** ninguna; el plan F01–F07 está completo.
+- **Árbol de trabajo esperado:** limpio tras el commit de cierre de F07.
 
 ---
 
@@ -676,3 +676,125 @@ Ejecutar **F07 — Agente Auditor de Ventas**:
 4. Registrar un resumen de aprobadas y observadas.
 5. Escribir tests de límites: 18 años hoy, DNI duplicado, CP inválido, plan inactivo y venta ya procesada.
 6. Ejecutar `./init.sh` y `uv run pytest`, verificar, marcar F07 con `"passes": true`, actualizar este checkpoint y commitear.
+
+---
+
+## Sesión 07 — Agente Auditor de Ventas
+
+**Fecha:** 2026-11-16
+
+**Rol ejercido:** Builder + Verifier (fases separadas)
+
+**Feature:** F07
+
+**Estado:** verificada y aprobada
+
+### Objetivo
+
+Implementar el Agente Auditor de Ventas como cliente MCP real por `stdio`, aplicando las reglas `R1`–`R6` sobre las ventas pendientes y persistiendo el estado y las observaciones a través de las herramientas MCP. La integración con un proveedor LLM compatible con OpenAI es opcional y no reemplaza las reglas determinísticas.
+
+### Entregables
+
+#### Agente Auditor
+
+- `src/ventas_app/auditor.py`:
+  - Cliente MCP real con `mcp.client.stdio`, `StdioServerParameters` y `ClientSession`.
+  - Lanza `python -m ventas_app.mcp_server` en un subproceso con el mismo `DATABASE_URL`.
+  - Invoca `listar_ventas_pendientes`, `obtener_detalle_venta` y `actualizar_estado_venta`.
+  - Reglas puras `R1`–`R6` con fecha de referencia inyectable (`hoy`).
+  - Procesa solamente ventas `PENDIENTE_VERIFICACION`; los estados terminales no se tocan.
+  - Regenera observaciones con una razón por línea y las limpia al aprobar.
+  - Ejecución idempotente: una segunda corrida procesa cero ventas.
+  - Resumen final con cantidades de aprobadas y observadas.
+  - Integración LLM opcional compatible con OpenAI:
+    - `OPENAI_API_KEY` habilita el resumen; sin la variable no se llama a la API.
+    - `OPENAI_BASE_URL` permite usar Ollama u otro proveedor compatible.
+    - `OPENAI_MODEL` y `OPENAI_TIMEOUT` configurables.
+    - Timeout, error de conexión, error HTTP o respuesta inválida generan una advertencia y se usa el resumen local.
+    - El LLM solo redacta el resumen; nunca decide el estado.
+    - Los números potencialmente sensibles se redactan antes de enviar observaciones al proveedor.
+  - `main()` devuelve código de salida `0` en éxito y `1` ante un error MCP, sin traza cruda.
+
+#### Detalle de venta
+
+- `src/ventas_app/schemas.py`: `IntegranteOut` expone `venta_id`, necesario para verificar la integridad de `R6` desde el detalle MCP.
+
+#### Tests
+
+- `tests/test_auditor.py`: 74 tests.
+  - Reglas `R1`–`R6`, límites de edad, DNIs duplicados, datos obligatorios, código postal, planes y precios.
+  - Integración real con el servidor MCP por `stdio`.
+  - Errores MCP limpios.
+  - Configuración LLM, base URL para Ollama, timeout inválido, timeout de red, HTTP 503 y respuesta inválida.
+  - Redacción de datos antes del LLM.
+  - Resumen LLM y manejo de errores del CLI.
+  - Verificación estática de que `auditor.py` no importa `SessionLocal`, SQLAlchemy ni `ventas_app.models`.
+- `tests/conftest.py`: fixture autouse que elimina variables `OPENAI_*` para impedir llamadas reales durante la suite.
+
+#### Documentación
+
+- `docs/PRD.md`: el auditor se conecta por `stdio`; el LLM es opcional y no decide estados.
+- `docs/ARQUITECTURA.md`: flujo MCP real, ausencia de acceso directo a la base y fallback del LLM.
+- `README.md`: uso del auditor y variables de entorno.
+- `features.json`: F07 marcada con `"passes": true`.
+- `AGENTS.md`: estado del proyecto actualizado.
+
+### Verificación ejecutada
+
+| Comprobación | Comando / escenario | Resultado |
+|---|---|---|
+| Harness completo | `./init.sh` | OK |
+| Suite de tests | `uv run pytest -v` | `167 passed` |
+| Tests F07 | `uv run pytest tests/test_auditor.py -v` | `74 passed` |
+| Sin acceso directo a DB | `grep` de `SessionLocal`, `sqlalchemy`, `ventas_app.models` en `auditor.py` | Sin coincidencias |
+| Cliente MCP real | `ClienteMCPStdio` + servidor en subproceso | Las tres herramientas invocadas por `stdio` |
+| CLI sin LLM | DB temporal con una venta válida y una de titular menor | `1 aprobadas, 1 observadas`; salida `0` |
+| Persistencia | Consulta SQLite posterior al CLI | Titular válido `APROBADA`; menor `OBSERVADA` con `R1` |
+| Idempotencia | Segunda ejecución del CLI | `0 aprobadas, 0 observadas`; estados sin cambios |
+| LLM caído | `OPENAI_BASE_URL` inalcanzable, timeout `0.5` | Advertencia `ConnectError`; auditoría completada y estado persistido |
+| LLM local exitoso | Servidor OpenAI-compatible local, modelo `qwen2.5` | Resumen del LLM impreso; `/v1/chat/completions`, Bearer y modelo correctos |
+| Privacidad del prompt | Captura de la petición LLM en verificación manual y test unitario | Sin DNIs en la petición; el test unitario confirma la redacción de números sensibles |
+| Límite 18 años | Test de cumpleaños exacto | Aprobado a los 18; observado un día antes |
+| R2 | DNI del titular repetido en adherente | Observación `R2` |
+| R4 | Código postal no numérico o de longitud incorrecta | Observación `R4` |
+| R5 | Plan inactivo y precio total inconsistente | Observaciones `R5` |
+| R6 | Integrante asociado a otra venta o sin venta | Observaciones `R6` |
+| Venta ya procesada | Reintento sobre venta terminal | No se modifica |
+| Error MCP | Detalle de venta inexistente | `ErrorMCP` limpio |
+| Error del CLI | `ejecutar_auditoria` lanza `ErrorMCP` | Código `1`, sin traza cruda |
+| Aislamiento de tests | Variables `OPENAI_*` eliminadas por fixture | Sin llamadas externas en la suite |
+| Artefactos | `git status --short` antes del commit | Solo archivos de la feature |
+
+### Decisiones verificadas
+
+- El auditor es un cliente MCP real; no consulta la base de datos directamente ni importa `SessionLocal`/modelos ORM en su código.
+- Las reglas `R1`–`R6` son la fuente de verdad; el LLM es solo una capa de redacción opcional y con fallback.
+- La fecha de referencia es inyectable para tests determinísticos.
+- La aprobación reutiliza la transición existente y limpia observaciones; la observación exige texto.
+- Las ventas terminales no se reprocesan.
+- El subproceso MCP preserva `DATABASE_URL` y `PYTHONPATH`, por lo que funciona con bases temporales y desde la raíz del proyecto.
+- La suite elimina variables `OPENAI_*` para que un entorno con clave configurada no provoque llamadas reales.
+
+### Archivos de la feature
+
+```text
+src/ventas_app/auditor.py
+src/ventas_app/schemas.py
+tests/test_auditor.py
+tests/conftest.py
+docs/PRD.md
+docs/ARQUITECTURA.md
+README.md
+features.json
+AGENTS.md
+CHECKPOINT.md
+```
+
+### Git
+
+- Commit de cierre: `feat(F07): agente auditor`.
+- Incluye implementación, tests, documentación, actualización de `features.json` y este checkpoint.
+
+### Próximo paso
+
+El plan F01–F07 está completo. No quedan features pendientes en `features.json`. Mantener la verificación con `./init.sh` y `uv run pytest` ante cualquier cambio futuro.

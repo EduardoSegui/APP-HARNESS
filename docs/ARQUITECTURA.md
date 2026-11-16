@@ -418,8 +418,10 @@ Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devo
 ### 10.2 Agente Auditor (F07)
 
 - Archivo: `src/ventas_app/auditor.py`.
+- Se ejecuta como **cliente MCP real** por transporte `stdio`: lanza el servidor local (`python -m ventas_app.mcp_server`) mediante `mcp.client.stdio`.
 - Flujo:
   ```text
+  conectar cliente MCP
   ventas = listar_ventas_pendientes()
   para cada venta:
       detalle = obtener_detalle_venta(id)
@@ -430,9 +432,23 @@ Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devo
           actualizar_estado_venta(id, "APROBADA", None)
   imprimir resumen
   ```
-- Las reglas se implementan como funciones puras que reciben el detalle y devuelven una lista de strings. Esto facilita tests unitarios sin base de datos.
-- Fecha de referencia inyectable (`hoy: date | None`) para tests determinísticos de edad.
-- El auditor comparte la capa de servicios con el servidor MCP, de modo que ambos aplican las mismas validaciones.
+- El auditor no importa `SessionLocal` ni consulta los modelos ORM directamente: toda lectura y escritura de ventas pasa por las herramientas MCP.
+- Las reglas se implementan como funciones puras que reciben el detalle y
+  devuelven una lista de strings. Esto facilita tests unitarios sin base de
+  datos.
+- Fecha de referencia inyectable (`hoy: date | None`) para tests determinísticos
+  de edad.
+- El auditor comparte la capa de servicios con el servidor MCP a través del
+  protocolo, de modo que ambos aplican las mismas validaciones.
+- Opcionalmente puede usar un proveedor compatible con OpenAI para redactar un
+  resumen narrativo de la corrida:
+  - `OPENAI_API_KEY`: habilita el resumen. Sin esta variable no se llama al LLM.
+  - `OPENAI_BASE_URL`: URL base alternativa (por ejemplo, Ollama).
+  - `OPENAI_MODEL`: modelo a utilizar.
+  - `OPENAI_TIMEOUT`: timeout de la llamada.
+  - El LLM **no decide estados**: las reglas R1–R6 son la fuente de verdad.
+  - Timeout, error HTTP o respuesta inválida se informan como advertencia y se
+    usa el resumen local; la auditoría continúa.
 - No modifica ventas que no estén en `PENDIENTE_VERIFICACION`.
 
 ### 10.3 Separación de responsabilidades
@@ -445,7 +461,7 @@ Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devo
 | Servicios | Centralizar transacciones y transiciones. |
 | Modelos | Persistencia y restricciones estructurales. |
 
-El auditor puede ejecutarse en proceso (importando servicios) o como cliente MCP. La implementación de F07 priorizará la ejecución en proceso para evitar dependencias de transporte, reutilizando exactamente las mismas funciones que expone MCP.
+El auditor se ejecuta como cliente MCP por `stdio` para mantener una única vía de acceso a las ventas. La lógica de reglas queda del lado del agente y las transiciones se delegan al servidor, que reutiliza la capa de servicios.
 
 ---
 
@@ -518,7 +534,8 @@ El auditor puede ejecutarse en proceso (importando servicios) o como cliente MCP
 | Estados terminales en v1 | Evita flujos de corrección no especificados. | Una venta observada no se puede corregir en esta versión. |
 | Seed idempotente | Arranque repetible sin duplicados. | Cambios de precio manuales no se sobreescriben. |
 | MCP por stdio | No expone superficie de red. | El cliente debe lanzar el proceso. |
-| Auditoría en proceso | Menos piezas móviles y tests más simples. | El agente externo no es obligatorio para auditar. |
+| Auditoría vía MCP | Una única vía de acceso y reutilización real de las herramientas. | Requiere lanzar el servidor MCP como subproceso. |
+| LLM solo para resumen | Se conserva el resultado determinístico de las reglas. | La narración depende de un proveedor externo opcional. |
 
 ---
 
