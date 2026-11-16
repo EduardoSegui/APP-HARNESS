@@ -7,13 +7,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from ventas_app.database import init_db
+from ventas_app.database import SessionLocal, init_db
+from ventas_app.seed import seed_planes
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Inicializa la base de datos al arrancar la aplicación."""
+    """Inicializa la base de datos y siembra los planes al arrancar."""
     init_db()
+    with SessionLocal() as db:
+        seed_planes(db)
     yield
 
 

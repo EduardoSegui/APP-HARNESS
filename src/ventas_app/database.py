@@ -46,6 +46,10 @@ class Base(DeclarativeBase):
 
 def init_db() -> None:
     """Crea las tablas registradas en la metadata de ``Base``."""
+    # Import local para garantizar que los modelos se registren en Base.metadata
+    # sin crear dependencias circulares a nivel de módulo.
+    from ventas_app import models  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
 
 
