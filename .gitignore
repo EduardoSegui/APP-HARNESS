@@ -1,0 +1,38 @@
+# Entornos virtuales y cachés de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# SQLite (base de datos local generada en tiempo de ejecución)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Testing y cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Herramientas de desarrollo
+.ruff_cache/
+.mypy_cache/
+.pyright/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# IDEs y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
