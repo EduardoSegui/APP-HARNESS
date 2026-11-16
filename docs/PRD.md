@@ -265,11 +265,19 @@ R5: El plan seleccionado no existe o está inactivo.
 
 - Ruta: `GET /ventas`.
 - Lista las ventas de la más reciente a la más antigua.
-- Columnas mínimas: ID, titular, plan, cantidad de integrantes, total y estado.
+- Columnas mínimas: ID, titular, plan, cantidad de integrantes, total, estado y observaciones.
+- La columna **Observaciones** muestra el motivo exacto de la auditoría:
+  - `APROBADA`: “Sin observaciones”.
+  - `OBSERVADA`: el texto persistido, una razón `R1`–`R6` por línea.
+  - `PENDIENTE_VERIFICACION`: “Pendiente de auditoría”.
 - El estado se muestra con un badge de color:
   - `PENDIENTE_VERIFICACION`: ámbar.
   - `APROBADA`: verde.
   - `OBSERVADA`: rojo.
+- En la cabecera hay un botón **“Auditar Pendientes con IA”** que ejecuta `POST /api/auditar`.
+  - Mientras corre, muestra estado de carga y deshabilita el botón.
+  - Al finalizar, despliega un panel colapsable con el resumen numérico, el resumen narrativo del LLM o su advertencia, y la traza ordenada de herramientas MCP.
+  - Actualiza en pantalla el estado y las observaciones de las ventas procesadas.
 - Estado vacío explícito cuando no hay ventas.
 - No se requieren filtros, paginación ni acciones de edición en v1.
 
@@ -282,6 +290,7 @@ R5: El plan seleccionado no existe o está inactivo.
 | `GET` | `/health` | Healthcheck: `{"status": "ok"}`. | F01 |
 | `POST` | `/api/ventas` | Crea una venta completa, calcula el total y devuelve el comprobante. | F03 |
 | `GET` | `/api/ventas/{id}` | Devuelve el detalle de una venta con integrantes y plan. | F03 |
+| `POST` | `/api/auditar` | Ejecuta el auditor sobre las ventas pendientes y devuelve resultados y traza MCP. | F08 |
 | `GET` | `/` | Wizard web de 3 etapas. | F04 |
 | `GET` | `/ventas` | Panel HTML de ventas. | F05 |
 
@@ -294,6 +303,43 @@ R5: El plan seleccionado no existe o está inactivo.
 - Venta inexistente en `GET`: HTTP `404`.
 - La creación es atómica y devuelve HTTP `201`.
 - Los errores no exponen trazas internas ni detalles de SQL.
+
+### 11.2 Contrato de `POST /api/auditar`
+
+La respuesta es un objeto JSON con:
+
+```json
+{
+  "procesadas": 2,
+  "aprobadas": 1,
+  "observadas": 1,
+  "resumen_llm": "Se aprobó una venta y se observó otra por edad mínima.",
+  "llm_ok": true,
+  "advertencia": null,
+  "traza_mcp": [
+    {
+      "herramienta": "listar_ventas_pendientes",
+      "argumentos": {},
+      "estado": "ok"
+    },
+    {
+      "herramienta": "obtener_detalle_venta",
+      "argumentos": {"venta_id": 1},
+      "estado": "ok"
+    },
+    {
+      "herramienta": "actualizar_estado_venta",
+      "argumentos": {"venta_id": 1, "estado": "APROBADA", "observaciones": null},
+      "estado": "ok"
+    }
+  ]
+}
+```
+
+- `procesadas = aprobadas + observadas`.
+- `llm_ok` indica si el resumen narrativo se obtuvo correctamente. Si no hay proveedor configurado o falla, es `false` y `advertencia` explica el motivo.
+- `traza_mcp` conserva el orden real de invocaciones al servidor MCP.
+- El LLM solo redacta el resumen; las reglas `R1`–`R6` y los estados son determinísticos.
 
 ---
 
@@ -323,6 +369,9 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 - Opcionalmente puede generar un resumen narrativo con un proveedor compatible
   con OpenAI. El LLM no decide estados ni reemplaza las reglas; si falla o no
   responde, la auditoría continúa con el resumen local.
+- Devuelve un resultado estructurado con cantidades, estado del LLM y
+  `traza_mcp`: la secuencia ordenada de herramientas invocadas, sus argumentos y
+  su estado (`ok`/`error`). Esta traza alimenta el panel de auditoría en vivo.
 
 ---
 
@@ -352,8 +401,9 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 6. El panel lista las ventas con estado, titular, plan y total.
 7. El servidor MCP expone las tres herramientas y valida sus entradas.
 8. El auditor aplica las reglas y actualiza el estado con observaciones.
-9. `./init.sh` y `uv run pytest` pasan antes de marcar cualquier feature como completada.
-10. Cada feature cerrada queda registrada en `CHECKPOINT.md` y en un commit de Git.
+9. El panel permite lanzar la auditoría, muestra el resumen del LLM y la traza MCP, y expone las observaciones exactas por venta.
+10. `./init.sh` y `uv run pytest` pasan antes de marcar cualquier feature como completada.
+11. Cada feature cerrada queda registrada en `CHECKPOINT.md` y en un commit de Git.
 
 ---
 
@@ -368,3 +418,4 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 | F05 | Panel `GET /ventas`. |
 | F06 | Servidor MCP con las tres herramientas. |
 | F07 | Agente Auditor y reglas de negocio. |
+| F08 | UI de auditoría en vivo, endpoint `POST /api/auditar` y trazabilidad MCP. |

@@ -41,6 +41,12 @@
       "titulo": "Agente Auditor de Ventas",
       "descripcion": "Agente Auditor de Ventas (src/ventas_app/auditor.py) que consume el servidor MCP por stdio, valida reglas de negocio (edad mínima titular >= 18, DNIs únicos dentro de la venta, código postal válido) y actualiza estado + observaciones; incluye resumen opcional con proveedor compatible OpenAI.",
       "passes": true
+    },
+    {
+      "id": "F08",
+      "titulo": "UI de Auditoría y Trazabilidad MCP",
+      "descripcion": "Endpoint POST /api/auditar, panel de auditoría en vivo en /ventas con resumen del LLM, trazabilidad ordenada de herramientas MCP, columna de observaciones y configuración documentada para Ollama local.",
+      "passes": false
     }
   ]
 }

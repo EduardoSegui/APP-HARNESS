@@ -85,7 +85,7 @@ APP-HARNESS/
 └── README.md
 ```
 
-### 3.2 Estructura objetivo (al cerrar F07)
+### 3.2 Estructura objetivo (al cerrar F08)
 
 Los archivos marcados con una feature se incorporan en esa etapa. La organización es indicativa; se permite dividir routers o servicios adicionales siempre que se respeten las capas.
 
@@ -95,7 +95,7 @@ src/ventas_app/
 ├── main.py                      # App FastAPI, lifespan, routers, health
 ├── database.py                  # Engine SQLite, SessionLocal, Base, get_db
 ├── models.py                    # F02: Plan, Venta, Integrante
-├── schemas.py                   # F02: schemas Pydantic v2
+├── schemas.py                   # F02/F08: schemas Pydantic v2
 ├── seed.py                      # F02: seed idempotente de planes
 ├── services/
 │   ├── __init__.py
@@ -104,27 +104,29 @@ src/ventas_app/
 │   └── estados.py               # F06/F07: transiciones válidas
 ├── routers/
 │   ├── __init__.py
-│   ├── api.py                   # F03: /api/ventas
+│   ├── api.py                   # F03/F08: /api/ventas y /api/auditar
 │   └── web.py                   # F04/F05: /, /ventas
 ├── templates/
 │   ├── base.html                # F04
 │   ├── wizard.html              # F04
 │   ├── comprobante.html         # F04
-│   └── ventas.html              # F05
+│   └── panel.html               # F05/F08: panel y auditoría en vivo
 ├── static/
-│   └── js/wizard.js             # F04: estado, adherentes, fetch
+│   ├── js/wizard.js             # F04: estado, adherentes, fetch
+│   └── js/auditoria.js          # F08: auditoría en vivo y traza MCP
 ├── mcp_server.py                # F06: herramientas MCP
-└── auditor.py                   # F07: reglas y actualización de estado
+└── auditor.py                   # F07/F08: reglas, resultado y traza MCP
 
 tests/
 ├── conftest.py                  # Fixtures de DB temporal y cliente
 ├── test_health.py               # F01
 ├── test_models.py               # F02
-├── test_ventas_api.py           # F03
+├── test_api_ventas.py           # F03
 ├── test_wizard.py               # F04
-├── test_panel.py                # F05
+├── test_panel.py                # F05/F08
 ├── test_mcp_server.py           # F06
-└── test_auditor.py              # F07
+├── test_auditor.py              # F07/F08
+└── test_api_auditar.py          # F08
 ```
 
 ---
@@ -346,10 +348,21 @@ El payload del cliente no incluye `precio_total`, `estado`, `observaciones`, `id
 | `GET` | `/health` | F01 | `{"status": "ok"}` |
 | `POST` | `/api/ventas` | F03 | `201` + comprobante completo. |
 | `GET` | `/api/ventas/{id}` | F03 | `200` + detalle; `404` si no existe. |
+| `POST` | `/api/auditar` | F08 | `200` + resultado estructurado y traza MCP. |
 | `GET` | `/` | F04 | HTML wizard. |
-| `GET` | `/ventas` | F05 | HTML panel. |
+| `GET` | `/ventas` | F05/F08 | HTML panel con auditoría en vivo. |
 
 Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devolviendo los planes activos.
+
+### 8.1.1 Resultado de auditoría
+
+`POST /api/auditar` devuelve:
+
+- `procesadas`, `aprobadas`, `observadas`.
+- `resumen_llm`, `llm_ok`, `advertencia`.
+- `traza_mcp`: lista ordenada de objetos con `herramienta`, `argumentos` y `estado`.
+
+La traza se produce en el cliente MCP real y no reemplaza las observaciones persistidas. El endpoint es síncrono respecto de la corrida: responde cuando terminan todas las invocaciones MCP y la eventual llamada al LLM.
 
 ### 8.2 Manejo de errores
 
@@ -394,8 +407,13 @@ Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devo
 ### 9.2 Panel
 
 - `GET /ventas` consulta las ventas con `joinedload` del plan y conteo de integrantes.
-- Tabla responsive con badges de estado.
-- Sin acciones de escritura; es solo lectura.
+- Tabla responsive con badges de estado y una columna de **Observaciones** que muestra el texto persistido o el estado de la auditoría.
+- Botón **“Auditar Pendientes con IA”** en la cabecera:
+  - Hace `POST /api/auditar` y bloquea el botón mientras corre.
+  - Muestra un panel colapsable con `procesadas`/`aprobadas`/`observadas`, el resumen del LLM, su advertencia si corresponde y la tabla de `traza_mcp`.
+  - Actualiza en el DOM el badge y las observaciones de cada venta procesada usando los argumentos de `actualizar_estado_venta` de la traza.
+  - Si la petición falla, muestra un mensaje controlado sin romper la tabla.
+- El JavaScript se carga desde `static/js/auditoria.js`; no hay build de frontend.
 
 ---
 
@@ -433,6 +451,11 @@ Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devo
   imprimir resumen
   ```
 - El auditor no importa `SessionLocal` ni consulta los modelos ORM directamente: toda lectura y escritura de ventas pasa por las herramientas MCP.
+- Devuelve un diccionario estructurado con:
+  - `procesadas`, `aprobadas`, `observadas`.
+  - `resumen_llm`, `llm_ok`, `advertencia`.
+  - `traza_mcp`: invocaciones ordenadas (`herramienta`, `argumentos`, `estado`).
+- El cliente `ClienteMCPStdio` registra cada llamada a `listar_ventas_pendientes`, `obtener_detalle_venta` y `actualizar_estado_venta`, incluyendo las que terminan en error.
 - Las reglas se implementan como funciones puras que reciben el detalle y
   devuelven una lista de strings. Esto facilita tests unitarios sin base de
   datos.
@@ -473,6 +496,7 @@ El auditor se ejecuta como cliente MCP por `stdio` para mantener una única vía
 |---|---|---|
 | Unitario | Validadores, cálculo de precios, reglas de auditoría, transiciones. | pytest |
 | Integración API | Endpoints con base SQLite temporal y `TestClient`. | pytest + httpx |
+| Integración API de auditoría | `POST /api/auditar` con LLM mockeado, estados persistidos y `traza_mcp`. | pytest + TestClient |
 | Integración web | Render de templates y presencia de campos clave. | pytest + TestClient |
 | MCP | Invocación directa de las funciones de herramienta. | pytest |
 | End-to-end ligero | Flujo crear → listar → auditar. | pytest |
@@ -564,17 +588,18 @@ El auditor se ejecuta como cliente MCP por `stdio` para mantener una única vía
 | F05 | Panel de ventas. | Render de filas, badges de estado, estado vacío. |
 | F06 | Servidor MCP. | Listar pendientes, detalle, transiciones válidas e inválidas. |
 | F07 | Agente Auditor. | Reglas R1–R6, edad límite, DNI duplicado, CP inválido, idempotencia. |
+| F08 | UI de auditoría en vivo y trazabilidad MCP. | Endpoint con LLM mockeado, respuesta estructurada, traza ordenada, panel y observaciones. |
 
 ---
 
 ## 16. Estado de esta sesión
 
-La Sesión 01 deja implementado únicamente:
+Al cerrar F08 el plan F01–F08 queda implementado:
 
-- Estructura del repositorio y del harness (`.agent/`, `docs/`, `AGENTS.md`, `features.json`, `CHECKPOINT.md`, `init.sh`).
-- Proyecto `uv` con dependencias y configuración de pytest.
-- `src/ventas_app/database.py` con engine SQLite, `Base`, `SessionLocal`, `init_db()` y `get_db()`.
-- `src/ventas_app/main.py` con `GET /health` y creación de la base al iniciar.
-- `tests/test_health.py`.
+- Wizard web de 3 etapas, API de ventas, panel con auditoría en vivo y observaciones.
+- Servidor MCP local con las tres herramientas.
+- Agente Auditor como cliente MCP real, reglas determinísticas R1–R6 y resumen LLM opcional.
+- Endpoint `POST /api/auditar` con resultado estructurado y `traza_mcp`.
+- Tests de reglas, MCP, API, panel y trazabilidad.
 
-No se implementan todavía modelos, endpoints de ventas, wizard, panel, MCP ni auditor. La próxima feature es **F02**.
+La fuente de verdad del progreso es `features.json`; las evidencias de cada sesión están en `CHECKPOINT.md`.
