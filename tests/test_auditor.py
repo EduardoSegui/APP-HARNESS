@@ -18,7 +18,7 @@ from ventas_app.auditor import (
     ClienteMCPStdio,
     ConfiguracionLLM,
     ErrorMCP,
-    ResultadoAuditoria,
+    ResultadoLLM,
     aplicar_reglas,
     auditar_ventas,
     calcular_edad,
@@ -35,6 +35,15 @@ from ventas_app.mcp_server import (
 from ventas_app.models import Plan, Venta
 
 HOY = date(2026, 11, 16)
+
+
+def _conteos(resultado: dict[str, Any]) -> tuple[int, int, int]:
+    """Extrae procesadas, aprobadas y observadas del resultado público."""
+    return (
+        resultado["procesadas"],
+        resultado["aprobadas"],
+        resultado["observadas"],
+    )
 
 
 def _detalle_valido() -> dict[str, Any]:
@@ -430,8 +439,31 @@ def test_auditoria_aprueba_venta_valida(client: TestClient) -> None:
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=1, observadas=0)
-    assert resultado.total == 1
+    assert _conteos(resultado) == (1, 1, 0)
+    assert set(resultado) == {
+        "procesadas",
+        "aprobadas",
+        "observadas",
+        "resumen_llm",
+        "llm_ok",
+        "advertencia",
+        "traza_mcp",
+    }
+    assert [paso["herramienta"] for paso in resultado["traza_mcp"]] == [
+        "listar_ventas_pendientes",
+        "obtener_detalle_venta",
+        "actualizar_estado_venta",
+    ]
+    assert resultado["traza_mcp"][1]["argumentos"] == {
+        "venta_id": creada["id"]
+    }
+    assert resultado["traza_mcp"][2]["argumentos"] == {
+        "venta_id": creada["id"],
+        "estado": "APROBADA",
+        "observaciones": None,
+    }
+    assert resultado["llm_ok"] is False
+    assert "no configurado" in (resultado["advertencia"] or "")
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -445,7 +477,7 @@ def test_auditoria_observa_titular_menor(client: TestClient) -> None:
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=0, observadas=1)
+    assert _conteos(resultado) == (1, 0, 1)
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -469,8 +501,8 @@ def test_auditoria_es_idempotente(client: TestClient) -> None:
 
     segunda = ejecutar_auditoria(hoy=HOY)
 
-    assert primera == ResultadoAuditoria(aprobadas=1, observadas=0)
-    assert segunda == ResultadoAuditoria(aprobadas=0, observadas=0)
+    assert _conteos(primera) == (1, 1, 0)
+    assert _conteos(segunda) == (0, 0, 0)
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -492,7 +524,7 @@ def test_auditoria_no_modifica_ventas_ya_procesadas(
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=1, observadas=0)
+    assert _conteos(resultado) == (1, 1, 0)
 
     with SessionLocal() as db:
         primera = db.get(Venta, procesada["id"])
@@ -515,7 +547,7 @@ def test_auditoria_informa_plan_inactivo(client: TestClient) -> None:
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=0, observadas=1)
+    assert _conteos(resultado) == (1, 0, 1)
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -539,7 +571,7 @@ def test_auditoria_informa_codigo_postal_invalido(
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=0, observadas=1)
+    assert _conteos(resultado) == (1, 0, 1)
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -562,7 +594,7 @@ def test_auditoria_informa_precio_incorrecto(client: TestClient) -> None:
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=0, observadas=1)
+    assert _conteos(resultado) == (1, 0, 1)
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -584,7 +616,7 @@ def test_auditoria_informa_datos_invalidos(client: TestClient) -> None:
 
     resultado = ejecutar_auditoria(hoy=HOY)
 
-    assert resultado == ResultadoAuditoria(aprobadas=0, observadas=1)
+    assert _conteos(resultado) == (1, 0, 1)
 
     with SessionLocal() as db:
         venta = db.get(Venta, creada["id"])
@@ -596,7 +628,15 @@ def test_auditoria_informa_datos_invalidos(client: TestClient) -> None:
 
 
 def test_auditoria_sin_ventas_pendientes() -> None:
-    assert ejecutar_auditoria(hoy=HOY) == ResultadoAuditoria()
+    resultado = ejecutar_auditoria(hoy=HOY)
+
+    assert _conteos(resultado) == (0, 0, 0)
+    assert resultado["resumen_llm"] is None
+    assert resultado["llm_ok"] is False
+    assert resultado["advertencia"] == "No hay ventas pendientes para auditar."
+    assert [paso["herramienta"] for paso in resultado["traza_mcp"]] == [
+        "listar_ventas_pendientes"
+    ]
 
 
 def test_detalle_mcp_incluye_venta_id_de_integrantes(
@@ -619,7 +659,8 @@ def test_main_imprime_resumen(
 
     salida = capsys.readouterr().out
     assert (
-        "Resumen de auditoría: 1 aprobadas, 0 observadas." in salida
+        "Resumen de auditoría: 1 procesadas, 1 aprobadas, 0 observadas."
+        in salida
     )
 
     with SessionLocal() as db:
@@ -671,6 +712,55 @@ def test_cliente_mcp_real_invoca_las_tres_herramientas(
     assert pendientes_finales == []
 
 
+def test_cliente_mcp_real_registra_traza_ordenada(
+    client: TestClient,
+) -> None:
+    creada = _crear_venta(client)
+
+    async def flujo() -> list[dict[str, Any]]:
+        async with ClienteMCPStdio() as cliente_mcp:
+            await cliente_mcp.listar_pendientes()
+            await cliente_mcp.obtener_detalle(creada["id"])
+            await cliente_mcp.actualizar_estado(
+                creada["id"],
+                "OBSERVADA",
+                "R2: Observación de prueba.",
+            )
+            return cliente_mcp.traza_mcp
+
+    traza = asyncio.run(flujo())
+
+    assert [paso["herramienta"] for paso in traza] == [
+        "listar_ventas_pendientes",
+        "obtener_detalle_venta",
+        "actualizar_estado_venta",
+    ]
+    assert traza[2]["argumentos"] == {
+        "venta_id": creada["id"],
+        "estado": "OBSERVADA",
+        "observaciones": "R2: Observación de prueba.",
+    }
+    assert all(paso["estado"] == "ok" for paso in traza)
+
+
+def test_cliente_mcp_real_registra_error_en_traza() -> None:
+    async def flujo() -> list[dict[str, Any]]:
+        async with ClienteMCPStdio() as cliente_mcp:
+            with pytest.raises(ErrorMCP, match="no existe"):
+                await cliente_mcp.obtener_detalle(999999)
+            return cliente_mcp.traza_mcp
+
+    traza = asyncio.run(flujo())
+
+    assert traza == [
+        {
+            "herramienta": "obtener_detalle_venta",
+            "argumentos": {"venta_id": 999999},
+            "estado": "error",
+        }
+    ]
+
+
 def test_cliente_mcp_real_propaga_error_limpio() -> None:
     async def flujo() -> None:
         async with ClienteMCPStdio() as cliente_mcp:
@@ -684,12 +774,27 @@ class _ClienteMCPFalso:
     def __init__(self, detalle: dict[str, Any]) -> None:
         self.detalle = detalle
         self.actualizaciones: list[tuple[int, str, str | None]] = []
+        self.traza_mcp: list[dict[str, Any]] = []
 
     async def listar_pendientes(self) -> list[dict[str, Any]]:
+        self.traza_mcp.append(
+            {
+                "herramienta": "listar_ventas_pendientes",
+                "argumentos": {},
+                "estado": "ok",
+            }
+        )
         return [{"id": self.detalle["id"]}]
 
     async def obtener_detalle(self, venta_id: int) -> dict[str, Any]:
         assert venta_id == self.detalle["id"]
+        self.traza_mcp.append(
+            {
+                "herramienta": "obtener_detalle_venta",
+                "argumentos": {"venta_id": venta_id},
+                "estado": "ok",
+            }
+        )
         return dict(self.detalle)
 
     async def actualizar_estado(
@@ -699,6 +804,17 @@ class _ClienteMCPFalso:
         observaciones: str | None = None,
     ) -> dict[str, Any]:
         self.actualizaciones.append((venta_id, estado, observaciones))
+        self.traza_mcp.append(
+            {
+                "herramienta": "actualizar_estado_venta",
+                "argumentos": {
+                    "venta_id": venta_id,
+                    "estado": estado,
+                    "observaciones": observaciones,
+                },
+                "estado": "ok",
+            }
+        )
         return {"id": venta_id, "estado": estado}
 
 
@@ -709,13 +825,23 @@ def test_auditar_ventas_usa_interfaz_mcp_y_resumen_llm(
     monkeypatch.setattr(
         modulo_auditor,
         "generar_resumen_llm",
-        lambda aprobadas, observadas, errores: "Resumen narrativo.",
+        lambda aprobadas, observadas, errores: ResultadoLLM(
+            resumen="Resumen narrativo.",
+            ok=True,
+        ),
     )
 
     resultado = asyncio.run(auditar_ventas(cliente, HOY))
 
-    assert resultado == ResultadoAuditoria(aprobadas=1, observadas=0)
-    assert resultado.resumen_llm == "Resumen narrativo."
+    assert _conteos(resultado) == (1, 1, 0)
+    assert resultado["resumen_llm"] == "Resumen narrativo."
+    assert resultado["llm_ok"] is True
+    assert resultado["advertencia"] is None
+    assert [paso["herramienta"] for paso in resultado["traza_mcp"]] == [
+        "listar_ventas_pendientes",
+        "obtener_detalle_venta",
+        "actualizar_estado_venta",
+    ]
     assert cliente.actualizaciones == [(7, "APROBADA", None)]
 
 
@@ -785,7 +911,9 @@ def test_generar_resumen_llm_usa_base_url_modelo_y_credenciales() -> None:
         transport=httpx.MockTransport(responder),
     )
 
-    assert resumen == "Resumen del modelo."
+    assert resumen.resumen == "Resumen del modelo."
+    assert resumen.ok is True
+    assert resumen.advertencia is None
     assert len(pedidos) == 1
     assert str(pedidos[0].url) == (
         "http://localhost:11434/v1/chat/completions"
@@ -800,13 +928,11 @@ def test_generar_resumen_llm_usa_base_url_modelo_y_credenciales() -> None:
     assert "***" in carga_como_texto
 
 
-def test_generar_resumen_llm_timeout_devuelve_none(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_generar_resumen_llm_timeout_devuelve_advertencia() -> None:
     def responder(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("timeout", request=request)
 
-    resumen = generar_resumen_llm(
+    resultado = generar_resumen_llm(
         1,
         0,
         [],
@@ -814,17 +940,16 @@ def test_generar_resumen_llm_timeout_devuelve_none(
         transport=httpx.MockTransport(responder),
     )
 
-    assert resumen is None
-    assert "resumen del LLM" in capsys.readouterr().err
+    assert resultado.resumen is None
+    assert resultado.ok is False
+    assert "resumen del LLM" in (resultado.advertencia or "")
 
 
-def test_generar_resumen_llm_error_http_devuelve_none(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_generar_resumen_llm_error_http_devuelve_advertencia() -> None:
     def responder(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503, json={"error": "servicio no disponible"})
 
-    resumen = generar_resumen_llm(
+    resultado = generar_resumen_llm(
         0,
         1,
         ["Venta #1: R4: Falta el código postal."],
@@ -832,17 +957,16 @@ def test_generar_resumen_llm_error_http_devuelve_none(
         transport=httpx.MockTransport(responder),
     )
 
-    assert resumen is None
-    assert "resumen del LLM" in capsys.readouterr().err
+    assert resultado.resumen is None
+    assert resultado.ok is False
+    assert "resumen del LLM" in (resultado.advertencia or "")
 
 
-def test_generar_resumen_llm_respuesta_invalida_devuelve_none(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_generar_resumen_llm_respuesta_invalida_devuelve_advertencia() -> None:
     def responder(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"choices": []})
 
-    resumen = generar_resumen_llm(
+    resultado = generar_resumen_llm(
         1,
         0,
         [],
@@ -850,8 +974,9 @@ def test_generar_resumen_llm_respuesta_invalida_devuelve_none(
         transport=httpx.MockTransport(responder),
     )
 
-    assert resumen is None
-    assert "resumen del LLM" in capsys.readouterr().err
+    assert resultado.resumen is None
+    assert resultado.ok is False
+    assert "resumen del LLM" in (resultado.advertencia or "")
 
 
 def test_generar_resumen_llm_sin_configuracion_no_llama_a_la_api(
@@ -859,7 +984,11 @@ def test_generar_resumen_llm_sin_configuracion_no_llama_a_la_api(
 ) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    assert generar_resumen_llm(1, 0, []) is None
+    resultado = generar_resumen_llm(1, 0, [])
+
+    assert resultado.resumen is None
+    assert resultado.ok is False
+    assert "no configurado" in (resultado.advertencia or "")
 
 
 def test_main_imprime_resumen_llm(
@@ -869,11 +998,15 @@ def test_main_imprime_resumen_llm(
     monkeypatch.setattr(
         modulo_auditor,
         "ejecutar_auditoria",
-        lambda: ResultadoAuditoria(
-            aprobadas=2,
-            observadas=1,
-            resumen_llm="Resumen narrativo del LLM.",
-        ),
+        lambda: {
+            "procesadas": 3,
+            "aprobadas": 2,
+            "observadas": 1,
+            "resumen_llm": "Resumen narrativo del LLM.",
+            "llm_ok": True,
+            "advertencia": None,
+            "traza_mcp": [],
+        },
     )
 
     codigo = main()
@@ -881,7 +1014,8 @@ def test_main_imprime_resumen_llm(
     salida = capsys.readouterr().out
     assert codigo == 0
     assert (
-        "Resumen de auditoría: 2 aprobadas, 1 observadas." in salida
+        "Resumen de auditoría: 3 procesadas, 2 aprobadas, 1 observadas."
+        in salida
     )
     assert "Resumen narrativo del LLM." in salida
 
@@ -890,7 +1024,7 @@ def test_main_maneja_error_mcp_sin_traza(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def fallar() -> ResultadoAuditoria:
+    def fallar() -> dict[str, Any]:
         raise ErrorMCP("servidor no disponible")
 
     monkeypatch.setattr(modulo_auditor, "ejecutar_auditoria", fallar)

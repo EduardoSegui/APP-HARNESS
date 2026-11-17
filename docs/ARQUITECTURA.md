@@ -56,34 +56,9 @@ Principios:
 
 ## 3. Estructura del repositorio
 
-### 3.1 Estado actual (Sesión 01 / F01)
+### 3.1 Estado actual (Sesión 08 / F08)
 
-```text
-APP-HARNESS/
-├── .agent/
-│   ├── rules.md                 # Reglas operativas del harness
-│   └── subagents/
-│       ├── builder.md           # Rol Builder
-│       └── verifier.md          # Rol Verifier / QA
-├── docs/
-│   ├── PRD.md                   # Especificación funcional
-│   └── ARQUITECTURA.md          # Este documento
-├── src/
-│   └── ventas_app/
-│       ├── __init__.py
-│       ├── database.py          # Engine, sesión, Base, init_db, get_db
-│       └── main.py              # FastAPI app + GET /health
-├── tests/
-│   └── test_health.py
-├── AGENTS.md                    # Punto de entrada para OpenCode
-├── CHECKPOINT.md                # Bitácora de sesiones
-├── features.json                # Plan atómico de features
-├── init.sh                      # Verificación integral del harness
-├── pyproject.toml
-├── uv.lock
-├── .gitignore
-└── README.md
-```
+La estructura actual coincide con la estructura objetivo de 3.2. El plan F01–F08 está implementado y verificado; la fuente de verdad es `features.json` y las evidencias están en `CHECKPOINT.md`.
 
 ### 3.2 Estructura objetivo (al cerrar F08)
 

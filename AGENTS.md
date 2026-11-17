@@ -30,9 +30,9 @@ Un mismo agente puede actuar como Builder y luego como Verifier, pero debe hacer
 
 ## Estado actual del proyecto
 
-- **Última sesión:** Sesión 07 — Agente Auditor de Ventas.
+- **Última sesión:** Sesión 08 — UI de Auditoría y Trazabilidad MCP.
 - **Feature inicial:** F01 (estructura, SQLite y `/health`) — completada.
-- **Próximo paso:** plan F01–F07 completado; consultar `CHECKPOINT.md` y `features.json` para el estado final.
+- **Próximo paso:** plan F01–F08 completado; consultar `CHECKPOINT.md` y `features.json` para el estado final.
 
 La fuente de verdad es siempre `features.json`; este resumen no reemplaza su lectura.
 
@@ -55,7 +55,7 @@ src/ventas_app/         Código de la aplicación
 tests/                  Suite pytest
 AGENTS.md               Este archivo
 CHECKPOINT.md           Bitácora de sesiones
-features.json           Plan atómico F01–F07
+features.json           Plan atómico F01–F08
 init.sh                 Verificación integral del harness
 pyproject.toml          uv, dependencias y configuración de pytest
 ```

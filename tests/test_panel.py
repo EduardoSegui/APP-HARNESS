@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from html import unescape
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -71,7 +72,10 @@ def test_panel_sin_ventas_muestra_estado_vacio(client: TestClient) -> None:
     assert "Panel de ventas" in html
     assert "Todavía no hay ventas registradas" in html
     assert "Cargar primera venta" in html
-    assert "<table" not in html
+    assert 'id="btn-auditar"' in html
+    assert 'id="panel-auditoria"' in html
+    assert 'id="traza-mcp-body"' in html
+    assert "data-cantidad-integrantes" not in html
 
 
 def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
@@ -87,6 +91,9 @@ def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
     assert "$182.000" in html
     assert 'data-estado="PENDIENTE_VERIFICACION"' in html
     assert "bg-amber-100" in html
+    assert "Observaciones" in html
+    assert "data-observaciones" in html
+    assert "Pendiente de auditoría" in html
     assert "1 venta registrada" in html
 
 
@@ -153,6 +160,72 @@ def test_panel_muestra_ventas_con_plan_inactivo(client: TestClient) -> None:
 
     assert f'id="venta-{venta["id"]}"' in html
     assert "Plan Superior" in html
+
+
+def test_panel_incluye_controles_de_auditoria_en_vivo(
+    client: TestClient,
+) -> None:
+    html = client.get("/ventas").text
+
+    assert "Auditar Pendientes con IA" in html
+    assert 'id="btn-auditar"' in html
+    assert 'id="spinner-auditoria"' in html
+    assert 'id="auditoria-estado"' in html
+    assert 'id="panel-auditoria"' in html
+    assert 'id="auditoria-procesadas"' in html
+    assert 'id="auditoria-aprobadas"' in html
+    assert 'id="auditoria-observadas"' in html
+    assert 'id="auditoria-narrativa"' in html
+    assert 'id="auditoria-advertencia"' in html
+    assert 'id="traza-mcp-body"' in html
+    assert "Traza de herramientas MCP" in html
+    assert "/static/js/auditoria.js" in html
+
+
+def test_panel_muestra_observaciones_exactas_por_estado(
+    client: TestClient,
+) -> None:
+    pendiente = _crear_venta(client)
+    aprobada = _crear_venta(client)
+    observada = _crear_venta(client)
+
+    with SessionLocal() as db:
+        venta_aprobada = db.get(Venta, aprobada["id"])
+        venta_observada = db.get(Venta, observada["id"])
+        assert venta_aprobada is not None
+        assert venta_observada is not None
+        venta_aprobada.estado = "APROBADA"
+        venta_aprobada.observaciones = None
+        venta_observada.estado = "OBSERVADA"
+        venta_observada.observaciones = (
+            "R1: El titular tiene 17 años; se requieren 18 o más.\n"
+            "R4: El código postal 'C1425' no tiene el formato de 4 dígitos."
+        )
+        db.commit()
+
+    html = client.get("/ventas").text
+    html_visible = unescape(html)
+
+    assert f'id="venta-{pendiente["id"]}"' in html
+    assert "Pendiente de auditoría" in html
+    assert "Sin observaciones" in html
+    assert "R1: El titular tiene 17 años; se requieren 18 o más." in html_visible
+    assert (
+        "R4: El código postal 'C1425' no tiene el formato de 4 dígitos."
+        in html_visible
+    )
+    assert "whitespace-pre-line" in html
+
+
+def test_panel_sirve_el_javascript_de_auditoria(client: TestClient) -> None:
+    respuesta = client.get("/static/js/auditoria.js")
+
+    assert respuesta.status_code == 200
+    assert "javascript" in respuesta.headers["content-type"]
+    assert 'fetch("/api/auditar"' in respuesta.text
+    assert "traza-mcp-body" in respuesta.text
+    assert "actualizar_estado_venta" in respuesta.text
+    assert "data-observaciones" in respuesta.text
 
 
 def test_comprobante_enlaza_al_panel_de_ventas(client: TestClient) -> None:

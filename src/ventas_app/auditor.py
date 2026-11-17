@@ -26,7 +26,7 @@ import re
 import sys
 from collections.abc import Mapping, Sequence
 from contextlib import AsyncExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -82,17 +82,12 @@ class ErrorMCP(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
-class ResultadoAuditoria:
-    """Cantidades de ventas aprobadas y observadas en una ejecución."""
+class ResultadoLLM:
+    """Resultado de una llamada opcional al proveedor compatible con OpenAI."""
 
-    aprobadas: int = 0
-    observadas: int = 0
-    resumen_llm: str | None = field(default=None, compare=False)
-
-    @property
-    def total(self) -> int:
-        """Cantidad total de ventas procesadas."""
-        return self.aprobadas + self.observadas
+    resumen: str | None = None
+    ok: bool = False
+    advertencia: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +102,10 @@ class ConfiguracionLLM:
 
 class ClienteMCP(Protocol):
     """Interfaz mínima que necesita el auditor del servidor MCP."""
+
+    @property
+    def traza_mcp(self) -> list[dict[str, Any]]:
+        """Invocaciones MCP registradas en orden."""
 
     async def listar_pendientes(self) -> list[dict[str, Any]]:
         """Devuelve las ventas pendientes de verificación."""
@@ -184,6 +183,12 @@ class ClienteMCPStdio:
         self._parametros = parametros or _parametros_servidor()
         self._stack: AsyncExitStack | None = None
         self._sesion: ClientSession | None = None
+        self._traza_mcp: list[dict[str, Any]] = []
+
+    @property
+    def traza_mcp(self) -> list[dict[str, Any]]:
+        """Copia ordenada de las invocaciones MCP realizadas."""
+        return [dict(paso) for paso in self._traza_mcp]
 
     async def __aenter__(self) -> ClienteMCPStdio:
         self._stack = AsyncExitStack()
@@ -220,19 +225,29 @@ class ClienteMCPStdio:
     ) -> Any:
         if self._sesion is None:
             raise ErrorMCP("El cliente MCP no está inicializado.")
+
+        traza = {
+            "herramienta": nombre,
+            "argumentos": dict(argumentos),
+            "estado": "ok",
+        }
         try:
             resultado = await self._sesion.call_tool(nombre, argumentos)
+            if getattr(resultado, "is_error", False):
+                detalle = _texto_resultado(resultado) or "error desconocido"
+                raise ErrorMCP(
+                    f"La herramienta MCP '{nombre}' falló: {detalle}"
+                )
+            return _extraer_resultado(resultado)
         except Exception as exc:
+            traza["estado"] = "error"
+            if isinstance(exc, ErrorMCP):
+                raise
             raise ErrorMCP(
                 f"No se pudo invocar la herramienta MCP '{nombre}': {exc}"
             ) from exc
-
-        if getattr(resultado, "is_error", False):
-            detalle = _texto_resultado(resultado) or "error desconocido"
-            raise ErrorMCP(
-                f"La herramienta MCP '{nombre}' falló: {detalle}"
-            )
-        return _extraer_resultado(resultado)
+        finally:
+            self._traza_mcp.append(traza)
 
     async def listar_pendientes(self) -> list[dict[str, Any]]:
         datos = await self._llamar("listar_ventas_pendientes", {})
@@ -663,17 +678,20 @@ def generar_resumen_llm(
     errores: Sequence[str],
     config: ConfiguracionLLM | None = None,
     transport: httpx.BaseTransport | None = None,
-) -> str | None:
+) -> ResultadoLLM:
     """Genera un resumen narrativo con un proveedor compatible con OpenAI.
 
     Esta función nunca decide el estado de una venta: las reglas determinísticas
     son la fuente de verdad. Ante timeout, error HTTP o respuesta inválida,
-    devuelve ``None`` y emite una advertencia.
+    devuelve un resultado con ``ok=False`` y una advertencia.
     """
     if config is None:
         config = configuracion_llm_desde_entorno()
     if config is None:
-        return None
+        return ResultadoLLM(
+            ok=False,
+            advertencia="LLM no configurado; se usó el resumen local.",
+        )
 
     url = f"{config.base_url.rstrip('/')}/chat/completions"
     detalle_errores = (
@@ -724,7 +742,11 @@ def generar_resumen_llm(
             contenido = datos["choices"][0]["message"]["content"]
             if not isinstance(contenido, str) or not contenido.strip():
                 raise ValueError("respuesta vacía del LLM")
-            return contenido.strip()
+            return ResultadoLLM(
+                resumen=contenido.strip(),
+                ok=True,
+                advertencia=None,
+            )
     except (
         httpx.HTTPError,
         httpx.InvalidURL,
@@ -733,18 +755,19 @@ def generar_resumen_llm(
         IndexError,
         TypeError,
     ) as exc:
-        print(
-            "Advertencia: no se pudo obtener el resumen del LLM "
-            f"({type(exc).__name__}); se usará el resumen local.",
-            file=sys.stderr,
+        return ResultadoLLM(
+            ok=False,
+            advertencia=(
+                "No se pudo obtener el resumen del LLM "
+                f"({type(exc).__name__}); se usó el resumen local."
+            ),
         )
-        return None
 
 
 async def auditar_ventas(
     cliente: ClienteMCP,
     hoy: date | None = None,
-) -> ResultadoAuditoria:
+) -> dict[str, Any]:
     """Audita las ventas pendientes usando un cliente MCP ya conectado."""
     aprobadas = 0
     observadas = 0
@@ -779,29 +802,38 @@ async def auditar_ventas(
             )
             aprobadas += 1
 
-    resumen_llm: str | None = None
-    if aprobadas or observadas:
-        resumen_llm = generar_resumen_llm(
+    procesadas = aprobadas + observadas
+    if procesadas:
+        resultado_llm = generar_resumen_llm(
             aprobadas,
             observadas,
             errores_observados,
         )
+    else:
+        resultado_llm = ResultadoLLM(
+            ok=False,
+            advertencia="No hay ventas pendientes para auditar.",
+        )
 
-    return ResultadoAuditoria(
-        aprobadas=aprobadas,
-        observadas=observadas,
-        resumen_llm=resumen_llm,
-    )
+    return {
+        "procesadas": procesadas,
+        "aprobadas": aprobadas,
+        "observadas": observadas,
+        "resumen_llm": resultado_llm.resumen,
+        "llm_ok": resultado_llm.ok,
+        "advertencia": resultado_llm.advertencia,
+        "traza_mcp": cliente.traza_mcp,
+    }
 
 
 async def _auditar_con_servidor_mcp(
     hoy: date | None = None,
-) -> ResultadoAuditoria:
+) -> dict[str, Any]:
     async with ClienteMCPStdio() as cliente:
         return await auditar_ventas(cliente, hoy)
 
 
-def ejecutar_auditoria(hoy: date | None = None) -> ResultadoAuditoria:
+def ejecutar_auditoria(hoy: date | None = None) -> dict[str, Any]:
     """Ejecuta una auditoría completa como cliente MCP por ``stdio``."""
     return asyncio.run(_auditar_con_servidor_mcp(hoy))
 
@@ -819,11 +851,17 @@ def main() -> int:
 
     print(
         "Resumen de auditoría: "
-        f"{resultado.aprobadas} aprobadas, "
-        f"{resultado.observadas} observadas."
+        f"{resultado['procesadas']} procesadas, "
+        f"{resultado['aprobadas']} aprobadas, "
+        f"{resultado['observadas']} observadas."
     )
-    if resultado.resumen_llm:
-        print(resultado.resumen_llm)
+    if resultado["resumen_llm"]:
+        print(resultado["resumen_llm"])
+    if resultado["advertencia"]:
+        print(
+            f"Advertencia: {resultado['advertencia']}",
+            file=sys.stderr,
+        )
     return 0
 
 

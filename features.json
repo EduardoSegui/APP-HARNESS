@@ -46,7 +46,7 @@
       "id": "F08",
       "titulo": "UI de Auditoría y Trazabilidad MCP",
       "descripcion": "Endpoint POST /api/auditar, panel de auditoría en vivo en /ventas con resumen del LLM, trazabilidad ordenada de herramientas MCP, columna de observaciones y configuración documentada para Ollama local.",
-      "passes": false
+      "passes": true
     }
   ]
 }

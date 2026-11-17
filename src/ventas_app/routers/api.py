@@ -1,15 +1,17 @@
-"""Endpoints REST de ventas."""
+"""Endpoints REST de ventas y auditoría."""
 
 from __future__ import annotations
 
-from typing import Annotated
+import logging
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ventas_app.auditor import ejecutar_auditoria
 from ventas_app.database import get_db
 from ventas_app.models import Venta
-from ventas_app.schemas import VentaIn, VentaOut
+from ventas_app.schemas import AuditoriaOut, VentaIn, VentaOut
 from ventas_app.services.ventas import (
     PlanNoDisponibleError,
     VentaNoEncontradaError,
@@ -17,9 +19,28 @@ from ventas_app.services.ventas import (
     obtener_venta,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api", tags=["ventas"])
 
 SessionDep = Annotated[Session, Depends(get_db)]
+
+
+@router.post(
+    "/auditar",
+    response_model=AuditoriaOut,
+    tags=["auditor"],
+)
+def auditar_endpoint() -> dict[str, Any]:
+    """Ejecuta el Agente Auditor sobre las ventas pendientes."""
+    try:
+        return ejecutar_auditoria()
+    except Exception as exc:
+        logger.exception("Falló la ejecución del Agente Auditor")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo ejecutar la auditoría.",
+        ) from exc
 
 
 @router.post(

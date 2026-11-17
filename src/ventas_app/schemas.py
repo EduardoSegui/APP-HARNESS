@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
@@ -168,6 +168,26 @@ class PlanOut(BaseModel):
     precio_titular: int
     precio_adherente: int
     activo: bool
+
+
+class TrazaMCPOut(BaseModel):
+    """Una invocación registrada al servidor MCP."""
+
+    herramienta: str
+    argumentos: dict[str, Any]
+    estado: str
+
+
+class AuditoriaOut(BaseModel):
+    """Resultado estructurado de una corrida del Agente Auditor."""
+
+    procesadas: int
+    aprobadas: int
+    observadas: int
+    resumen_llm: str | None = None
+    llm_ok: bool
+    advertencia: str | None = None
+    traza_mcp: list[TrazaMCPOut]
 
 
 class IntegranteOut(BaseModel):
