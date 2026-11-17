@@ -66,22 +66,35 @@ OPENAI_MODEL=qwen2.5:7b
 OPENAI_TIMEOUT=60
 ```
 
-Con Ollama corriendo (`ollama serve` y `ollama pull qwen2.5:7b`), iniciá la app
-cargando el archivo de entorno:
+La aplicación carga `.env` automáticamente al iniciar (mediante
+`python-dotenv`), sin sobrescribir variables ya exportadas. Con Ollama corriendo
+(`ollama serve` y `ollama pull qwen2.5:7b`), iniciá la app:
 
 ```bash
-uv run --env-file .env uvicorn ventas_app.main:app --reload --port 8000
+uv run uvicorn ventas_app.main:app --reload --port 8000
 ```
 
 El botón del panel y el CLI usan la misma configuración. Para el CLI:
 
 ```bash
-uv run --env-file .env python -m ventas_app.auditor
+uv run python -m ventas_app.auditor
 ```
 
 Sin `OPENAI_API_KEY` no se llama al LLM. Si la API tarda o falla, el auditor
 registra una advertencia y continúa con el resumen local; nunca delega la decisión
 de estado al modelo.
+
+## Datos de demostración
+
+El script `scripts/cargar_demo.py` inserta cuatro ventas pendientes en
+`ventas.db`: dos válidas, una con titular menor de edad (`R1`) y una con DNI
+duplicado (`R2`). Es idempotente por email de demo.
+
+```bash
+uv run python scripts/cargar_demo.py
+```
+
+Después abrí `http://localhost:8000/ventas` y usá **“Auditar Pendientes con IA”**.
 
 ## Verificación
 
