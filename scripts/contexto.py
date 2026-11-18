@@ -362,6 +362,11 @@ def check(root: Path = ROOT) -> list[str]:
         features = []
 
     for feature in features:
+        if not feature.passes and not feature.packet:
+            errores.append(
+                f"{feature.id}: feature pendiente sin ficha; creá "
+                f"'features/{feature.id}.md' y agregá 'packet' en features.json"
+            )
         errores.extend(_validar_packet(root, feature))
 
     state = root / "STATE.md"

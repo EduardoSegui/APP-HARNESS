@@ -45,7 +45,9 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Protocolo de sesión y cierre | `.agent/rules.md` |
 | Rol Builder | `.agent/subagents/builder.md` |
 | Rol Verifier | `.agent/subagents/verifier.md` |
-| Feature en curso | `features/F0X.md` |
+| Ficha de la feature pendiente | `features/F0X.md` |
+| Plantilla de ficha | `features/_TEMPLATE.md` |
+| Cómo planificar una feature | `.agent/rules.md` §Planificación |
 | Historia completa | `docs/journal/` |
 | Ventana reciente | `CHECKPOINT.md` |
 | Presupuesto de contexto | `uv run python scripts/contexto.py --check` |

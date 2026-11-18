@@ -6,15 +6,27 @@ Protocolo detallado. Las reglas duras y los comandos están en `AGENTS.md`.
 
 1. OpenCode carga `AGENTS.md`; leé `STATE.md`.
 2. Identificá la primera feature con `"passes": false` en `features.json`.
-3. Leé el packet `features/F0X.md` si existe y solo las secciones de `docs/` que cite.
+3. Leé su ficha `features/F0X.md` y solo las secciones de `docs/` que cite. Si no hay ficha, planificá; no construyas.
 4. Leé el rol correspondiente en `.agent/subagents/`.
 5. Revisá `git status` y `git log -5` para contexto reciente.
 
 No leas `PRD.md`, `ARQUITECTURA.md` ni el historial completos.
 
+## Planificación
+
+Cuando no hay features pendientes, o el pedido es una feature nueva:
+
+1. Leé solo las secciones del PRD/ARQUITECTURA relacionadas con el tema.
+2. Copiá `features/_TEMPLATE.md` a `features/F0X.md` y completá objetivo, alcance, fuera de alcance, criterios de aceptación, archivos, tests y referencias.
+3. Agregá la feature al final de `features.json` con `"passes": false` y `"packet": "features/F0X.md"`.
+4. Regenerá `STATE.md` y validá con `uv run python scripts/contexto.py --check`.
+5. Commiteá solo documentación: `docs(plan): F0X — ...`.
+6. No escribas código hasta que la ficha exista y esté commiteada.
+
 ## Builder
 
 - Implementa exactamente una feature y sus tests.
+- No empieces si la feature no tiene ficha.
 - No modifica `passes` ni hace el commit de cierre.
 - Ejecuta `uv run pytest` y `./init.sh`.
 - Reporta archivos, tests, decisiones, casos borde y riesgos.
@@ -23,6 +35,7 @@ No leas `PRD.md`, `ARQUITECTURA.md` ni el historial completos.
 
 - Confirma que la feature es la primera pendiente.
 - Revisa `git diff` y `git status`.
+- Verifica los criterios de aceptación de la ficha.
 - Ejecuta `./init.sh` y `uv run pytest` (100 % verde).
 - Prueba el caso feliz y al menos un caso borde.
 - Si falla, no marca `passes` y devuelve la feature al Builder.

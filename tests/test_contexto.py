@@ -60,7 +60,31 @@ def _proyecto(
     checkpoint: str | None = None,
     *,
     estado: bool = True,
+    auto_packet: bool = True,
 ) -> Path:
+    features = [dict(feature) for feature in features]
+    if auto_packet:
+        for feature in features:
+            if feature.get("passes") is False and "packet" not in feature:
+                feature_id = feature["id"]
+                feature["packet"] = f"features/{feature_id}.md"
+                packet_path = tmp_path / feature["packet"]
+                packet_path.parent.mkdir(parents=True, exist_ok=True)
+                if not packet_path.exists():
+                    packet_path.write_text(
+                        "\n".join(
+                            [
+                                f"# {feature_id} — Prueba",
+                                "",
+                                *[
+                                    f"{heading}\n\nContenido.\n"
+                                    for heading in contexto.PACKET_HEADINGS
+                                ],
+                            ]
+                        ),
+                        encoding="utf-8",
+                    )
+
     (tmp_path / "features.json").write_text(
         json.dumps({"features": features}, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -207,6 +231,18 @@ def test_check_detecta_cap_de_agents(tmp_path: Path) -> None:
     errores = contexto.check(proyecto)
 
     assert any("AGENTS.md excede el cap" in error for error in errores)
+
+
+def test_check_detecta_pendiente_sin_ficha(tmp_path: Path) -> None:
+    proyecto = _proyecto(
+        tmp_path,
+        [{"id": "F02", "titulo": "Dos", "passes": False}],
+        auto_packet=False,
+    )
+
+    errores = contexto.check(proyecto)
+
+    assert any("feature pendiente sin ficha" in error for error in errores)
 
 
 def test_check_detecta_packet_inexistente(tmp_path: Path) -> None:
@@ -365,6 +401,61 @@ def test_comando_sesion_usa_el_estado_generado() -> None:
 
     assert "contexto.py estado --stdout" in contenido
     assert "git status --short" in contenido
+    assert "planificación" in contenido
+
+
+def test_plantilla_de_packet_tiene_todas_las_secciones() -> None:
+    path = contexto.ROOT / "features" / "_TEMPLATE.md"
+
+    contenido = path.read_text(encoding="utf-8")
+
+    for heading in contexto.PACKET_HEADINGS:
+        assert heading in contenido
+
+
+def test_packet_f11_es_valido() -> None:
+    features = contexto.load_features(contexto.ROOT)
+    f11 = next(feature for feature in features if feature.id == "F11")
+
+    assert f11.packet == "features/F11.md"
+    path = contexto.ROOT / f11.packet
+    assert path.exists()
+    assert path.stat().st_size <= contexto.PACKET_CAP
+
+    contenido = path.read_text(encoding="utf-8")
+    for heading in contexto.PACKET_HEADINGS:
+        assert heading in contenido
+
+
+def test_reglas_incluyen_planificacion_y_ficha() -> None:
+    reglas = (contexto.ROOT / ".agent" / "rules.md").read_text(encoding="utf-8")
+
+    assert "## Planificación" in reglas
+    assert "features/_TEMPLATE.md" in reglas
+    assert "No escribas código hasta que la ficha exista" in reglas
+
+
+def test_check_detecta_packet_demasiado_grande(tmp_path: Path) -> None:
+    proyecto = _proyecto(
+        tmp_path,
+        [
+            {
+                "id": "F02",
+                "titulo": "Dos",
+                "passes": False,
+                "packet": "features/F02.md",
+            }
+        ],
+    )
+    path = _packet(proyecto)
+    path.write_text(
+        path.read_text(encoding="utf-8") + ("x" * contexto.PACKET_CAP),
+        encoding="utf-8",
+    )
+
+    errores = contexto.check(proyecto)
+
+    assert any("excede el cap de packet" in error for error in errores)
 
 
 def test_repo_real_pasa_el_presupuesto() -> None:

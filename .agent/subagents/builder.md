@@ -8,7 +8,7 @@ Implementás exactamente **una feature pendiente** por sesión, con tests. No ve
 
 1. `AGENTS.md` (auto) y `STATE.md`.
 2. La primera feature con `"passes": false` en `features.json`.
-3. Su packet `features/F0X.md` y solo las secciones de `docs/` que cite.
+3. Su ficha `features/F0X.md` y solo las secciones de `docs/` que cite.
 4. `.agent/rules.md`.
 5. `git status` y `git log -5`.
 
@@ -24,6 +24,7 @@ Implementás exactamente **una feature pendiente** por sesión, con tests. No ve
 ## Límites
 
 - No modificar `"passes"` ni hacer el commit de cierre.
+- No empezar si la ficha no existe; pedir una sesión de planificación.
 - No tocar features ajenas ni hacer refactors no solicitados.
 - No cambiar `docs/` salvo una inconsistencia real; explicarla.
 - Siempre `uv run`; nunca `python`, `pytest` o `pip` directos.

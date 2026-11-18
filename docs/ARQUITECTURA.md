@@ -521,9 +521,9 @@ El harness separa la información por vida útil para no precargar todo en cada 
 | Invariantes y comandos | `AGENTS.md` | Siempre (auto-cargado por OpenCode). |
 | Protocolo de sesión | `.agent/rules.md` | Al iniciar y cerrar. |
 | Estado actual | `STATE.md` | Siempre; es generado, no se edita a mano. |
-| Feature en curso | `features/F0X.md` | Solo la feature pendiente. |
+| Ficha de la feature pendiente | `features/F0X.md` | Solo la feature pendiente. |
 | Historia | `docs/journal/` | Bajo demanda (`grep`), nunca completa. |
-| Especificación | `docs/PRD.md`, `docs/ARQUITECTURA.md` | Solo las secciones citadas por el packet. |
+| Especificación | `docs/PRD.md`, `docs/ARQUITECTURA.md` | Solo las secciones citadas por la ficha. |
 | Rol activo | `.agent/subagents/*.md` | Solo Builder o Verifier. |
 
 `CHECKPOINT.md` es una ventana de las últimas 2 sesiones; `scripts/contexto.py rotate` mueve las anteriores a `docs/journal/`. `STATE.md` se genera desde `features.json` y la última entrada de la bitácora.
@@ -533,15 +533,17 @@ El harness separa la información por vida útil para no precargar todo en cada 
 ```text
 1. Leer AGENTS.md (auto), STATE.md y el rol activo.
 2. Identificar la primera feature con passes=false en features.json.
-3. Leer solo su packet features/F0X.md y las secciones citadas de docs/.
-4. Builder implementa la feature y sus tests.
-5. Builder ejecuta uv run pytest y ./init.sh.
-6. Verifier ejecuta ./init.sh y uv run pytest, y prueba casos borde.
-7. Verifier marca passes=true solo en esa feature.
-8. Verifier agrega una entrada compacta a CHECKPOINT.md, rota la bitácora,
-   regenera STATE.md y ejecuta ./init.sh.
-9. Verifier commitea y confirma git status limpio.
-10. Siguiente sesión: STATE.md indica la próxima feature o que hace falta planificar.
+3. Leer solo su ficha features/F0X.md y las secciones citadas de docs/.
+4. Si no existe la ficha, planificar antes de construir.
+5. Builder implementa la feature y sus tests.
+6. Builder ejecuta uv run pytest y ./init.sh.
+7. Verifier ejecuta ./init.sh y uv run pytest, y prueba casos borde.
+8. Verifier verifica los criterios de aceptación de la ficha.
+9. Verifier marca passes=true solo en esa feature.
+10. Verifier agrega una entrada compacta a CHECKPOINT.md, rota la bitácora,
+    regenera STATE.md y ejecuta ./init.sh.
+11. Verifier commitea y confirma git status limpio.
+12. Siguiente sesión: STATE.md indica la próxima feature o que hace falta planificar.
 ```
 
 ### 12.4 Presupuesto de contexto
@@ -566,6 +568,18 @@ Si un archivo crece, se recorta o se archiva; no se ignora el fallo.
 - `STATE.md` es la foto actual; `features.json` es la verdad del progreso; el historial no se precarga.
 - Un hecho se guarda en un solo lugar canónico; los demás documentos enlazan.
 - Los cambios de alcance se reflejan primero en `docs/` y `features.json`.
+
+### 12.6 Planificación e intake
+
+Cuando `features.json` no tiene features pendientes, la sesión es de planificación, no de construcción:
+
+1. Leer solo las secciones del PRD/ARQ relacionadas con el tema.
+2. Copiar `features/_TEMPLATE.md` a `features/F0X.md` y completar objetivo, alcance, fuera de alcance, criterios de aceptación, archivos, tests y referencias.
+3. Agregar la feature a `features.json` con `passes: false` y `packet: features/F0X.md`.
+4. Regenerar `STATE.md` y ejecutar `contexto.py --check`.
+5. Commitear solo documentación (`docs(plan): F0X — ...`).
+
+No se escribe código hasta que la ficha exista y esté commiteada. El Builder no debe inferir alcance desde `features.json`: la descripción es un índice; la ficha es la orden de trabajo.
 
 ---
 

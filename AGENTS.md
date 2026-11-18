@@ -5,7 +5,7 @@ Aplicación web de ventas de obra social: FastAPI + SQLAlchemy/SQLite + Jinja2, 
 ## Empezar una sesión
 
 1. Leé `STATE.md`: estado actual y próximo paso.
-2. Si hay una feature pendiente, leé solo su packet en `features/` y las secciones de `docs/` que el packet cite.
+2. Si hay una feature pendiente, leé solo su ficha `features/F0X.md` y las secciones de `docs/` que cite. Si no hay ficha, planificá antes de construir.
 3. Leé el rol que vas a ejercer: `.agent/subagents/builder.md` o `verifier.md`.
 4. Para el protocolo detallado: `.agent/rules.md`.
 
@@ -32,7 +32,8 @@ uv run python -m ventas_app.auditor
 - Sin `python`, `python3`, `pytest` o `pip` directos; siempre `uv run` / `uv add`.
 - No editar `ventas.db` a mano; no versionar secretos, bases ni artefactos.
 - No cambiar alcance sin actualizar antes `docs/` y `features.json`.
-- Sin packet no se construye: si no hay feature pendiente, se planifica; no se inventa alcance.
+- Sin ficha (`features/F0X.md`) no se construye: si no hay feature pendiente, se planifica; no se inventa alcance.
+- Una ficha se crea desde `features/_TEMPLATE.md` y se registra en `features.json` con `"packet"`.
 - Al cerrar: `features.json`, `STATE.md` regenerado, bitácora, `./init.sh` y commit.
 
 ## Router de contexto
@@ -41,7 +42,8 @@ uv run python -m ventas_app.auditor
 |---|---|
 | Estado actual y próximo paso | `STATE.md` |
 | Plan y progreso | `features.json` |
-| Feature en curso | `features/F0X.md` (si existe) |
+| Ficha de la feature pendiente | `features/F0X.md` |
+| Plantilla de ficha | `features/_TEMPLATE.md` |
 | Protocolo de sesión y cierre | `.agent/rules.md` |
 | Historia y decisiones | `docs/journal/` y `CHECKPOINT.md` (solo la entrada que necesites) |
 | Spec funcional | `docs/PRD.md`, solo la sección citada |

@@ -64,7 +64,8 @@
       "id": "F11",
       "titulo": "Feature packets e intake",
       "descripcion": "Plantilla de packets, especificación autocontenida por feature y protocolo de planificación cuando no hay features pendientes.",
-      "passes": false
+      "packet": "features/F11.md",
+      "passes": true
     }
   ]
 }

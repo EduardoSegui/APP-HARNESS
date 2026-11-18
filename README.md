@@ -116,6 +116,10 @@ contexto se valida con:
 uv run python scripts/contexto.py --check
 ```
 
+Cada feature nueva se planifica en una ficha `features/F0X.md` creada desde
+`features/_TEMPLATE.md`; sin ficha no se construye. `features.json` es el índice
+y la ficha es la orden de trabajo.
+
 ## Verificación
 
 ```bash
@@ -136,6 +140,7 @@ completa.
 - [CHECKPOINT.md](CHECKPOINT.md): ventana de las últimas 2 sesiones.
 - [Bitácora histórica](docs/journal/2026.md): sesiones anteriores.
 - [features.json](features.json): plan atómico F01–F11.
+- [Plantilla de ficha](features/_TEMPLATE.md): secciones mínimas para planificar una feature.
 
 ## Estado
 
