@@ -27,6 +27,6 @@ build-backend = "uv_build"
 module-name = "ventas_app"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
 addopts = "-q"

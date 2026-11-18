@@ -96,6 +96,26 @@ uv run python scripts/cargar_demo.py
 
 Después abrí `http://localhost:8000/ventas` y usá **“Auditar Pendientes con IA”**.
 
+## Harness y contexto
+
+El estado actual vive en `STATE.md`; no hace falta leer el historial completo.
+`CHECKPOINT.md` conserva las últimas 2 sesiones y `docs/journal/` guarda el
+archivo histórico. Al cerrar una sesión, el Verifier regenera `STATE.md` y rota
+la bitácora con:
+
+```bash
+uv run python scripts/contexto.py estado
+uv run python scripts/contexto.py rotate
+```
+
+En OpenCode, `/sesion` inyecta el estado, `git status` y los últimos commits
+para orientar la sesión sin cargar todos los documentos. El presupuesto de
+contexto se valida con:
+
+```bash
+uv run python scripts/contexto.py --check
+```
+
 ## Verificación
 
 ```bash
@@ -103,16 +123,23 @@ Después abrí `http://localhost:8000/ventas` y usá **“Auditar Pendientes con
 uv run pytest
 ```
 
+`./init.sh` valida archivos obligatorios, presupuesto de contexto y la suite
+completa.
+
 ## Documentación
 
 - [PRD](docs/PRD.md): especificación funcional de las 3 etapas y reglas de auditoría.
 - [Arquitectura](docs/ARQUITECTURA.md): diseño técnico, modelo de datos y flujo de estados.
+- [Índice de documentación](docs/INDEX.md): mapa de temas a secciones.
 - [AGENTS.md](AGENTS.md): punto de entrada del harness y roles de agentes.
-- [CHECKPOINT.md](CHECKPOINT.md): bitácora de sesiones.
-- [features.json](features.json): plan atómico F01–F08.
+- [STATE.md](STATE.md): estado actual y próximo paso.
+- [CHECKPOINT.md](CHECKPOINT.md): ventana de las últimas 2 sesiones.
+- [Bitácora histórica](docs/journal/2026.md): sesiones anteriores.
+- [features.json](features.json): plan atómico F01–F11.
 
 ## Estado
 
-El proyecto se construye de a una feature por sesión. Consultar `features.json` y `CHECKPOINT.md` para el estado vigente.
+El proyecto se construye de a una feature por sesión. Consultar `STATE.md` y
+`features.json` para el estado vigente.
 
 > Todos los comandos de Python y tests deben ejecutarse con `uv run`.

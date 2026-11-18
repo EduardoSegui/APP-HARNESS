@@ -47,6 +47,24 @@
       "titulo": "UI de Auditoría y Trazabilidad MCP",
       "descripcion": "Endpoint POST /api/auditar, panel de auditoría en vivo en /ventas con resumen del LLM, trazabilidad ordenada de herramientas MCP, columna de observaciones y configuración documentada para Ollama local.",
       "passes": true
+    },
+    {
+      "id": "F09",
+      "titulo": "Contexto always-on y estado del harness",
+      "descripcion": "AGENTS.md, reglas y roles livianos; STATE.md generado por scripts/contexto.py; checker de presupuestos de contexto.",
+      "passes": true
+    },
+    {
+      "id": "F10",
+      "titulo": "Bitácora rotativa, caps y comando /sesion",
+      "descripcion": "CHECKPOINT.md como ventana de 2 sesiones, archivo histórico en docs/journal, caps en init.sh y comando /sesion de OpenCode.",
+      "passes": true
+    },
+    {
+      "id": "F11",
+      "titulo": "Feature packets e intake",
+      "descripcion": "Plantilla de packets, especificación autocontenida por feature y protocolo de planificación cuando no hay features pendientes.",
+      "passes": false
     }
   ]
 }

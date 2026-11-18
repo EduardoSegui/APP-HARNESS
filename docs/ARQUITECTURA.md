@@ -56,15 +56,27 @@ Principios:
 
 ## 3. Estructura del repositorio
 
-### 3.1 Estado actual (Sesión 08 / F08)
+### 3.1 Estado actual
 
-La estructura actual coincide con la estructura objetivo de 3.2. El plan F01–F08 está implementado y verificado; la fuente de verdad es `features.json` y las evidencias están en `CHECKPOINT.md`.
+La estructura actual coincide con la estructura objetivo de 3.2. El estado vigente y el próximo paso están en `STATE.md`; la fuente de verdad del progreso es `features.json` y la historia de las sesiones está en `CHECKPOINT.md` (ventana reciente) y `docs/journal/` (archivo).
 
-### 3.2 Estructura objetivo (al cerrar F08)
+### 3.2 Estructura del repositorio
 
 Los archivos marcados con una feature se incorporan en esa etapa. La organización es indicativa; se permite dividir routers o servicios adicionales siempre que se respeten las capas.
 
 ```text
+raíz del repositorio
+├── AGENTS.md                    # punto de entrada y router de contexto
+├── STATE.md                     # estado actual generado
+├── CHECKPOINT.md                # ventana de las últimas 2 sesiones
+├── features.json                # índice y progreso de features
+├── features/                    # packets autocontenidos (F11)
+├── scripts/contexto.py          # estado, rotación y presupuesto
+├── docs/
+│   ├── journal/2026.md          # archivo histórico de sesiones
+│   └── INDEX.md                 # mapa de documentación
+└── .opencode/commands/sesion.md # comando /sesion
+
 src/ventas_app/
 ├── __init__.py
 ├── main.py                      # App FastAPI, lifespan, routers, health
@@ -498,26 +510,61 @@ El auditor se ejecuta como cliente MCP por `stdio` para mantener una única vía
 | Rol | Archivo | Responsabilidad |
 |---|---|---|
 | Builder | `.agent/subagents/builder.md` | Implementa la siguiente feature pendiente y sus tests. |
-| Verifier / QA | `.agent/subagents/verifier.md` | Ejecuta `./init.sh` + tests, valida casos borde, marca `passes` y registra el cierre. |
+| Verifier / QA | `.agent/subagents/verifier.md` | Ejecuta `./init.sh` + tests, valida casos borde, marca `passes`, registra el cierre y commitea. |
 
-### 12.2 Ciclo por feature
+### 12.2 Memoria en capas
+
+El harness separa la información por vida útil para no precargar todo en cada sesión:
+
+| Capa | Archivo | Cuándo se lee |
+|---|---|---|
+| Invariantes y comandos | `AGENTS.md` | Siempre (auto-cargado por OpenCode). |
+| Protocolo de sesión | `.agent/rules.md` | Al iniciar y cerrar. |
+| Estado actual | `STATE.md` | Siempre; es generado, no se edita a mano. |
+| Feature en curso | `features/F0X.md` | Solo la feature pendiente. |
+| Historia | `docs/journal/` | Bajo demanda (`grep`), nunca completa. |
+| Especificación | `docs/PRD.md`, `docs/ARQUITECTURA.md` | Solo las secciones citadas por el packet. |
+| Rol activo | `.agent/subagents/*.md` | Solo Builder o Verifier. |
+
+`CHECKPOINT.md` es una ventana de las últimas 2 sesiones; `scripts/contexto.py rotate` mueve las anteriores a `docs/journal/`. `STATE.md` se genera desde `features.json` y la última entrada de la bitácora.
+
+### 12.3 Ciclo por feature
 
 ```text
-1. Leer AGENTS.md, .agent/rules.md, CHECKPOINT.md, features.json y docs/.
-2. Builder implementa exactamente la primera feature con passes=false.
-3. Builder escribe tests y ejecuta uv run pytest.
-4. Verifier ejecuta ./init.sh y uv run pytest.
-5. Verifier prueba endpoints/casos borde de la feature.
-6. Verifier actualiza features.json (passes=true) y CHECKPOINT.md.
-7. Verifier crea el commit y confirma el hash.
-8. Siguiente sesión: primera feature con passes=false.
+1. Leer AGENTS.md (auto), STATE.md y el rol activo.
+2. Identificar la primera feature con passes=false en features.json.
+3. Leer solo su packet features/F0X.md y las secciones citadas de docs/.
+4. Builder implementa la feature y sus tests.
+5. Builder ejecuta uv run pytest y ./init.sh.
+6. Verifier ejecuta ./init.sh y uv run pytest, y prueba casos borde.
+7. Verifier marca passes=true solo en esa feature.
+8. Verifier agrega una entrada compacta a CHECKPOINT.md, rota la bitácora,
+   regenera STATE.md y ejecuta ./init.sh.
+9. Verifier commitea y confirma git status limpio.
+10. Siguiente sesión: STATE.md indica la próxima feature o que hace falta planificar.
 ```
 
-### 12.3 Invariantes
+### 12.4 Presupuesto de contexto
+
+`uv run python scripts/contexto.py --check` se ejecuta dentro de `./init.sh` y falla si un archivo always-on excede su cap:
+
+| Archivo | Cap |
+|---|---:|
+| `AGENTS.md` | 6 KB |
+| `.agent/rules.md` | 4 KB |
+| `STATE.md` | 3 KB |
+| `CHECKPOINT.md` | 12 KB y ≤2 sesiones |
+| Roles (`builder.md`, `verifier.md`) | 3 KB cada uno |
+| Packet de feature | 8 KB |
+
+Si un archivo crece, se recorta o se archiva; no se ignora el fallo.
+
+### 12.5 Invariantes
 
 - Nunca se trabaja en más de una feature por sesión.
 - Nunca se marca `passes=true` sin verificación completa.
-- `CHECKPOINT.md` es la memoria entre sesiones.
+- `STATE.md` es la foto actual; `features.json` es la verdad del progreso; el historial no se precarga.
+- Un hecho se guarda en un solo lugar canónico; los demás documentos enlazan.
 - Los cambios de alcance se reflejan primero en `docs/` y `features.json`.
 
 ---
@@ -564,17 +611,12 @@ El auditor se ejecuta como cliente MCP por `stdio` para mantener una única vía
 | F06 | Servidor MCP. | Listar pendientes, detalle, transiciones válidas e inválidas. |
 | F07 | Agente Auditor. | Reglas R1–R6, edad límite, DNI duplicado, CP inválido, idempotencia. |
 | F08 | UI de auditoría en vivo y trazabilidad MCP. | Endpoint con LLM mockeado, respuesta estructurada, traza ordenada, panel y observaciones. |
+| F09 | Contexto always-on y estado del harness. | `AGENTS.md`/reglas/roles livianos, `STATE.md` generado, checker de presupuestos. |
+| F10 | Bitácora rotativa, caps y comando `/sesion`. | Rotación de `CHECKPOINT.md`, journal, caps en `init.sh`, comando de OpenCode. |
+| F11 | Feature packets e intake. | Plantilla, packets autocontenidos y protocolo de planificación. |
 
 ---
 
-## 16. Estado de esta sesión
+## 16. Estado del proyecto
 
-Al cerrar F08 el plan F01–F08 queda implementado:
-
-- Wizard web de 3 etapas, API de ventas, panel con auditoría en vivo y observaciones.
-- Servidor MCP local con las tres herramientas.
-- Agente Auditor como cliente MCP real, reglas determinísticas R1–R6 y resumen LLM opcional.
-- Endpoint `POST /api/auditar` con resultado estructurado y `traza_mcp`.
-- Tests de reglas, MCP, API, panel y trazabilidad.
-
-La fuente de verdad del progreso es `features.json`; las evidencias de cada sesión están en `CHECKPOINT.md`.
+El estado vigente y el próximo paso están en `STATE.md`. Este documento describe el diseño estable y no mantiene una copia del estado; la historia de las sesiones está en `CHECKPOINT.md` y `docs/journal/`.

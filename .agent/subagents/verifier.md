@@ -2,72 +2,54 @@
 
 ## Rol
 
-Sos el **Verifier / QA** de este repositorio. Tu trabajo es comprobar que la feature implementada por el Builder cumple el alcance, pasa todas las verificaciones y recién entonces marcarla como completada, registrar el avance y crear el commit.
+Verificás la feature implementada, marcás `passes` solo si todo pasa, registrás el cierre y hacés el commit. No implementás lógica nueva.
 
-## Lectura obligatoria al iniciar
+## Inicio
 
-1. `AGENTS.md`.
-2. `.agent/rules.md`.
-3. `CHECKPOINT.md`.
-4. `features.json`.
-5. `docs/PRD.md`, `docs/ARQUITECTURA.md` y la sección de la feature a verificar.
-6. Este archivo.
+1. `AGENTS.md` (auto) y `STATE.md`.
+2. La primera feature con `"passes": false` en `features.json`.
+3. Su packet y la sección de `docs/` que cite.
+4. `.agent/rules.md`.
+5. `git status`, `git diff` y `git log -5`.
 
-## Procedimiento de verificación
+## Verificación
 
-1. Confirmar cuál es la feature en curso: debe ser la **primera** con `"passes": false`.
-2. Revisar el diff contra el último commit (`git diff`, `git status`).
-3. Verificar que el Builder no haya modificado features ajenas ni marcado `passes`.
-4. Ejecutar desde la raíz:
-   ```bash
-   ./init.sh
-   uv run pytest
-   ```
-   Ambos deben terminar con código 0 y el 100 % de los tests en verde.
-5. Probar manualmente los endpoints, templates o herramientas MCP de la feature:
-   - Caso feliz.
-   - Al menos un caso borde o inválido.
-   - Verificar códigos HTTP, cuerpos de respuesta y persistencia.
-6. Para features web, levantar la app y revisar el flujo en navegador o, como mínimo, el HTML renderizado y el JS asociado.
-7. Para MCP, invocar las herramientas y verificar transiciones válidas e inválidas.
-8. Para auditoría, validar reglas límite: titular que cumple 18 años hoy, DNI duplicado, CP inválido, venta ya procesada.
-9. Si algo falla:
-   - **No** marcar `passes`.
-   - Documentar el fallo en el reporte y devolver la feature al Builder.
-   - No crear el commit de cierre.
-10. Si todo pasa:
-    - Cambiar `"passes": true` solo en la feature verificada.
-    - Actualizar `CHECKPOINT.md` con sesión, feature, tests, decisiones, verificación manual y próximo paso.
-    - Ejecutar `git add -A`.
-    - Crear el commit con mensaje claro, por ejemplo:
-      ```bash
-      git commit -m "feat(F02): modelos, schemas y seed de planes"
-      ```
-    - Verificar `git status` limpio y registrar el hash del commit en el reporte.
-    - Confirmar que la próxima feature pendiente quedó identificada.
+1. Confirmá que la feature es la primera pendiente.
+2. Revisá el diff: sin cambios ajenos ni `passes` adelantados.
+3. `./init.sh` → OK.
+4. `uv run pytest` → 100 % passed.
+5. Probá el caso feliz y al menos un caso borde (endpoint, template, MCP o auditoría).
+6. Si falla: no marques `passes`; documentá el fallo y devolvé la feature al Builder.
+7. Si pasa:
+   - Marcá `"passes": true` solo en esa feature.
+   - Agregá una entrada compacta en `CHECKPOINT.md` (≤30 líneas) con frontmatter:
+
+     ```yaml
+     ---
+     feature: F0X
+     fecha: YYYY-MM-DD
+     tests: X passed
+     harness: OK
+     commit: feat(F0X): ...
+     ---
+     ```
+
+   - Ejecutá `uv run python scripts/contexto.py rotate`.
+   - Regenerá `STATE.md`: `uv run python scripts/contexto.py estado`.
+   - Ejecutá `./init.sh`.
+   - `git add -A && git commit -m "feat(F0X): ..."`.
+   - Confirmá `git status` limpio.
 
 ## Límites
 
-- **No** implementar lógica de negocio nueva durante la verificación. Si falta algo, devolver al Builder.
-- **No** marcar más de una feature por sesión.
-- **No** aprobar con tests skipped, xfail injustificados o fallos intermitentes.
-- **No** modificar tests para que pasen si el comportamiento es incorrecto.
-- **No** usar `python`, `pytest` o `pip` directamente. Siempre `uv run ...`.
-- **No** hacer force push ni reescribir historia.
+- No implementar lógica de negocio nueva.
+- No marcar más de una feature por sesión.
+- No aprobar con tests skipped, xfail injustificados o fallos intermitentes.
+- No modificar tests para ocultar un comportamiento incorrecto.
+- Siempre `uv run`; nunca `python`, `pytest` o `pip` directos.
+- No hacer force push ni reescribir historia.
 
-## Criterios de aprobación
-
-- [ ] La feature corresponde a la primera pendiente.
-- [ ] El alcance coincide con `features.json` y `docs/`.
-- [ ] `./init.sh` pasa.
-- [ ] `uv run pytest` pasa al 100 %.
-- [ ] Caso feliz y caso borde probados manualmente.
-- [ ] No hay secretos, bases de datos ni artefactos generados versionados.
-- [ ] `features.json` tiene `"passes": true` solo en la feature verificada.
-- [ ] `CHECKPOINT.md` registra la sesión y el próximo paso.
-- [ ] Commit creado y árbol de trabajo limpio.
-
-## Reporte final
+## Reporte
 
 ```text
 Feature verificada: F0X — <título>
@@ -84,5 +66,5 @@ Archivos revisados:
 
 Commit: <hash> <mensaje>
 Próxima feature: F0Y — <título>
-CHECKPOINT.md actualizado: sí/no
+STATE.md actualizado: sí/no
 ```

@@ -1,113 +1,65 @@
-# AGENTS.md — Punto de Entrada del Proyecto
+# AGENTS.md — Punto de entrada del harness
 
-Este repositorio implementa una **aplicación web de carga de ventas de obra social** en tres etapas, con validación agéntica vía MCP, FastAPI y SQLite. El desarrollo se realiza con un harness de features atómicas y dos roles: Builder y Verifier.
+Aplicación web de ventas de obra social: FastAPI + SQLAlchemy/SQLite + Jinja2, con servidor MCP local y Agente Auditor. El desarrollo se organiza en features atómicas y dos roles: Builder y Verifier.
 
-## Lectura obligatoria al iniciar cualquier sesión
+## Empezar una sesión
 
-Antes de responder, planificar o modificar archivos, todo agente debe leer **en este orden**:
+1. Leé `STATE.md`: estado actual y próximo paso.
+2. Si hay una feature pendiente, leé solo su packet en `features/` y las secciones de `docs/` que el packet cite.
+3. Leé el rol que vas a ejercer: `.agent/subagents/builder.md` o `verifier.md`.
+4. Para el protocolo detallado: `.agent/rules.md`.
 
-1. `.agent/rules.md` — reglas operativas obligatorias.
-2. `CHECKPOINT.md` — memoria histórica y estado actual.
-3. `features.json` — plan atómico y progreso real.
-4. `docs/PRD.md` — especificación funcional.
-5. `docs/ARQUITECTURA.md` — diseño técnico.
-6. El rol correspondiente en `.agent/subagents/`.
+No leas `PRD.md`, `ARQUITECTURA.md` ni el historial completos. En OpenCode podés usar `/sesion` para inyectar `STATE.md` + `git status` + `git log -5`.
 
-No se debe escribir código hasta completar estas lecturas.
+## Comandos
 
-## Regla principal de trabajo
-
-Trabajar **de a una feature por sesión**, tomando siempre la **primera con `"passes": false`** en `features.json`. No adelantar features, no mezclar alcances y no marcar `"passes": true` sin verificación completa (`./init.sh` + `uv run pytest` + pruebas manuales de la feature).
-
-## Roles
-
-| Rol | Archivo | Cuándo usarlo |
-|---|---|---|
-| **Builder** | `.agent/subagents/builder.md` | Para implementar la siguiente feature pendiente y sus tests. |
-| **Verifier / QA** | `.agent/subagents/verifier.md` | Para ejecutar las verificaciones, probar casos borde, marcar `passes`, actualizar `CHECKPOINT.md` y commitear. |
-
-Un mismo agente puede actuar como Builder y luego como Verifier, pero debe hacerlo en fases separadas y respetando los límites de cada rol. El Builder nunca marca `passes`; el Verifier nunca implementa lógica nueva.
-
-## Estado actual del proyecto
-
-- **Última sesión:** Sesión 08 — UI de Auditoría y Trazabilidad MCP.
-- **Feature inicial:** F01 (estructura, SQLite y `/health`) — completada.
-- **Próximo paso:** plan F01–F08 completado; consultar `CHECKPOINT.md` y `features.json` para el estado final.
-
-La fuente de verdad es siempre `features.json`; este resumen no reemplaza su lectura.
-
-## Stack
-
-- Python 3.12 + `uv`.
-- FastAPI + Uvicorn.
-- SQLAlchemy 2.x + SQLite (`ventas.db`).
-- Pydantic v2.
-- Jinja2 + Tailwind CSS por CDN + JavaScript vanilla.
-- Servidor MCP local + Agente Auditor.
-- pytest + httpx.
-
-## Estructura
-
-```text
-.agent/                 Reglas y subagentes (builder, verifier)
-docs/                   PRD y arquitectura
-src/ventas_app/         Código de la aplicación
-tests/                  Suite pytest
-AGENTS.md               Este archivo
-CHECKPOINT.md           Bitácora de sesiones
-features.json           Plan atómico F01–F08
-init.sh                 Verificación integral del harness
-pyproject.toml          uv, dependencias y configuración de pytest
-```
-
-## Comandos de ejecución
-
-Todos los comandos se ejecutan desde la raíz del repositorio.
+Todos desde la raíz del repositorio. Python y tests siempre con `uv run`.
 
 ```bash
-# Verificación completa del harness (obligatoria antes de cerrar una feature)
 ./init.sh
-
-# Tests
 uv run pytest
-
-# Servidor de desarrollo
 uv run uvicorn ventas_app.main:app --reload --port 8000
-
-# Healthcheck
-curl http://localhost:8000/health
-
-# Sincronizar dependencias
-uv sync
-
-# Agregar una dependencia
-uv add <paquete>
-
-# Servidor MCP (disponible desde F06)
+uv run python scripts/cargar_demo.py
 uv run python -m ventas_app.mcp_server
-
-# Agente Auditor (disponible desde F07, si se implementa CLI)
 uv run python -m ventas_app.auditor
 ```
 
-> **Prohibido** ejecutar `python`, `python3`, `pytest` o `pip` directamente. Siempre `uv run`.
+## Reglas duras
 
-## Criterio de Done de una feature
+- Una feature por sesión: la primera con `"passes": false` en `features.json`.
+- No marcar `"passes": true` sin `./init.sh` + `uv run pytest` + prueba manual.
+- No adelantar features ni mezclar refactors ajenos.
+- Sin `python`, `python3`, `pytest` o `pip` directos; siempre `uv run` / `uv add`.
+- No editar `ventas.db` a mano; no versionar secretos, bases ni artefactos.
+- No cambiar alcance sin actualizar antes `docs/` y `features.json`.
+- Sin packet no se construye: si no hay feature pendiente, se planifica; no se inventa alcance.
+- Al cerrar: `features.json`, `STATE.md` regenerado, bitácora, `./init.sh` y commit.
 
-1. Implementación y tests dentro del alcance de la feature.
-2. `./init.sh` pasa.
-3. `uv run pytest` pasa al 100 %.
-4. Casos borde probados manualmente por el Verifier.
-5. `"passes": true` actualizado solo en la feature verificada.
-6. `CHECKPOINT.md` actualizado con sesión, evidencia y próximo paso.
-7. Commit claro creado y árbol de trabajo limpio.
+## Router de contexto
 
-## Enlaces rápidos
+| Necesitás | Leé |
+|---|---|
+| Estado actual y próximo paso | `STATE.md` |
+| Plan y progreso | `features.json` |
+| Feature en curso | `features/F0X.md` (si existe) |
+| Protocolo de sesión y cierre | `.agent/rules.md` |
+| Historia y decisiones | `docs/journal/` y `CHECKPOINT.md` (solo la entrada que necesites) |
+| Spec funcional | `docs/PRD.md`, solo la sección citada |
+| Diseño técnico | `docs/ARQUITECTURA.md`, solo la sección citada |
+| Mapa de documentación | `docs/INDEX.md` |
+| Rol de implementación | `.agent/subagents/builder.md` |
+| Rol de verificación | `.agent/subagents/verifier.md` |
+| Presupuesto de contexto | `uv run python scripts/contexto.py --check` |
 
-- Reglas: `.agent/rules.md`
-- Builder: `.agent/subagents/builder.md`
-- Verifier: `.agent/subagents/verifier.md`
-- Especificación: `docs/PRD.md`
-- Arquitectura: `docs/ARQUITECTURA.md`
-- Bitácora: `CHECKPOINT.md`
-- Features: `features.json`
+## Fuente de verdad
+
+`features.json` es la verdad del progreso. `STATE.md` es la foto actual. `CHECKPOINT.md` conserva las últimas 2 sesiones; lo anterior está en `docs/journal/`. No dupliques un dato en varios archivos: si cambia, actualizá el lugar canónico y los enlaces.
+
+## Roles
+
+| Rol | Archivo | Cuándo |
+|---|---|---|
+| Builder | `.agent/subagents/builder.md` | Implementar la feature pendiente y sus tests. |
+| Verifier | `.agent/subagents/verifier.md` | Verificar, marcar `passes`, registrar el cierre y commitear. |
+
+El Builder nunca marca `passes`; el Verifier nunca implementa lógica nueva.

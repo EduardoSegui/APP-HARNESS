@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-echo "==> [1/3] Verificando disponibilidad de uv"
+echo "==> [1/4] Verificando disponibilidad de uv"
 if ! command -v uv >/dev/null 2>&1; then
     echo "ERROR: uv no está instalado o no está en PATH." >&2
     echo "Instalación: https://docs.astral.sh/uv/getting-started/installation/" >&2
@@ -16,14 +16,19 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 uv --version
 
-echo "==> [2/3] Verificando archivos obligatorios del harness"
+echo "==> [2/4] Verificando archivos obligatorios del harness"
 required_files=(
     "AGENTS.md"
     "features.json"
     "CHECKPOINT.md"
+    "STATE.md"
+    ".agent/rules.md"
+    ".agent/subagents/builder.md"
+    ".agent/subagents/verifier.md"
 )
 required_dirs=(
     "src/ventas_app"
+    "docs/journal"
 )
 
 for file in "${required_files[@]}"; do
@@ -42,7 +47,10 @@ for dir in "${required_dirs[@]}"; do
     echo "    OK directorio: $dir"
 done
 
-echo "==> [3/3] Ejecutando la suite de tests"
+echo "==> [3/4] Verificando presupuesto de contexto"
+uv run python scripts/contexto.py --check
+
+echo "==> [4/4] Ejecutando la suite de tests"
 uv run pytest
 
 echo ""
