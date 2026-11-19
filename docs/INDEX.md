@@ -35,6 +35,13 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Harness, roles y ciclo | `docs/ARQUITECTURA.md` §12 |
 | Decisiones y riesgos | `docs/ARQUITECTURA.md` §13–14 |
 
+## Diseño de interfaz
+
+| Tema | Dónde |
+|---|---|
+| Plan de rediseño visual F12 | `docs/design/F12.md` |
+| Skill `frontend-design` | `.agents/skills/frontend-design/SKILL.md` (fuente en `skills-lock.json`) |
+
 ## Harness y memoria
 
 | Tema | Dónde |

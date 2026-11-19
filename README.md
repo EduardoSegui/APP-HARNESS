@@ -135,11 +135,12 @@ completa.
 - [PRD](docs/PRD.md): especificación funcional de las 3 etapas y reglas de auditoría.
 - [Arquitectura](docs/ARQUITECTURA.md): diseño técnico, modelo de datos y flujo de estados.
 - [Índice de documentación](docs/INDEX.md): mapa de temas a secciones.
+- [Plan de diseño F12](docs/design/F12.md): dirección visual del wizard y el panel con `frontend-design`.
 - [AGENTS.md](AGENTS.md): punto de entrada del harness y roles de agentes.
 - [STATE.md](STATE.md): estado actual y próximo paso.
 - [CHECKPOINT.md](CHECKPOINT.md): ventana de las últimas 2 sesiones.
 - [Bitácora histórica](docs/journal/2026.md): sesiones anteriores.
-- [features.json](features.json): plan atómico F01–F11.
+- [features.json](features.json): plan atómico F01–F12.
 - [Plantilla de ficha](features/_TEMPLATE.md): secciones mínimas para planificar una feature.
 
 ## Estado

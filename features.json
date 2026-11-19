@@ -66,6 +66,13 @@
       "descripcion": "Plantilla de packets, especificación autocontenida por feature y protocolo de planificación cuando no hay features pendientes.",
       "packet": "features/F11.md",
       "passes": true
+    },
+    {
+      "id": "F12",
+      "titulo": "Rediseño visual del wizard y el panel",
+      "descripcion": "Identidad visual propia para wizard, comprobante y panel con la skill frontend-design, preservando lógica, API, contratos JS y aserciones funcionales.",
+      "packet": "features/F12.md",
+      "passes": false
     }
   ]
 }
