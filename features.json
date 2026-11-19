@@ -73,6 +73,13 @@
       "descripcion": "Identidad visual propia para wizard, comprobante y panel con la skill frontend-design, preservando lógica, API, contratos JS y aserciones funcionales.",
       "packet": "features/F12.md",
       "passes": true
+    },
+    {
+      "id": "F13",
+      "titulo": "Medios de pago y descuentos en cotización",
+      "descripcion": "Selección de medio de pago en Etapa 3 del wizard (tarjeta de crédito, CBU, pago fácil, cobrador), cálculo de descuentos en cotización, desglose en comprobante y panel, y validación en regla R5 del Auditor MCP.",
+      "packet": "features/F13.md",
+      "passes": false
     }
   ]
 }
