@@ -90,7 +90,8 @@ def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
     assert 'data-cantidad-integrantes="2"' in html
     assert "$182.000" in html
     assert 'data-estado="PENDIENTE_VERIFICACION"' in html
-    assert "bg-amber-100" in html
+    assert 'class="stamp"' in html
+    assert ">Pendiente<" in html
     assert "Observaciones" in html
     assert "data-observaciones" in html
     assert "Pendiente de auditoría" in html
@@ -139,11 +140,12 @@ def test_panel_muestra_los_badges_de_los_tres_estados(client: TestClient) -> Non
     html = client.get("/ventas").text
 
     assert 'data-estado="PENDIENTE_VERIFICACION"' in html
-    assert "bg-amber-100" in html
     assert 'data-estado="APROBADA"' in html
-    assert "bg-green-100" in html
     assert 'data-estado="OBSERVADA"' in html
-    assert "bg-red-100" in html
+    assert 'class="stamp"' in html
+    assert ">Pendiente<" in html
+    assert ">Aprobada<" in html
+    assert ">Observada<" in html
     assert "3 ventas registradas" in html
 
 

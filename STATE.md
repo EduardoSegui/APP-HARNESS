@@ -2,9 +2,9 @@
 
 > Generado por `uv run python scripts/contexto.py estado`. No editar a mano.
 
-- **Plan:** 11/12 features verificadas (`features.json`).
-- **Próximo paso:** F12 — Rediseño visual del wizard y el panel — packet: `features/F12.md`.
-- **Última sesión:** Sesión 10 — Feature packets e intake (2026-11-18).
-- **Última entrada:** `CHECKPOINT.md#sesión-10`.
-- **Tests:** 204 passed.
+- **Plan:** 12/12 features verificadas (`features.json`).
+- **Próximo paso:** planificación (no hay features pendientes).
+- **Última sesión:** Sesión 11 — F12: rediseño visual del wizard y el panel (2026-11-19).
+- **Última entrada:** `CHECKPOINT.md#sesión-11`.
+- **Tests:** 206 passed.
 - **Harness:** OK.

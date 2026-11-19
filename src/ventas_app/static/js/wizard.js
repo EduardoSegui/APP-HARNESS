@@ -3,6 +3,7 @@
 (() => {
   const STORAGE_KEY = "ventas-obra-social.wizard.v1";
   const HOY_ISO = fechaLocalISO();
+  const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)");
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const TELEFONO_REGEX = /^[0-9+\s()\-]+$/;
   const ALTURA_REGEX = /^[0-9A-Za-z/ .-]+$/;
@@ -31,6 +32,12 @@
   const sinIntegrantes = document.querySelector("#sin-integrantes");
   const btnAgregar = document.querySelector("#btn-agregar-integrante");
   const btnConfirmar = document.querySelector("#btn-confirmar");
+  const pageHead = document.querySelector("#wizard-page-head");
+  const resumenLegajo = document.querySelector("#resumen-legajo");
+  const legajoTitular = document.querySelector("#legajo-titular");
+  const legajoIntegrantes = document.querySelector("#legajo-integrantes");
+  const legajoPlan = document.querySelector("#legajo-plan");
+  const comprobanteEstado = document.querySelector("#comprobante-estado");
 
   const estadoInicial = {
     paso: 1,
@@ -203,11 +210,22 @@
         radio.checked = true;
       }
 
+      const fila = radio.closest(".plan-row");
+      if (fila) {
+        fila.classList.toggle("is-selected", radio.checked);
+      }
+
       radio.addEventListener("change", () => {
         if (!radio.checked) {
           return;
         }
         estado.plan_id = Number(radio.value);
+        radios.forEach((otro) => {
+          otro.closest(".plan-row")?.classList.toggle(
+            "is-selected",
+            otro === radio,
+          );
+        });
         guardarEstado();
         actualizarCotizacion();
       });
@@ -216,6 +234,34 @@
     if (!radios.some((radio) => radio.checked)) {
       estado.plan_id = null;
       guardarEstado();
+    }
+  }
+
+  function actualizarResumen() {
+    const nombre = [
+      texto(estado.titular.nombre).trim(),
+      texto(estado.titular.apellido).trim(),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const cantidad = estado.integrantes.length;
+    const seleccionado = document.querySelector('input[name="plan_id"]:checked');
+
+    if (legajoTitular) {
+      legajoTitular.textContent = nombre || "Titular sin cargar";
+    }
+
+    if (legajoIntegrantes) {
+      legajoIntegrantes.textContent =
+        `${cantidad} ${cantidad === 1 ? "adherente" : "adherentes"}`;
+    }
+
+    if (legajoPlan) {
+      const nombrePlan = seleccionado
+        ?.closest(".plan-row")
+        ?.querySelector(".plan-row__name")
+        ?.textContent?.trim();
+      legajoPlan.textContent = nombrePlan || "Plan sin elegir";
     }
   }
 
@@ -228,6 +274,7 @@
     const seleccionado = document.querySelector('input[name="plan_id"]:checked');
 
     actualizarContador();
+    actualizarResumen();
 
     if (cantidadEl) {
       cantidadEl.textContent = String(cantidad);
@@ -417,6 +464,11 @@
       seccion.classList.toggle("hidden", Number(seccion.dataset.paso) !== estado.paso);
     });
 
+    const pasoActual = document.querySelector("#paso-actual");
+    if (pasoActual) {
+      pasoActual.textContent = String(estado.paso);
+    }
+
     indicadores.forEach((indicador) => {
       const numero = Number(indicador.dataset.indicador);
       if (numero === estado.paso) {
@@ -429,7 +481,10 @@
     });
 
     actualizarCotizacion();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({
+      top: 0,
+      behavior: movimientoReducido.matches ? "auto" : "smooth",
+    });
   }
 
   function avanzar(paso) {
@@ -497,7 +552,7 @@
   }
 
   const etiquetasEstado = {
-    PENDIENTE_VERIFICACION: "Pendiente de verificación",
+    PENDIENTE_VERIFICACION: "Pendiente",
     APROBADA: "Aprobada",
     OBSERVADA: "Observada",
   };
@@ -518,8 +573,10 @@
     const cantidadAdherentes = Array.isArray(venta.integrantes) ? venta.integrantes.length : 0;
 
     document.querySelector("#comprobante-id").textContent = `#${venta.id}`;
-    document.querySelector("#comprobante-estado").textContent =
-      etiquetasEstado[venta.estado] ?? venta.estado;
+    if (comprobanteEstado) {
+      comprobanteEstado.textContent = etiquetasEstado[venta.estado] ?? venta.estado;
+      comprobanteEstado.dataset.estado = venta.estado;
+    }
     document.querySelector("#comprobante-titular").textContent =
       `${venta.nombre_titular} ${venta.apellido_titular}`;
     document.querySelector("#comprobante-plan").textContent = plan.nombre ?? "—";
@@ -529,11 +586,16 @@
       `${formatoMoneda.format(plan.precio_titular ?? 0)} + ${cantidadAdherentes} × ${formatoMoneda.format(plan.precio_adherente ?? 0)}`;
     document.querySelector("#comprobante-total").textContent = formatoMoneda.format(venta.precio_total);
 
+    pageHead?.classList.add("hidden");
     progreso.classList.add("hidden");
+    resumenLegajo?.classList.add("hidden");
     formWizard.classList.add("hidden");
     ocultarErrorGeneral();
     comprobante.classList.remove("hidden");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({
+      top: 0,
+      behavior: movimientoReducido.matches ? "auto" : "smooth",
+    });
   }
 
   async function confirmarVenta() {

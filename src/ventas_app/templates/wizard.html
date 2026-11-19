@@ -2,44 +2,10 @@
 
 {% block title %}Nueva venta | Ventas Obra Social{% endblock %}
 
-{% block head %}
-<style>
-  [data-indicador] {
-    border-width: 1px;
-    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
-  }
-  [data-indicador][data-estado="activo"] {
-    background-color: #2563eb;
-    border-color: #2563eb;
-    color: #ffffff;
-  }
-  [data-indicador][data-estado="completado"] {
-    background-color: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1d4ed8;
-  }
-  [data-indicador][data-estado="pendiente"] {
-    background-color: #ffffff;
-    border-color: #e2e8f0;
-    color: #64748b;
-  }
-  .campo-invalido {
-    border-color: #dc2626 !important;
-    box-shadow: 0 0 0 1px #dc2626;
-  }
-  .error-campo {
-    color: #dc2626;
-    font-size: 0.8125rem;
-    line-height: 1.25rem;
-    margin-top: 0.25rem;
-  }
-</style>
-{% endblock %}
-
 {% macro campo_texto(id, etiqueta, estado, tipo="text", requerido=true, placeholder="", autocomplete="off", inputmode="", maxlength="", patron="") -%}
-<div>
-  <label for="{{ id }}" class="mb-1 block text-sm font-medium text-slate-700">
-    {{ etiqueta }}{% if requerido %}<span class="text-red-600"> *</span>{% endif %}
+<div class="field">
+  <label for="{{ id }}" class="field-label">
+    {{ etiqueta }}{% if requerido %}<span class="required"> *</span>{% endif %}
   </label>
   <input
     id="{{ id }}"
@@ -51,243 +17,305 @@
     {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
     {% if patron %}pattern="{{ patron }}"{% endif %}
     {% if requerido %}required{% endif %}
-    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+    class="field-input"
   >
 </div>
 {%- endmacro %}
 
 {% block content %}
-<main class="mx-auto max-w-5xl px-4 py-8">
-  <div id="progreso" class="mb-6">
-    <ol class="grid grid-cols-3 gap-2 text-center text-sm">
-      <li data-indicador="1" data-estado="activo" class="rounded-lg px-3 py-2 font-medium">
-        1. Titular y grupo familiar
-      </li>
-      <li data-indicador="2" data-estado="pendiente" class="rounded-lg px-3 py-2 font-medium">
-        2. Domicilio
-      </li>
-      <li data-indicador="3" data-estado="pendiente" class="rounded-lg px-3 py-2 font-medium">
-        3. Plan y cotización
-      </li>
-    </ol>
+<main class="app-main">
+  <div id="wizard-page-head" class="page-head">
+    <div class="page-head__main">
+      <p class="page-context">Nueva venta</p>
+      <h1 class="page-title">Alta de obra social</h1>
+      <p class="page-sub">
+        Armá el legajo en tres etapas. Los datos se guardan recién al confirmar la venta.
+      </p>
+    </div>
   </div>
 
-  <div id="error-general" class="mb-6 hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert" aria-live="polite"></div>
-
-  <form id="wizard" novalidate>
-    <section data-paso="1" class="space-y-6">
-      <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 class="text-lg font-semibold">Datos del titular</h2>
-        <p class="mt-1 text-sm text-slate-500">Todos los campos son obligatorios.</p>
-
-        <div class="mt-5 grid gap-4 sm:grid-cols-2">
-          {{ campo_texto("titular-nombre", "Nombre", "titular.nombre", placeholder="Ana María", autocomplete="given-name", maxlength="80") }}
-          {{ campo_texto("titular-apellido", "Apellido", "titular.apellido", placeholder="Pérez", autocomplete="family-name", maxlength="80") }}
-          {{ campo_texto("titular-dni", "DNI", "titular.dni", placeholder="30123456", inputmode="numeric", maxlength="8", patron="[0-9]{7,8}") }}
-          {{ campo_texto("titular-fecha-nacimiento", "Fecha de nacimiento", "titular.fecha_nacimiento", tipo="date", autocomplete="bday") }}
-          {{ campo_texto("titular-email", "Email", "titular.email", tipo="email", placeholder="ana@ejemplo.com", autocomplete="email", maxlength="254") }}
-          {{ campo_texto("titular-telefono", "Teléfono", "titular.telefono", tipo="tel", placeholder="11 5555-1234", autocomplete="tel", maxlength="25") }}
-        </div>
+  <div class="wizard-layout">
+    <div id="progreso" class="wizard-progress">
+      <div class="wizard-progress__head">
+        <p class="wizard-progress__title">Legajo de alta</p>
+        <p class="wizard-progress__count">Paso <span id="paso-actual">1</span> de 3</p>
       </div>
+      <ol class="step-rail" aria-label="Etapas del alta">
+        <li data-indicador="1" data-estado="activo" class="step-tab">
+          <span class="step-tab__label">1. Titular y grupo familiar</span>
+        </li>
+        <li data-indicador="2" data-estado="pendiente" class="step-tab">
+          <span class="step-tab__label">2. Domicilio</span>
+        </li>
+        <li data-indicador="3" data-estado="pendiente" class="step-tab">
+          <span class="step-tab__label">3. Plan y cotización</span>
+        </li>
+      </ol>
+    </div>
 
-      <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold">Grupo familiar</h2>
-            <p class="mt-1 text-sm text-slate-500">Podés agregar cero o más adherentes.</p>
+    <form id="wizard" class="wizard-form" novalidate>
+      <div id="error-general" class="form-alert hidden" role="alert" aria-live="polite"></div>
+
+      <section data-paso="1" class="wizard-step">
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Datos del titular</h2>
+              <p class="sheet__hint">Todos los campos son obligatorios.</p>
+            </div>
           </div>
+
+          <div class="field-grid">
+            {{ campo_texto("titular-nombre", "Nombre", "titular.nombre", placeholder="Ana María", autocomplete="given-name", maxlength="80") }}
+            {{ campo_texto("titular-apellido", "Apellido", "titular.apellido", placeholder="Pérez", autocomplete="family-name", maxlength="80") }}
+            {{ campo_texto("titular-dni", "DNI", "titular.dni", placeholder="30123456", inputmode="numeric", maxlength="8", patron="[0-9]{7,8}") }}
+            {{ campo_texto("titular-fecha-nacimiento", "Fecha de nacimiento", "titular.fecha_nacimiento", tipo="date", autocomplete="bday") }}
+            {{ campo_texto("titular-email", "Email", "titular.email", tipo="email", placeholder="ana@ejemplo.com", autocomplete="email", maxlength="254") }}
+            {{ campo_texto("titular-telefono", "Teléfono", "titular.telefono", tipo="tel", placeholder="11 5555-1234", autocomplete="tel", maxlength="25") }}
+          </div>
+        </div>
+
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Grupo familiar</h2>
+              <p class="sheet__hint">Podés agregar cero o más adherentes.</p>
+            </div>
+            <button
+              type="button"
+              id="btn-agregar-integrante"
+              class="btn btn--secondary"
+            >
+              Agregar integrante
+            </button>
+          </div>
+
+          <p id="sin-integrantes" class="empty-inline">
+            Todavía no agregaste adherentes. La venta puede continuar solo con el titular.
+          </p>
+
+          <div id="integrantes-container" class="adherent-list"></div>
+
+          <template id="template-integrante">
+            <article data-integrante class="adherent-card">
+              <div class="adherent-card__head">
+                <h3 class="adherent-card__title">Adherente <span data-numero></span></h3>
+                <button
+                  type="button"
+                  data-eliminar
+                  class="btn btn--quiet btn--sm"
+                >
+                  Eliminar
+                </button>
+              </div>
+
+              <div class="field-grid">
+                <div class="field">
+                  <label class="field-label">Nombre <span class="required">*</span></label>
+                  <input data-campo="nombre" type="text" maxlength="80" required aria-label="Nombre del adherente" class="field-input">
+                </div>
+                <div class="field">
+                  <label class="field-label">Apellido <span class="required">*</span></label>
+                  <input data-campo="apellido" type="text" maxlength="80" required aria-label="Apellido del adherente" class="field-input">
+                </div>
+                <div class="field">
+                  <label class="field-label">DNI <span class="required">*</span></label>
+                  <input data-campo="dni" type="text" inputmode="numeric" maxlength="8" pattern="[0-9]{7,8}" required aria-label="DNI del adherente" class="field-input">
+                </div>
+                <div class="field">
+                  <label class="field-label">Fecha de nacimiento <span class="required">*</span></label>
+                  <input data-campo="fecha_nacimiento" type="date" required aria-label="Fecha de nacimiento del adherente" class="field-input">
+                </div>
+                <div class="field field--full">
+                  <label class="field-label">Parentesco <span class="required">*</span></label>
+                  <select data-campo="parentesco" required aria-label="Parentesco del adherente" class="field-select">
+                    <option value="">Seleccioná un parentesco</option>
+                    {% for parentesco in parentescos %}
+                    <option value="{{ parentesco }}">{{ parentesco }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </article>
+          </template>
+
+          <p class="counter">
+            Adherentes cargados: <span id="contador-integrantes" class="counter__value">0</span>
+          </p>
+        </div>
+
+        <div class="form-actions form-actions--end">
           <button
             type="button"
-            id="btn-agregar-integrante"
-            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            id="btn-siguiente-1"
+            class="btn btn--primary"
           >
-            + Agregar integrante
+            Continuar a domicilio
           </button>
         </div>
+      </section>
 
-        <p id="sin-integrantes" class="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          Todavía no agregaste adherentes. La venta puede continuar solo con el titular.
-        </p>
+      <section data-paso="2" class="hidden wizard-step">
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Domicilio</h2>
+              <p class="sheet__hint">Solo el piso/departamento es opcional.</p>
+            </div>
+          </div>
 
-        <div id="integrantes-container" class="mt-4 space-y-4"></div>
-
-        <template id="template-integrante">
-          <article data-integrante class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="font-semibold text-slate-800">Adherente <span data-numero></span></h3>
-              <button
-                type="button"
-                data-eliminar
-                class="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50"
+          <div class="field-grid">
+            {{ campo_texto("domicilio-calle", "Calle", "domicilio.calle", placeholder="Av. Corrientes", autocomplete="address-line1", maxlength="120") }}
+            {{ campo_texto("domicilio-altura", "Altura", "domicilio.altura", placeholder="1234 o S/N", maxlength="10") }}
+            {{ campo_texto("domicilio-piso-depto", "Piso / Departamento", "domicilio.piso_depto", requerido=false, placeholder="3° B", autocomplete="address-line2", maxlength="30") }}
+            {{ campo_texto("domicilio-localidad", "Localidad", "domicilio.localidad", placeholder="CABA", autocomplete="address-level2", maxlength="80") }}
+            <div class="field">
+              <label for="domicilio-provincia" class="field-label">
+                Provincia <span class="required">*</span>
+              </label>
+              <select
+                id="domicilio-provincia"
+                data-state="domicilio.provincia"
+                required
+                class="field-select"
               >
-                Eliminar
-              </button>
+                <option value="">Seleccioná una provincia</option>
+                {% for provincia in provincias %}
+                <option value="{{ provincia }}">{{ provincia }}</option>
+                {% endfor %}
+              </select>
             </div>
+            {{ campo_texto("domicilio-codigo-postal", "Código postal", "domicilio.codigo_postal", placeholder="1425", inputmode="numeric", maxlength="4", patron="[0-9]{4}") }}
+          </div>
+        </div>
 
-            <div class="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Nombre <span class="text-red-600">*</span></label>
-                <input data-campo="nombre" type="text" maxlength="80" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-              </div>
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Apellido <span class="text-red-600">*</span></label>
-                <input data-campo="apellido" type="text" maxlength="80" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-              </div>
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">DNI <span class="text-red-600">*</span></label>
-                <input data-campo="dni" type="text" inputmode="numeric" maxlength="8" pattern="[0-9]{7,8}" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-              </div>
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Fecha de nacimiento <span class="text-red-600">*</span></label>
-                <input data-campo="fecha_nacimiento" type="date" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-              </div>
-              <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-slate-700">Parentesco <span class="text-red-600">*</span></label>
-                <select data-campo="parentesco" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                  <option value="">Seleccioná un parentesco</option>
-                  {% for parentesco in parentescos %}
-                  <option value="{{ parentesco }}">{{ parentesco }}</option>
-                  {% endfor %}
-                </select>
-              </div>
+        <div class="form-actions">
+          <button
+            type="button"
+            id="btn-volver-2"
+            class="btn btn--secondary"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            id="btn-siguiente-2"
+            class="btn btn--primary"
+          >
+            Continuar al plan
+          </button>
+        </div>
+      </section>
+
+      <section data-paso="3" class="hidden wizard-step">
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Elegí un plan</h2>
+              <p class="sheet__hint">La cotización se calcula automáticamente según la cantidad de adherentes.</p>
             </div>
-          </article>
-        </template>
+          </div>
 
-        <p class="mt-4 text-sm text-slate-500">
-          Adherentes cargados: <span id="contador-integrantes" class="font-semibold text-slate-700">0</span>
-        </p>
-      </div>
-
-      <div class="flex justify-end">
-        <button
-          type="button"
-          id="btn-siguiente-1"
-          class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        >
-          Continuar a domicilio →
-        </button>
-      </div>
-    </section>
-
-    <section data-paso="2" class="hidden space-y-6">
-      <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 class="text-lg font-semibold">Domicilio</h2>
-        <p class="mt-1 text-sm text-slate-500">Solo el piso/departamento es opcional.</p>
-
-        <div class="mt-5 grid gap-4 sm:grid-cols-2">
-          {{ campo_texto("domicilio-calle", "Calle", "domicilio.calle", placeholder="Av. Corrientes", autocomplete="address-line1", maxlength="120") }}
-          {{ campo_texto("domicilio-altura", "Altura", "domicilio.altura", placeholder="1234 o S/N", maxlength="10") }}
-          {{ campo_texto("domicilio-piso-depto", "Piso / Departamento", "domicilio.piso_depto", requerido=false, placeholder="3° B", autocomplete="address-line2", maxlength="30") }}
-          {{ campo_texto("domicilio-localidad", "Localidad", "domicilio.localidad", placeholder="CABA", autocomplete="address-level2", maxlength="80") }}
-          <div>
-            <label for="domicilio-provincia" class="mb-1 block text-sm font-medium text-slate-700">
-              Provincia <span class="text-red-600">*</span>
+          {% if planes %}
+          <div class="plan-table" role="radiogroup" aria-label="Planes disponibles">
+            <div class="plan-table__head" aria-hidden="true">
+              <span>Plan</span>
+              <span>Precio del titular</span>
+              <span>Por adherente</span>
+              <span></span>
+            </div>
+            {% for plan in planes %}
+            <label class="plan-row">
+              <input
+                type="radio"
+                name="plan_id"
+                value="{{ plan.id }}"
+                data-precio-titular="{{ plan.precio_titular }}"
+                data-precio-adherente="{{ plan.precio_adherente }}"
+                class="sr-only plan-row__input"
+                aria-label="{{ plan.nombre }}"
+              >
+              <span class="plan-row__name">{{ plan.nombre }}</span>
+              <span class="plan-row__price plan-row__price--main" data-label="Titular">{{ plan.precio_titular | pesos }}</span>
+              <span class="plan-row__price plan-row__price--sub" data-label="Por adherente">+ {{ plan.precio_adherente | pesos }}</span>
+              <span class="plan-row__choice-wrap">
+                <span class="plan-row__choice plan-row__choice--idle">Elegir</span>
+                <span class="plan-row__choice plan-row__choice--selected">Elegido</span>
+              </span>
             </label>
-            <select
-              id="domicilio-provincia"
-              data-state="domicilio.provincia"
-              required
-              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-            >
-              <option value="">Seleccioná una provincia</option>
-              {% for provincia in provincias %}
-              <option value="{{ provincia }}">{{ provincia }}</option>
-              {% endfor %}
-            </select>
+            {% endfor %}
           </div>
-          {{ campo_texto("domicilio-codigo-postal", "Código postal", "domicilio.codigo_postal", placeholder="1425", inputmode="numeric", maxlength="4", patron="[0-9]{4}") }}
+          {% else %}
+          <p class="notice notice--warning">
+            No hay planes activos disponibles. Contactá al administrador.
+          </p>
+          {% endif %}
         </div>
-      </div>
 
-      <div class="flex flex-wrap justify-between gap-3">
-        <button
-          type="button"
-          id="btn-volver-2"
-          class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          ← Volver
-        </button>
-        <button
-          type="button"
-          id="btn-siguiente-2"
-          class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        >
-          Continuar a plan →
-        </button>
-      </div>
-    </section>
-
-    <section data-paso="3" class="hidden space-y-6">
-      <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 class="text-lg font-semibold">Elegí un plan</h2>
-        <p class="mt-1 text-sm text-slate-500">La cotización se calcula automáticamente según la cantidad de adherentes.</p>
-
-        {% if planes %}
-        <div class="mt-5 grid gap-4 md:grid-cols-3">
-          {% for plan in planes %}
-          <label class="group cursor-pointer">
-            <input
-              type="radio"
-              name="plan_id"
-              value="{{ plan.id }}"
-              data-precio-titular="{{ plan.precio_titular }}"
-              data-precio-adherente="{{ plan.precio_adherente }}"
-              class="peer sr-only"
-            >
-            <div class="h-full rounded-xl border border-slate-200 bg-white p-5 transition hover:border-blue-300 peer-checked:border-blue-600 peer-checked:ring-2 peer-checked:ring-blue-200">
-              <p class="font-semibold text-slate-900">{{ plan.nombre }}</p>
-              <p class="mt-2 text-2xl font-bold text-blue-700">{{ plan.precio_titular | pesos }}</p>
-              <p class="text-xs text-slate-500">Precio del titular</p>
-              <p class="mt-2 text-sm text-slate-600">+ {{ plan.precio_adherente | pesos }} por adherente</p>
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Resumen de cotización</h2>
+              <p class="sheet__hint">El total final lo confirma el servidor al guardar la venta.</p>
             </div>
-          </label>
-          {% endfor %}
+          </div>
+
+          <div class="credential">
+            <div class="credential__rows">
+              <div class="credential__row">
+                <span class="credential__label">Precio del titular</span>
+                <span id="cotizacion-titular" class="credential__value">—</span>
+              </div>
+              <div class="credential__row">
+                <span class="credential__label">Adherentes (<span id="cotizacion-cantidad">0</span>)</span>
+                <span id="cotizacion-subtotal" class="credential__value">—</span>
+              </div>
+            </div>
+            <div class="credential__total">
+              <span class="credential__total-label">Total</span>
+              <span id="cotizacion-total" class="credential__total-value">—</span>
+            </div>
+          </div>
         </div>
-        {% else %}
-        <p class="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          No hay planes activos disponibles. Contactá al administrador.
-        </p>
-        {% endif %}
-      </div>
 
-      <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 class="text-lg font-semibold">Resumen de cotización</h2>
-        <dl class="mt-4 space-y-2 text-sm">
-          <div class="flex justify-between gap-4">
-            <dt class="text-slate-600">Precio del titular</dt>
-            <dd id="cotizacion-titular" class="font-medium text-slate-900">—</dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-slate-600">Adherentes (<span id="cotizacion-cantidad">0</span>)</dt>
-            <dd id="cotizacion-subtotal" class="font-medium text-slate-900">—</dd>
-          </div>
-          <div class="flex justify-between gap-4 border-t border-slate-200 pt-3 text-base">
-            <dt class="font-semibold text-slate-900">Total</dt>
-            <dd id="cotizacion-total" class="font-bold text-blue-700">—</dd>
-          </div>
-        </dl>
-      </div>
+        <div class="form-actions">
+          <button
+            type="button"
+            id="btn-volver-3"
+            class="btn btn--secondary"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            id="btn-confirmar"
+            disabled
+            class="btn btn--primary"
+          >
+            Confirmar venta
+          </button>
+        </div>
+      </section>
+    </form>
 
-      <div class="flex flex-wrap justify-between gap-3">
-        <button
-          type="button"
-          id="btn-volver-3"
-          class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          ← Volver
-        </button>
-        <button
-          type="button"
-          id="btn-confirmar"
-          disabled
-          class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          Confirmar venta
-        </button>
-      </div>
-    </section>
-  </form>
+    <aside id="resumen-legajo" class="legajo-summary" aria-label="Resumen del legajo">
+      <h2 class="legajo-summary__title">Resumen del legajo</h2>
+      <ul class="legajo-summary__list">
+        <li class="legajo-summary__item">
+          <span class="legajo-summary__label">Titular</span>
+          <span id="legajo-titular" class="legajo-summary__value">Titular sin cargar</span>
+        </li>
+        <li class="legajo-summary__item">
+          <span class="legajo-summary__label">Grupo familiar</span>
+          <span id="legajo-integrantes" class="legajo-summary__value">0 adherentes</span>
+        </li>
+        <li class="legajo-summary__item">
+          <span class="legajo-summary__label">Plan</span>
+          <span id="legajo-plan" class="legajo-summary__value">Plan sin elegir</span>
+        </li>
+      </ul>
+    </aside>
+  </div>
 
   {% include "comprobante.html" %}
 </main>

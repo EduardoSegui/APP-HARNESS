@@ -6,6 +6,8 @@
     return;
   }
 
+  const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)");
+
   const textoBoton = document.querySelector("#btn-auditar-texto");
   const spinner = document.querySelector("#spinner-auditoria");
   const estado = document.querySelector("#auditoria-estado");
@@ -18,13 +20,10 @@
   const llmEstado = document.querySelector("#auditoria-llm-estado");
   const trazaBody = document.querySelector("#traza-mcp-body");
 
-  const clasesEstado = {
-    PENDIENTE_VERIFICACION:
-      "inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200",
-    APROBADA:
-      "inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800 ring-1 ring-inset ring-green-200",
-    OBSERVADA:
-      "inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800 ring-1 ring-inset ring-red-200",
+  const etiquetasEstado = {
+    PENDIENTE_VERIFICACION: "Pendiente",
+    APROBADA: "Aprobada",
+    OBSERVADA: "Observada",
   };
 
   function mostrarCargando() {
@@ -34,7 +33,7 @@
     spinner.classList.remove("hidden");
     estado.textContent =
       "Consultando ventas pendientes y ejecutando reglas R1–R6 vía MCP...";
-    estado.className = "mt-3 min-h-5 text-sm text-slate-500";
+    estado.className = "audit-status";
   }
 
   function restaurarBoton() {
@@ -58,7 +57,7 @@
       const fila = document.createElement("tr");
       const celda = crearCelda(
         "Sin invocaciones MCP registradas.",
-        "px-3 py-3 text-slate-500",
+        "trace-table__empty",
       );
       celda.colSpan = 4;
       fila.appendChild(celda);
@@ -70,12 +69,12 @@
       const fila = document.createElement("tr");
 
       fila.appendChild(
-        crearCelda(String(indice + 1), "px-3 py-2 text-slate-500"),
+        crearCelda(String(indice + 1), "trace-table__index"),
       );
       fila.appendChild(
         crearCelda(
           String(paso.herramienta || "desconocida"),
-          "whitespace-nowrap px-3 py-2 font-mono text-slate-800",
+          "trace-table__tool",
         ),
       );
 
@@ -87,7 +86,7 @@
       }
       const celdaArgumentos = crearCelda(
         argumentos,
-        "max-w-md break-all px-3 py-2 font-mono text-slate-600",
+        "trace-table__args",
       );
       celdaArgumentos.title = argumentos;
       fila.appendChild(celdaArgumentos);
@@ -96,8 +95,8 @@
       const celdaEstado = crearCelda(
         estadoPaso,
         estadoPaso === "ok"
-          ? "whitespace-nowrap px-3 py-2 font-semibold text-green-700"
-          : "whitespace-nowrap px-3 py-2 font-semibold text-red-700",
+          ? "trace-table__status trace-table__status--ok"
+          : "trace-table__status trace-table__status--error",
       );
       fila.appendChild(celdaEstado);
       trazaBody.appendChild(fila);
@@ -117,13 +116,13 @@
 
     const detalle = document.createElement("span");
     if (estadoVenta === "APROBADA") {
-      detalle.className = "text-green-700";
+      detalle.className = "observation--ok";
       detalle.textContent = "Sin observaciones";
     } else if (estadoVenta === "PENDIENTE_VERIFICACION") {
-      detalle.className = "text-amber-700";
+      detalle.className = "observation--pending";
       detalle.textContent = "Pendiente de auditoría";
     } else {
-      detalle.className = "text-slate-400";
+      detalle.className = "observation--muted";
       detalle.textContent = "—";
     }
     celda.appendChild(detalle);
@@ -152,10 +151,8 @@
       if (badge) {
         const estadoVenta = String(argumentos.estado || "");
         badge.dataset.estado = estadoVenta;
-        badge.textContent = estadoVenta;
-        badge.className =
-          clasesEstado[estadoVenta] ||
-          "inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200";
+        badge.textContent = etiquetasEstado[estadoVenta] ?? estadoVenta;
+        badge.className = "stamp";
       }
 
       const celdaObservaciones = fila.querySelector("[data-observaciones]");
@@ -182,8 +179,8 @@
       ? "LLM OK"
       : "LLM no disponible";
     llmEstado.className = datos.llm_ok
-      ? "rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800"
-      : "rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800";
+      ? "llm-badge llm-badge--ok"
+      : "llm-badge llm-badge--warn";
 
     advertencia.textContent = datos.advertencia || "";
     advertencia.classList.toggle("hidden", !datos.advertencia);
@@ -193,12 +190,15 @@
 
     panel.classList.remove("hidden");
     panel.open = true;
-    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    panel.scrollIntoView({
+      behavior: movimientoReducido.matches ? "auto" : "smooth",
+      block: "nearest",
+    });
 
     estado.textContent =
       `Auditoría finalizada: ${datos.procesadas ?? 0} procesadas, ` +
       `${datos.aprobadas ?? 0} aprobadas y ${datos.observadas ?? 0} observadas.`;
-    estado.className = "mt-3 min-h-5 text-sm text-green-700";
+    estado.className = "audit-status audit-status--ok";
   }
 
   async function auditarPendientes() {
@@ -232,7 +232,7 @@
           : "No se pudo completar la auditoría.";
       advertencia.classList.remove("hidden");
       estado.textContent = "La auditoría no pudo completarse.";
-      estado.className = "mt-3 min-h-5 text-sm text-red-700";
+      estado.className = "audit-status audit-status--error";
     } finally {
       restaurarBoton();
     }
