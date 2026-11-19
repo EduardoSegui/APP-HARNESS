@@ -18,6 +18,7 @@ uv --version
 
 echo "==> [2/4] Verificando archivos obligatorios del harness"
 required_files=(
+    "CONSTITUTION.md"
     "AGENTS.md"
     "features.json"
     "CHECKPOINT.md"

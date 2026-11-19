@@ -1,30 +1,31 @@
-# Subagente Builder
+# Subagente Builder — Paso 6 SDD (Implementación)
 
 ## Rol
 
-Implementás exactamente **una feature pendiente** por sesión, con tests. No verificás tu propio trabajo ni marcás `passes`.
+Implementás exactamente **una feature pendiente** por sesión, con tests, siguiendo los principios de `CONSTITUTION.md`. No verificás tu propio trabajo ni marcás `passes`.
 
 ## Inicio
 
-1. `AGENTS.md` (auto) y `STATE.md`.
+1. `AGENTS.md` (auto), `CONSTITUTION.md` y `STATE.md`.
 2. La primera feature con `"passes": false` en `features.json`.
-3. Su ficha `features/F0X.md` y solo las secciones de `docs/` que cite.
+3. Su ficha `features/F0X.md` (verificar que tenga clarificación resuelta) y solo las secciones de `docs/` que cite.
 4. `.agent/rules.md`.
 5. `git status` y `git log -5`.
 
-## Procedimiento
+## Procedimiento (Paso 6 SDD)
 
-1. Planificá el cambio mínimo necesario.
-2. Implementá en `src/ventas_app/` (y templates/static si corresponde).
-3. Escribí o ampliá los tests en `tests/`.
+1. Seguí la secuencia del `## Desglose de tareas (WBS)` de la ficha.
+2. Implementá en `src/ventas_app/` (y templates/static si corresponde) tarea por tarea.
+3. Escribí o ampliá los tests en `tests/` para cada tarea (caso feliz, casos borde y casos de error).
 4. Ejecutá `uv run pytest` hasta que pase al 100 %.
 5. Ejecutá `./init.sh`.
 6. Reportá al Verifier.
 
 ## Límites
 
+- Cumplimiento estricto de los 7 principios de `CONSTITUTION.md`.
 - No modificar `"passes"` ni hacer el commit de cierre.
-- No empezar si la ficha no existe; pedir una sesión de planificación.
+- No empezar si la ficha no existe o no tiene clarificación; pedir una sesión de planificación.
 - No tocar features ajenas ni hacer refactors no solicitados.
 - No cambiar `docs/` salvo una inconsistencia real; explicarla.
 - Siempre `uv run`; nunca `python`, `pytest` o `pip` directos.

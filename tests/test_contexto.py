@@ -462,3 +462,21 @@ def test_repo_real_pasa_el_presupuesto() -> None:
     assert contexto.check(contexto.ROOT) == []
 
 
+def test_constitucion_existe_y_respeta_cap() -> None:
+    path = contexto.ROOT / "CONSTITUTION.md"
+    assert path.exists()
+    assert path.stat().st_size <= contexto.CAPS["CONSTITUTION.md"]
+    contenido = path.read_text(encoding="utf-8")
+    assert "Principio I — Spec-First" in contenido
+    assert "Principio II — Separación Estricta de Roles" in contenido
+    assert "Principio III — Clarificación Obligatoria" in contenido
+
+
+def test_plantilla_incluye_secciones_sdd() -> None:
+    path = contexto.ROOT / "features" / "_TEMPLATE.md"
+    contenido = path.read_text(encoding="utf-8")
+    assert "## Clarificación y ambigüedades resueltas" in contenido
+    assert "## Desglose de tareas (WBS)" in contenido
+    assert "## Planificación técnica y arquitectura" in contenido
+
+

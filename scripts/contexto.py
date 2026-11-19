@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 KEEP_SESSIONS = 2
 PACKET_CAP = 8 * 1024
 CAPS = {
+    "CONSTITUTION.md": 6 * 1024,
     "AGENTS.md": 6 * 1024,
     ".agent/rules.md": 4 * 1024,
     "STATE.md": 3 * 1024,
