@@ -1,13 +1,13 @@
 # AGENTS.md — Punto de entrada del harness
 
-Aplicación web de ventas de obra social: FastAPI + SQLAlchemy/SQLite + Jinja2, con servidor MCP local y Agente Auditor. El desarrollo se organiza en features atómicas y dos roles: Builder y Verifier.
+Aplicación web de ventas de obra social: FastAPI + SQLAlchemy/SQLite + Jinja2, con servidor MCP local y Agente Auditor. El desarrollo se rige bajo **Spec-Driven Development (SDD)** en 7 pasos (Constitución, Especificación, Clarificación, Planificación, Tareas, Implementación y Validación) con dos roles aislados: Builder y Verifier.
 
 ## Empezar una sesión
 
 1. Leé `STATE.md`: estado actual y próximo paso.
 2. Si hay una feature pendiente, leé solo su ficha `features/F0X.md` y las secciones de `docs/` que cite. Si no hay ficha, planificá antes de construir.
 3. Leé el rol que vas a ejercer: `.agent/subagents/builder.md` o `verifier.md`.
-4. Para el protocolo detallado: `.agent/rules.md`.
+4. Consultá `CONSTITUTION.md` para los principios inmutables y `.agent/rules.md` para el protocolo operativo.
 
 No leas `PRD.md`, `ARQUITECTURA.md` ni el historial completos. En OpenCode podés usar `/sesion` para inyectar `STATE.md` + `git status` + `git log -5`.
 
@@ -24,8 +24,9 @@ uv run python -m ventas_app.mcp_server
 uv run python -m ventas_app.auditor
 ```
 
-## Reglas duras
+## Reglas duras (Constitución Operativa)
 
+- Principios inmutables: cumplimiento estricto de `CONSTITUTION.md`.
 - Una feature por sesión: la primera con `"passes": false` en `features.json`.
 - No marcar `"passes": true` sin `./init.sh` + `uv run pytest` + prueba manual.
 - No adelantar features ni mezclar refactors ajenos.
@@ -33,6 +34,7 @@ uv run python -m ventas_app.auditor
 - No editar `ventas.db` a mano; no versionar secretos, bases ni artefactos.
 - No cambiar alcance sin actualizar antes `docs/` y `features.json`.
 - Sin ficha (`features/F0X.md`) no se construye: si no hay feature pendiente, se planifica; no se inventa alcance.
+- Toda feature nueva debe clarificar ambigüedades con el usuario antes de codificar.
 - Una ficha se crea desde `features/_TEMPLATE.md` y se registra en `features.json` con `"packet"`.
 - Al cerrar: `features.json`, `STATE.md` regenerado, bitácora, `./init.sh` y commit.
 
@@ -40,10 +42,11 @@ uv run python -m ventas_app.auditor
 
 | Necesitás | Leé |
 |---|---|
+| Constitución y principios inmutables | `CONSTITUTION.md` |
 | Estado actual y próximo paso | `STATE.md` |
 | Plan y progreso | `features.json` |
 | Ficha de la feature pendiente | `features/F0X.md` |
-| Plantilla de ficha | `features/_TEMPLATE.md` |
+| Plantilla de ficha SDD | `features/_TEMPLATE.md` |
 | Protocolo de sesión y cierre | `.agent/rules.md` |
 | Historia y decisiones | `docs/journal/` y `CHECKPOINT.md` (solo la entrada que necesites) |
 | Spec funcional | `docs/PRD.md`, solo la sección citada |

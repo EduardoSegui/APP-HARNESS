@@ -132,6 +132,7 @@ completa.
 
 ## Documentación
 
+- [CONSTITUTION.md](CONSTITUTION.md): principios inmutables y gobernanza SDD.
 - [PRD](docs/PRD.md): especificación funcional de las 3 etapas y reglas de auditoría.
 - [Arquitectura](docs/ARQUITECTURA.md): diseño técnico, modelo de datos y flujo de estados.
 - [Índice de documentación](docs/INDEX.md): mapa de temas a secciones.
@@ -141,7 +142,7 @@ completa.
 - [CHECKPOINT.md](CHECKPOINT.md): ventana de las últimas 2 sesiones.
 - [Bitácora histórica](docs/journal/2026.md): sesiones anteriores.
 - [features.json](features.json): plan atómico F01–F12.
-- [Plantilla de ficha](features/_TEMPLATE.md): secciones mínimas para planificar una feature.
+- [Plantilla de ficha](features/_TEMPLATE.md): plantilla SDD para planificar features.
 
 ## Estado
 

@@ -46,14 +46,15 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 
 | Tema | Dónde |
 |---|---|
+| Constitución y principios SDD | `CONSTITUTION.md` |
 | Estado actual y próximo paso | `STATE.md` |
 | Plan y progreso | `features.json` |
 | Reglas duras | `AGENTS.md` |
-| Protocolo de sesión y cierre | `.agent/rules.md` |
-| Rol Builder | `.agent/subagents/builder.md` |
-| Rol Verifier | `.agent/subagents/verifier.md` |
+| Protocolo de sesión y ciclo SDD | `.agent/rules.md` |
+| Rol Builder (Paso 6 SDD) | `.agent/subagents/builder.md` |
+| Rol Verifier (Paso 7 SDD) | `.agent/subagents/verifier.md` |
 | Ficha de la feature pendiente | `features/F0X.md` |
-| Plantilla de ficha | `features/_TEMPLATE.md` |
+| Plantilla de ficha SDD | `features/_TEMPLATE.md` |
 | Cómo planificar una feature | `.agent/rules.md` §Planificación |
 | Historia completa | `docs/journal/` |
 | Ventana reciente | `CHECKPOINT.md` |
