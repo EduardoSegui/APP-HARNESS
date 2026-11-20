@@ -327,6 +327,8 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 - La Etapa 1 incorpora la DDJJ de salud (F16): panel de respuestas Sí/No obligatorias, descripción condicional y confirmación expresa. La Etapa 3 incorpora régimen, CUIL y aportes (F17).
 - Al finalizar, pantalla de comprobante con los datos de la venta, medio de pago, instrumento enmascarado, subtotal, descuento, aporte y total a pagar.
 - F15 agrega el modo edición del wizard para ventas pendientes u observadas, con navegación libre entre etapas.
+- F21 unifica el rail y el resumen en una columna sticky y permite navegar libremente por las tres etapas en alta y edición. Cada etapa muestra check verde si sus obligatorios están completos; la validación completa se ejecuta al confirmar.
+- El checkbox de confirmación de la DDJJ es un control estándar alineado con su etiqueta.
 
 ### 10.2 Panel de ventas
 
@@ -356,8 +358,10 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 
 - Ruta: `GET /dashboard`, con filtros de fecha (`desde`, `hasta`) y plan.
 - KPIs: ventas por estado, tasa de aprobación/observación, titulares y adherentes cubiertos, MRR bruto, descuentos, aportes, recaudación neta y tickets promedio.
-- Distribuciones por plan, medio de pago y régimen, más ranking de motivos `R1`–`R8`.
-- Exportaciones `GET /api/exportar/padron` y `GET /api/exportar/cobranzas` en CSV/JSON, solo con ventas aprobadas y datos de instrumento enmascarados.
+- F22 separa los KPIs en embudo/auditoría/cobertura y finanzas; las distribuciones muestran porcentaje y barra de proporción.
+- Los motivos `R1`–`R8` se muestran en grilla compacta de dos columnas, atenuando las reglas sin incidencias.
+- El tablero agrega filtro **Estado** y las exportaciones respetan `desde`, `hasta`, `plan_id` y `estado`; sin estado explícito se exporta el padrón aprobado.
+- Exportaciones `GET /api/exportar/padron` y `GET /api/exportar/cobranzas` en CSV/JSON, con datos de instrumento enmascarados.
 - El CSV usa UTF-8, separador `;` y encabezados en español; no incluye PAN/CVV ni detalle de salud.
 
 ---

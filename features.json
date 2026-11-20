@@ -129,6 +129,20 @@
       "descripcion": "KPIs ejecutivos, métricas JSON y exportación CSV/JSON de padrón y cobranzas con datos enmascarados.",
       "packet": "features/F19.md",
       "passes": true
+    },
+    {
+      "id": "F21",
+      "titulo": "Wizard con sticky rail y navegación libre",
+      "descripcion": "Columna lateral sticky, navegación libre por las tres etapas, indicadores de completitud y checkbox DDJJ corregido.",
+      "packet": "features/F21.md",
+      "passes": false
+    },
+    {
+      "id": "F22",
+      "titulo": "Tablero con KPIs, barras y filtros de exportación",
+      "descripcion": "KPIs separados, porcentajes y barras de proporción, grilla compacta de motivos y exportaciones sincronizadas con filtros.",
+      "packet": "features/F22.md",
+      "passes": false
     }
   ]
 }

@@ -457,6 +457,7 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 - **Adherentes dinámicos:** agregar crea un objeto con ID temporal; eliminar lo quita del array y del DOM; el contador se actualiza.
 - La Etapa 3 exige elegir un plan y un medio de pago. Si el medio es tarjeta/CBU, muestra el subformulario de instrumento (F14). La cotización se calcula en el cliente como vista previa, con el mismo redondeo half-up del backend. Al confirmar, se envía el payload a `POST /api/ventas` (o `PUT` en edición) y se usa el total devuelto por el servidor.
 - La Etapa 1 incorpora la DDJJ de salud (F16/F20) con respuestas Sí/No explícitas y descripción condicional; la Etapa 3 incorpora régimen, CUIL y aporte (F17).
+- F21 agrupa rail y resumen en `#wizard-sidebar` sticky; `pasoCompleto()` calcula checks silenciosos y la navegación entre pasos es libre. La confirmación final valida los tres pasos.
 - El comprobante final muestra ID, fecha, titular, plan, medio de pago, instrumento enmascarado, adherentes, subtotal, descuento, aporte, total y estado inicial.
 - Tailwind se carga por CDN; no hay build de frontend.
 
@@ -476,10 +477,10 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 ### 9.3 Tablero ejecutivo (F19)
 
 - `GET /dashboard` consulta `services/metricas.py` con filtros de fecha y plan.
-- KPIs: ventas por estado, tasas, personas cubiertas, MRR bruto, descuentos, aportes, recaudación neta y tickets promedio.
-- Distribuciones por plan, medio de pago y régimen; ranking de motivos `R1`–`R8`.
-- `GET /api/metricas` expone el mismo agregado en JSON.
-- `GET /api/exportar/padron` y `/cobranzas` generan CSV/JSON con ventas aprobadas y datos de pago enmascarados.
+- F22 separa los KPIs en embudo/auditoría/cobertura y finanzas.
+- Distribuciones por plan, medio de pago y régimen con porcentaje y barra CSS; motivos `R1`–`R8` en grilla compacta.
+- `GET /api/metricas` expone el mismo agregado en JSON y acepta `estado`.
+- `GET /api/exportar/padron` y `/cobranzas` respetan `desde`, `hasta`, `plan_id` y `estado`; sin estado explícito usan aprobadas.
 - El tablero es responsive y los filtros conservan fecha/plan.
 
 ---
