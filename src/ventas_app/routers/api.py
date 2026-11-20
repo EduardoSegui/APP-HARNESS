@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any
+from datetime import date
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from ventas_app.auditor import ejecutar_auditoria
@@ -14,12 +15,15 @@ from ventas_app.models import Venta
 from ventas_app.schemas import (
     AuditoriaOut,
     EventoOut,
+    MetricasOut,
     PaginaVentasOut,
     VentaIn,
     VentaOut,
     VentaUpdateIn,
 )
 from ventas_app.services.eventos import listar_eventos
+from ventas_app.services.exportacion import generar_exportacion
+from ventas_app.services.metricas import calcular_metricas
 from ventas_app.services.ventas import (
     AporteInvalidoError,
     DatosPagoInvalidosError,
@@ -75,6 +79,63 @@ def crear_venta_endpoint(payload: VentaIn, db: SessionDep) -> Venta:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
+
+
+@router.get("/metricas", response_model=MetricasOut)
+def metricas_endpoint(
+    db: SessionDep,
+    desde: date | None = None,
+    hasta: date | None = None,
+    plan_id: int | None = None,
+) -> MetricasOut:
+    """Devuelve las métricas ejecutivas del negocio."""
+    try:
+        return MetricasOut.model_validate(
+            calcular_metricas(
+                db,
+                desde=desde,
+                hasta=hasta,
+                plan_id=plan_id,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get("/exportar/{tipo}")
+def exportar_endpoint(
+    tipo: Literal["padron", "cobranzas"],
+    db: SessionDep,
+    formato: Literal["csv", "json"] = "csv",
+    desde: date | None = None,
+    hasta: date | None = None,
+    plan_id: int | None = None,
+) -> Response:
+    """Exporta el padrón aprobado o el lote de cobranzas."""
+    try:
+        contenido, media_type, nombre = generar_exportacion(
+            db,
+            tipo=tipo,
+            formato=formato,
+            desde=desde,
+            hasta=hasta,
+            plan_id=plan_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    return Response(
+        content=contenido,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{nombre}"',
+        },
+    )
 
 
 @router.get("/ventas", response_model=PaginaVentasOut)

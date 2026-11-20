@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Tablero | Ventas Obra Social{% endblock %}
+
+{% block content %}
+<main class="app-main">
+  <div class="page-head">
+    <div class="page-head__main">
+      <p class="page-context">Tablero ejecutivo</p>
+      <h1 class="page-title">Gestión del padrón</h1>
+      <p class="page-sub">
+        Foto del embudo de altas, cobertura, recaudación y calidad de auditoría.
+      </p>
+    </div>
+    <div class="page-head__actions">
+      <a href="/api/exportar/padron?formato=csv" class="btn btn--secondary">Exportar padrón CSV</a>
+      <a href="/api/exportar/cobranzas?formato=csv" class="btn btn--secondary">Exportar cobranzas CSV</a>
+    </div>
+  </div>
+
+  <form method="get" action="/dashboard" class="filter-panel" aria-label="Filtros del tablero">
+    <div class="filter-grid filter-grid--dashboard">
+      <div class="field">
+        <label for="dashboard-desde" class="field-label">Desde</label>
+        <input id="dashboard-desde" name="desde" type="date" value="{{ filtros.desde }}" class="field-input">
+      </div>
+      <div class="field">
+        <label for="dashboard-hasta" class="field-label">Hasta</label>
+        <input id="dashboard-hasta" name="hasta" type="date" value="{{ filtros.hasta }}" class="field-input">
+      </div>
+      <div class="field">
+        <label for="dashboard-plan" class="field-label">Plan</label>
+        <select id="dashboard-plan" name="plan_id" class="field-select">
+          <option value="">Todos</option>
+          {% for plan in planes %}
+          <option value="{{ plan.id }}"{% if filtros.plan_id == plan.id %} selected{% endif %}>{{ plan.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn--primary">Aplicar</button>
+        <a href="/dashboard" class="btn btn--quiet">Limpiar</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="dashboard-grid">
+    <article class="kpi-card">
+      <p class="kpi-card__label">Ventas</p>
+      <p class="kpi-card__value">{{ metricas.total_ventas }}</p>
+      <p class="kpi-card__meta">{{ metricas.pendientes }} pendientes · {{ metricas.observadas }} observadas</p>
+    </article>
+    <article class="kpi-card kpi-card--ok">
+      <p class="kpi-card__label">Aprobadas</p>
+      <p class="kpi-card__value">{{ metricas.aprobadas }}</p>
+      <p class="kpi-card__meta">{{ metricas.tasa_aprobacion }}% del total</p>
+    </article>
+    <article class="kpi-card">
+      <p class="kpi-card__label">Personas cubiertas</p>
+      <p class="kpi-card__value">{{ metricas.personas_cubiertas }}</p>
+      <p class="kpi-card__meta">{{ metricas.titulares_cubiertos }} titulares · {{ metricas.adherentes_cubiertos }} adherentes</p>
+    </article>
+    <article class="kpi-card kpi-card--money">
+      <p class="kpi-card__label">MRR bruto</p>
+      <p class="kpi-card__value">{{ metricas.mrr_bruto | pesos }}</p>
+      <p class="kpi-card__meta">Descuentos {{ metricas.descuentos | pesos }} · aportes {{ metricas.aportes | pesos }}</p>
+    </article>
+    <article class="kpi-card kpi-card--money">
+      <p class="kpi-card__label">Recaudación neta</p>
+      <p class="kpi-card__value">{{ metricas.recaudacion_neta | pesos }}</p>
+      <p class="kpi-card__meta">Ticket promedio {{ metricas.ticket_promedio | pesos }}</p>
+    </article>
+    <article class="kpi-card">
+      <p class="kpi-card__label">Ticket por persona</p>
+      <p class="kpi-card__value">{{ metricas.ticket_promedio_persona | pesos }}</p>
+      <p class="kpi-card__meta">Tasa de observación {{ metricas.tasa_observacion }}%</p>
+    </article>
+  </div>
+
+  <div class="dashboard-tables">
+    <section class="sheet">
+      <div class="sheet__head">
+        <div>
+          <h2 class="sheet__title">Distribución por plan</h2>
+          <p class="sheet__hint">Solo ventas aprobadas.</p>
+        </div>
+      </div>
+      {% if metricas.por_plan %}
+      <table class="dashboard-table">
+        <thead><tr><th>Plan</th><th class="ledger__th--right">Afiliados</th><th class="ledger__th--right">Total</th></tr></thead>
+        <tbody>
+          {% for fila in metricas.por_plan %}
+          <tr><td>{{ fila.etiqueta }}</td><td class="ledger__th--right">{{ fila.cantidad }}</td><td class="ledger__th--right">{{ fila.total | pesos }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty-inline">Sin ventas aprobadas para el período.</p>
+      {% endif %}
+    </section>
+
+    <section class="sheet">
+      <div class="sheet__head">
+        <div>
+          <h2 class="sheet__title">Medios de pago</h2>
+          <p class="sheet__hint">Ventas aprobadas y total bonificado.</p>
+        </div>
+      </div>
+      {% if metricas.por_medio_pago %}
+      <table class="dashboard-table">
+        <thead><tr><th>Medio</th><th class="ledger__th--right">Afiliados</th><th class="ledger__th--right">Total</th></tr></thead>
+        <tbody>
+          {% for fila in metricas.por_medio_pago %}
+          <tr><td>{{ fila.etiqueta }}</td><td class="ledger__th--right">{{ fila.cantidad }}</td><td class="ledger__th--right">{{ fila.total | pesos }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty-inline">Sin datos.</p>
+      {% endif %}
+    </section>
+
+    <section class="sheet">
+      <div class="sheet__head">
+        <div>
+          <h2 class="sheet__title">Regímenes</h2>
+          <p class="sheet__hint">Particulares y desregulados aprobados.</p>
+        </div>
+      </div>
+      {% if metricas.por_regimen %}
+      <table class="dashboard-table">
+        <thead><tr><th>Régimen</th><th class="ledger__th--right">Afiliados</th><th class="ledger__th--right">Total</th></tr></thead>
+        <tbody>
+          {% for fila in metricas.por_regimen %}
+          <tr><td>{{ fila.etiqueta }}</td><td class="ledger__th--right">{{ fila.cantidad }}</td><td class="ledger__th--right">{{ fila.total | pesos }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty-inline">Sin datos.</p>
+      {% endif %}
+    </section>
+
+    <section class="sheet">
+      <div class="sheet__head">
+        <div>
+          <h2 class="sheet__title">Motivos de observación</h2>
+          <p class="sheet__hint">Ranking de reglas R1–R8 en ventas observadas.</p>
+        </div>
+      </div>
+      <table class="dashboard-table">
+        <thead><tr><th>Regla</th><th class="ledger__th--right">Ventas</th></tr></thead>
+        <tbody>
+          {% for motivo in metricas.motivos_observacion %}
+          <tr><td>{{ motivo.codigo }}</td><td class="ledger__th--right">{{ motivo.cantidad }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+</main>
+{% endblock %}

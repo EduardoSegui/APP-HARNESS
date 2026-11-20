@@ -40,6 +40,13 @@
         >
           Panel
         </a>
+        <a
+          href="/dashboard"
+          class="app-nav__link{% if request.url.path == '/dashboard' %} app-nav__link--active{% endif %}"
+          {% if request.url.path == '/dashboard' %}aria-current="page"{% endif %}
+        >
+          Tablero
+        </a>
       </nav>
 
       <span class="app-header__note">Uso interno</span>

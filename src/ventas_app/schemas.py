@@ -440,3 +440,45 @@ class PaginaVentasOut(BaseModel):
     pagina: int
     por_pagina: int
     total_paginas: int
+
+
+class DistribucionOut(BaseModel):
+    """Agrupación de ventas para el tablero."""
+
+    etiqueta: str
+    cantidad: int
+    total: int
+
+
+class MotivoObservacionOut(BaseModel):
+    """Cantidad de ventas observadas por código de regla."""
+
+    codigo: str
+    cantidad: int
+
+
+class MetricasOut(BaseModel):
+    """Métricas del tablero ejecutivo."""
+
+    desde: date | None
+    hasta: date | None
+    plan_id: int | None
+    total_ventas: int
+    pendientes: int
+    aprobadas: int
+    observadas: int
+    tasa_aprobacion: float
+    tasa_observacion: float
+    titulares_cubiertos: int
+    adherentes_cubiertos: int
+    personas_cubiertas: int
+    mrr_bruto: int
+    descuentos: int
+    aportes: int
+    recaudacion_neta: int
+    ticket_promedio: float
+    ticket_promedio_persona: float
+    por_plan: list[DistribucionOut]
+    por_medio_pago: list[DistribucionOut]
+    por_regimen: list[DistribucionOut]
+    motivos_observacion: list[MotivoObservacionOut]

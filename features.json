@@ -128,7 +128,7 @@
       "titulo": "Tablero analítico y exportación",
       "descripcion": "KPIs ejecutivos, métricas JSON y exportación CSV/JSON de padrón y cobranzas con datos enmascarados.",
       "packet": "features/F19.md",
-      "passes": false
+      "passes": true
     }
   ]
 }

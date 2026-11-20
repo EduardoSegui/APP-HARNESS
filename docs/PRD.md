@@ -352,6 +352,14 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 - Las ventas aprobadas tienen **Credencial provisoria** imprimible, sin datos de salud ni instrumentos de pago.
 - F19 agrega un tablero ejecutivo en `/dashboard` con KPIs y exportaciones CSV/JSON de padrón y cobranzas.
 
+### 10.3 Tablero ejecutivo
+
+- Ruta: `GET /dashboard`, con filtros de fecha (`desde`, `hasta`) y plan.
+- KPIs: ventas por estado, tasa de aprobación/observación, titulares y adherentes cubiertos, MRR bruto, descuentos, aportes, recaudación neta y tickets promedio.
+- Distribuciones por plan, medio de pago y régimen, más ranking de motivos `R1`–`R8`.
+- Exportaciones `GET /api/exportar/padron` y `GET /api/exportar/cobranzas` en CSV/JSON, solo con ventas aprobadas y datos de instrumento enmascarados.
+- El CSV usa UTF-8, separador `;` y encabezados en español; no incluye PAN/CVV ni detalle de salud.
+
 ---
 
 ## 11. API y contrato mínimo

@@ -19,6 +19,7 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Reglas de auditoría R1–R8 | `docs/PRD.md` §9 |
 | Edición y reapertura de legajos | `docs/PRD.md` §8, §10.2 |
 | Buscador, filtros, linaje y credencial | `docs/PRD.md` §10.2, §11; `docs/ARQUITECTURA.md` §5.6, §9.2 |
+| Tablero ejecutivo y exportaciones | `docs/PRD.md` §10.3, §11; `docs/ARQUITECTURA.md` §8.1, §9.3 |
 | Interfaz web (wizard y panel) | `docs/PRD.md` §10 |
 | API y contrato de auditoría | `docs/PRD.md` §11 |
 | Capa MCP y Agente Auditor | `docs/PRD.md` §12 |

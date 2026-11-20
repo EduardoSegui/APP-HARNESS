@@ -89,18 +89,21 @@ src/ventas_app/
 │   ├── ventas.py                # F03: creación atómica y consulta
 │   ├── pricing.py               # F03: cálculo de precio_total
 │   ├── eventos.py               # F18: linaje de ventas
+│   ├── metricas.py              # F19: agregados del tablero
+│   ├── exportacion.py           # F19: CSV/JSON de padrón y cobranzas
 │   └── estados.py               # F06/F07: transiciones válidas
 ├── routers/
 │   ├── __init__.py
-│   ├── api.py                   # F03/F08: /api/ventas y /api/auditar
-│   └── web.py                   # F04/F05: /, /ventas
+│   ├── api.py                   # F03/F08/F18/F19: ventas, auditoría, métricas y exportaciones
+│   └── web.py                   # F04/F05/F18/F19: /, /ventas, /dashboard
 ├── templates/
 │   ├── base.html                # F04
 │   ├── wizard.html              # F04/F15: alta y edición
 │   ├── comprobante.html         # F04
 │   ├── panel.html               # F05/F08/F15/F18: panel, filtros y acciones
 │   ├── legajo.html              # F15/F18: ficha y línea de tiempo
-│   └── credencial.html          # F18: credencial provisoria
+│   ├── credencial.html          # F18: credencial provisoria
+│   └── dashboard.html           # F19: tablero ejecutivo
 ├── static/
 │   ├── js/wizard.js             # F04: estado, adherentes, fetch
 │   └── js/auditoria.js          # F08: auditoría en vivo y traza MCP
@@ -469,6 +472,15 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
   - Actualiza en el DOM el badge y las observaciones de cada venta procesada usando los argumentos de `actualizar_estado_venta` de la traza.
   - Si la petición falla, muestra un mensaje controlado sin romper la tabla.
 - El JavaScript se carga desde `static/js/auditoria.js`; no hay build de frontend.
+
+### 9.3 Tablero ejecutivo (F19)
+
+- `GET /dashboard` consulta `services/metricas.py` con filtros de fecha y plan.
+- KPIs: ventas por estado, tasas, personas cubiertas, MRR bruto, descuentos, aportes, recaudación neta y tickets promedio.
+- Distribuciones por plan, medio de pago y régimen; ranking de motivos `R1`–`R8`.
+- `GET /api/metricas` expone el mismo agregado en JSON.
+- `GET /api/exportar/padron` y `/cobranzas` generan CSV/JSON con ventas aprobadas y datos de pago enmascarados.
+- El tablero es responsive y los filtros conservan fecha/plan.
 
 ---
 

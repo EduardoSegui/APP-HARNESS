@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
@@ -23,6 +24,7 @@ from ventas_app.models import (
 )
 from ventas_app.schemas import VentaOut
 from ventas_app.services.eventos import listar_eventos
+from ventas_app.services.metricas import calcular_metricas
 from ventas_app.services.ventas import (
     VentaNoEncontradaError,
     buscar_ventas,
@@ -173,6 +175,65 @@ def mostrar_panel_ventas(
                 if pagina < total_paginas
                 else None
             ),
+        },
+    )
+
+
+def _parse_fecha_filtro(valor: str | None, nombre: str) -> date | None:
+    if not valor:
+        return None
+    try:
+        return date.fromisoformat(valor)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La fecha '{nombre}' no es válida.",
+        ) from exc
+
+
+@router.get("/dashboard", response_class=HTMLResponse, name="dashboard")
+def mostrar_dashboard(
+    request: Request,
+    db: SessionDep,
+    desde: str | None = None,
+    hasta: str | None = None,
+    plan_id: str | None = None,
+) -> HTMLResponse:
+    """Renderiza el tablero ejecutivo con filtros de fecha y plan."""
+    fecha_desde = _parse_fecha_filtro(desde, "desde")
+    fecha_hasta = _parse_fecha_filtro(hasta, "hasta")
+    plan_id_valor: int | None = None
+    if plan_id:
+        try:
+            plan_id_valor = int(plan_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="El plan de filtro no es válido.",
+            ) from exc
+
+    try:
+        metricas = calcular_metricas(
+            db,
+            desde=fecha_desde,
+            hasta=fecha_hasta,
+            plan_id=plan_id_valor,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    planes = list(db.scalars(select(Plan).order_by(Plan.id)).all())
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html",
+        context={
+            "metricas": metricas,
+            "planes": planes,
+            "filtros": {
+                "desde": desde or "",
+                "hasta": hasta or "",
+                "plan_id": plan_id_valor,
+            },
         },
     )
 
