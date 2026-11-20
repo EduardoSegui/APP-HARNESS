@@ -347,9 +347,10 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
   - Actualiza en pantalla el estado y las observaciones de las ventas procesadas.
 - Estado vacío explícito cuando no hay ventas.
 - F15 agrega la acción **Editar legajo** para ventas pendientes u observadas y **Ver legajo** en modo lectura para aprobadas.
-- F18 enriquece la ficha con buscador, filtros, línea de tiempo y credencial provisoria.
+- F18 agrega buscador por DNI/nombre/apellido, filtros por estado, plan, medio de pago y régimen, y paginación de 20 resultados.
+- La ficha del legajo muestra el desglose, adherentes, DDJJ resumida, régimen y una **línea de tiempo** inmutable de creación, edición y auditoría.
+- Las ventas aprobadas tienen **Credencial provisoria** imprimible, sin datos de salud ni instrumentos de pago.
 - F19 agrega un tablero ejecutivo en `/dashboard` con KPIs y exportaciones CSV/JSON de padrón y cobranzas.
-- La paginación se incorpora junto con los filtros para mantener el panel operativo.
 
 ---
 
@@ -359,7 +360,9 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 |---|---|---|---|
 | `GET` | `/health` | Healthcheck: `{"status": "ok"}`. | F01 |
 | `POST` | `/api/ventas` | Crea una venta completa, calcula el total y devuelve el comprobante. | F03 |
+| `GET` | `/api/ventas` | Lista paginada con búsqueda y filtros por estado, plan, medio y régimen. | F18 |
 | `GET` | `/api/ventas/{id}` | Devuelve el detalle de una venta con integrantes y plan. | F03 |
+| `GET` | `/api/ventas/{id}/eventos` | Devuelve el linaje inmutable de la venta. | F18 |
 | `PUT` | `/api/ventas/{id}` | Reemplaza un legajo pendiente/observado, recalcula y reabre la auditoría. | F15 |
 | `POST` | `/api/auditar` | Ejecuta el auditor sobre las ventas pendientes y devuelve resultados y traza MCP. | F08 |
 | `GET` | `/api/metricas` | Devuelve KPIs y distribuciones del negocio. | F19 |

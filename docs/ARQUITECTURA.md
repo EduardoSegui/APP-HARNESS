@@ -88,6 +88,7 @@ src/ventas_app/
 │   ├── __init__.py
 │   ├── ventas.py                # F03: creación atómica y consulta
 │   ├── pricing.py               # F03: cálculo de precio_total
+│   ├── eventos.py               # F18: linaje de ventas
 │   └── estados.py               # F06/F07: transiciones válidas
 ├── routers/
 │   ├── __init__.py
@@ -97,8 +98,9 @@ src/ventas_app/
 │   ├── base.html                # F04
 │   ├── wizard.html              # F04/F15: alta y edición
 │   ├── comprobante.html         # F04
-│   ├── panel.html               # F05/F08/F15: panel, auditoría y acciones
-│   └── legajo.html              # F15: ficha de lectura
+│   ├── panel.html               # F05/F08/F15/F18: panel, filtros y acciones
+│   ├── legajo.html              # F15/F18: ficha y línea de tiempo
+│   └── credencial.html          # F18: credencial provisoria
 ├── static/
 │   ├── js/wizard.js             # F04: estado, adherentes, fetch
 │   └── js/auditoria.js          # F08: auditoría en vivo y traza MCP
@@ -355,17 +357,18 @@ La validación de transiciones de auditoría se centraliza en `services/estados.
 10. Crear Venta con estado=PENDIENTE_VERIFICACION, desglose, DDJJ y observaciones=null.
 11. flush() para obtener venta.id.
 12. Crear Integrante para cada adherente con venta_id.
-13. commit().
-14. Refrescar y devolver el comprobante (HTTP 201).
+13. Registrar evento CREADA en `venta_eventos` (misma transacción).
+14. commit().
+15. Refrescar y devolver el comprobante (HTTP 201).
 
-Si cualquier paso 4–12 falla:
+Si cualquier paso 4–13 falla:
     rollback()
     devolver error controlado (400/422/500), sin filas parciales.
 ```
 
 El payload del cliente incluye `medio_pago`, `tarjeta`/`cbu` cuando corresponde, DDJJ de salud, régimen, CUIL y `aporte_estimado`. No incluye `pago_*`, `subtotal_base`, `descuento_porcentaje`, `base_bonificada`, `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se rechazan por configuración de Pydantic (`extra="forbid"`).
 
-`PUT /api/ventas/{id}` (F15) reutiliza el mismo algoritmo, elimina los integrantes anteriores y crea los nuevos dentro de la transacción. Si la venta está `APROBADA`, devuelve `409` antes de modificar nada.
+`PUT /api/ventas/{id}` (F15) reutiliza el mismo algoritmo, elimina los integrantes anteriores y crea los nuevos dentro de la transacción. Si la venta está `APROBADA`, devuelve `409` antes de modificar nada. Las ediciones registran `EDITADA`; las transiciones MCP registran `AUDITADA_APROBADA` o `AUDITADA_OBSERVADA` en la misma transacción.
 
 ---
 
@@ -377,7 +380,9 @@ El payload del cliente incluye `medio_pago`, `tarjeta`/`cbu` cuando corresponde,
 |---|---|---|---|
 | `GET` | `/health` | F01 | `{"status": "ok"}` |
 | `POST` | `/api/ventas` | F03 | `201` + comprobante completo. |
+| `GET` | `/api/ventas` | F18 | `200` + página filtrada de ventas. |
 | `GET` | `/api/ventas/{id}` | F03 | `200` + detalle; `404` si no existe. |
+| `GET` | `/api/ventas/{id}/eventos` | F18 | `200` + linaje; `404` si no existe. |
 | `PUT` | `/api/ventas/{id}` | F15 | `200` + legajo actualizado; `404`/`409`/`422`. |
 | `POST` | `/api/auditar` | F08 | `200` + resultado estructurado y traza MCP. |
 | `GET` | `/api/metricas` | F19 | KPIs y distribuciones en JSON. |

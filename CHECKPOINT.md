@@ -3,28 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 16 — F17: régimen de afiliación, CUIL y aportes
-
----
-feature: F17
-fecha: 2026-11-20
-tests: 338 passed
-harness: OK
-commit: feat(F17): régimen de afiliación, CUIL y aportes
----
-
-**Fecha:** 2026-11-20
-
-**Rol:** Verifier (Builder en sesión previa). **Feature:** F17 — Régimen de afiliación, CUIL y aportes estimados. **Estado:** verificada y aprobada.
-
-`Venta` persiste `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` y `aporte_estimado`; `POST`/`PUT` validan CUIL de 11 dígitos para desregulados, aporte 0 para particulares y aporte ≤ base bonificada. El pricing calcula `base_bonificada = subtotal - descuento` y `precio_total = max(0, base_bonificada - aporte)`. R8 observa régimen inválido, CUIL faltante/incorrecto y aporte excesivo; R5 descuenta el aporte del total esperado. El wizard muestra CUIL/aporte solo para desregulados; panel, legajo y comprobante exhiben régimen y aporte, con CUIL enmascarado.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 338 passed; `node --check wizard.js` → OK. Prueba manual con TestClient sobre copia temporal de `ventas.db`: particular 45.000, relación de dependencia 45.000−20.000=25.000, monotributo con aporte igual a la base → total 0; 422 por particular con aporte, desregulado sin CUIL, CUIL inválido y aporte > base; PUT F15 cambia régimen/aporte y recalcula; R5/R8 observan; panel/legajo/comprobante OK. Migración con hijos: 7 ventas y 3 integrantes antes/después, ids conservados, CHECK `>= 0`, índices y FKs intactos, `PRAGMA foreign_key_check` vacío, idempotente. `ventas.db` real sin modificar.
-
-**Decisión:** el fix de migración respalda y reinserta `integrantes` antes/después del `DROP TABLE ventas`, porque el cascade de SQLite elimina los hijos aunque las FKs estén diferidas.
-
-**Próximo paso:** F18 — Buscador, filtros, linaje y credencial — packet: `features/F18.md`.
-
 ## Sesión 17 — F20: DDJJ con respuestas Sí/No y detalle condicional
 
 ---
@@ -46,3 +24,25 @@ La DDJJ usa cinco `fieldset` con radios Sí/No (`si`/`no`), estado JS `true`/`fa
 **Decisión:** el backend mantiene el contrato de F16; F20 cambia solo la experiencia y la validación de completitud en la UI.
 
 **Próximo paso:** F18 — Buscador, filtros, linaje y credencial — packet: `features/F18.md`.
+
+## Sesión 18 — F18: buscador, filtros, linaje y credencial
+
+---
+feature: F18
+fecha: 2026-11-20
+tests: 351 passed
+harness: OK
+commit: feat(F18): buscador, filtros, linaje y credencial
+---
+
+**Fecha:** 2026-11-20
+
+**Rol:** Verifier. **Feature:** F18 — Buscador, filtros, linaje y credencial. **Estado:** verificada y aprobada.
+
+Panel `GET /ventas` con `q` por DNI/nombre/apellido, filtros combinables por estado, plan, medio de pago y régimen, paginación de 20 y filtros preservados en formulario y links. `VentaEvento` registra CREADA/EDITADA/AUDITADA_APROBADA/AUDITADA_OBSERVADA con estados anterior/nuevo, detalle, actor y timestamp en la misma transacción; ficha con timeline; credencial provisoria solo para aprobadas, sin salud ni instrumentos de pago. API `GET /api/ventas` y `/api/ventas/{id}/eventos` con 422/404 defensivos.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 351 passed. Smoke con TestClient sobre base temporal: búsqueda DNI/apellido, filtros combinados preservados, 23 ventas en 2 páginas, eventos en orden con actores operador/auditor, rollback de edición sin evento falso, timeline, credencial aprobada sin DDJJ/tarjeta/CBU/CUIL y 404 para pendiente/observada, API filtrada y 422. Copia de `ventas.db`: `venta_eventos` creada con índices/CHECK, 7 ventas y 3 integrantes preservados; F17 intacto. `ventas.db` real sin modificar.
+
+**Decisión:** la credencial usa `OS-{id:06d}` y la fecha de emisión es `actualizado_en`; los eventos se ordenan por `creado_en DESC, id DESC` para desempatar.
+
+**Próximo paso:** F19 — Tablero analítico y exportación — packet: `features/F19.md`.

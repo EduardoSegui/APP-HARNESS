@@ -4,19 +4,28 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ventas_app.database import get_db
-from ventas_app.models import EstadoVenta, Parentesco, Plan, Venta
+from ventas_app.models import (
+    EstadoVenta,
+    MedioPago,
+    Parentesco,
+    Plan,
+    RegimenAfiliacion,
+    Venta,
+)
 from ventas_app.schemas import VentaOut
+from ventas_app.services.eventos import listar_eventos
 from ventas_app.services.ventas import (
     VentaNoEncontradaError,
-    listar_ventas,
+    buscar_ventas,
     obtener_venta,
 )
 
@@ -86,13 +95,85 @@ def mostrar_wizard(request: Request, db: SessionDep) -> HTMLResponse:
     )
 
 
+def _url_panel(filtros: dict[str, object], pagina: int) -> str:
+    parametros = {
+        clave: valor
+        for clave, valor in filtros.items()
+        if valor not in (None, "")
+    }
+    parametros["pagina"] = pagina
+    return "/ventas?" + urlencode(parametros)
+
+
 @router.get("/ventas", response_class=HTMLResponse, name="panel_ventas")
-def mostrar_panel_ventas(request: Request, db: SessionDep) -> HTMLResponse:
-    """Renderiza el panel de ventas registradas."""
+def mostrar_panel_ventas(
+    request: Request,
+    db: SessionDep,
+    q: str | None = None,
+    estado: str | None = None,
+    plan_id: str | None = None,
+    medio_pago: str | None = None,
+    regimen_afiliacion: str | None = None,
+    pagina: int = Query(default=1, ge=1),
+) -> HTMLResponse:
+    """Renderiza el panel con búsqueda, filtros y paginación."""
+    plan_id_valor: int | None = None
+    if plan_id:
+        try:
+            plan_id_valor = int(plan_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="El plan de filtro no es válido.",
+            ) from exc
+
+    filtros = {
+        "q": q,
+        "estado": estado,
+        "plan_id": plan_id_valor,
+        "medio_pago": medio_pago,
+        "regimen_afiliacion": regimen_afiliacion,
+    }
+    try:
+        ventas, total = buscar_ventas(
+            db,
+            q=q,
+            estado=estado,
+            plan_id=plan_id_valor,
+            medio_pago=medio_pago,
+            regimen_afiliacion=regimen_afiliacion,
+            pagina=pagina,
+            por_pagina=20,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    total_paginas = max(1, (total + 19) // 20)
+    planes = list(db.scalars(select(Plan).order_by(Plan.id)).all())
+    hay_filtros = any(valor not in (None, "") for valor in filtros.values())
+
     return templates.TemplateResponse(
         request=request,
         name="panel.html",
-        context={"ventas": listar_ventas(db)},
+        context={
+            "ventas": ventas,
+            "total_ventas": total,
+            "pagina": pagina,
+            "total_paginas": total_paginas,
+            "hay_filtros": hay_filtros,
+            "filtros": filtros,
+            "planes": planes,
+            "medios_pago": [medio.value for medio in MedioPago],
+            "regimenes": [regimen.value for regimen in RegimenAfiliacion],
+            "url_pagina_anterior": (
+                _url_panel(filtros, pagina - 1) if pagina > 1 else None
+            ),
+            "url_pagina_siguiente": (
+                _url_panel(filtros, pagina + 1)
+                if pagina < total_paginas
+                else None
+            ),
+        },
     )
 
 
@@ -119,8 +200,37 @@ def mostrar_detalle_venta(
         name="legajo.html",
         context={
             "venta": venta,
+            "eventos": listar_eventos(db, venta_id),
             "descuento_monto": descuento_monto,
             "base_bonificada": venta.subtotal_base - descuento_monto,
+        },
+    )
+
+
+@router.get(
+    "/ventas/{venta_id}/credencial",
+    response_class=HTMLResponse,
+    name="credencial_venta",
+)
+def mostrar_credencial(
+    request: Request,
+    venta_id: int,
+    db: SessionDep,
+) -> HTMLResponse:
+    """Emite una credencial provisoria solo para ventas aprobadas."""
+    venta = _obtener_venta_o_404(db, venta_id)
+    if venta.estado != EstadoVenta.APROBADA.value:
+        raise HTTPException(
+            status_code=404,
+            detail="La credencial solo está disponible para ventas aprobadas.",
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="credencial.html",
+        context={
+            "venta": venta,
+            "numero_afiliado": f"OS-{venta.id:06d}",
+            "fecha_emision": venta.actualizado_en,
         },
     )
 

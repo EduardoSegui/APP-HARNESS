@@ -20,6 +20,7 @@ from ventas_app.models import (
     Parentesco,
     RegimenAfiliacion,
     TarjetaMarca,
+    TipoEventoVenta,
 )
 
 _EMAIL_REGEX = (
@@ -414,3 +415,28 @@ class VentaOut(BaseModel):
     integrantes: list[IntegranteOut]
     creado_en: datetime
     actualizado_en: datetime
+
+
+class EventoOut(BaseModel):
+    """Evento de linaje de una venta."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    venta_id: int
+    tipo: TipoEventoVenta
+    estado_anterior: str | None
+    estado_nuevo: str | None
+    detalle: str | None
+    actor: str
+    creado_en: datetime
+
+
+class PaginaVentasOut(BaseModel):
+    """Resultado paginado de búsqueda de ventas."""
+
+    items: list[VentaOut]
+    total: int
+    pagina: int
+    por_pagina: int
+    total_paginas: int

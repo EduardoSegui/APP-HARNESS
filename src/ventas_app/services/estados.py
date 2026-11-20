@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from ventas_app.models import EstadoVenta, Venta
+from ventas_app.models import EstadoVenta, TipoEventoVenta, Venta
+from ventas_app.services.eventos import registrar_evento
 from ventas_app.services.ventas import obtener_venta
 
 
@@ -88,10 +89,30 @@ def cambiar_estado_venta(
         observaciones,
     )
 
+    estado_anterior = venta.estado
     venta.estado = estado_final.value
     venta.observaciones = observaciones_finales
 
     try:
+        tipo = (
+            TipoEventoVenta.AUDITADA_APROBADA
+            if estado_final is EstadoVenta.APROBADA
+            else TipoEventoVenta.AUDITADA_OBSERVADA
+        )
+        detalle = (
+            "Aprobada por auditoría."
+            if estado_final is EstadoVenta.APROBADA
+            else (observaciones_finales or "Observada por auditoría.")
+        )
+        registrar_evento(
+            db,
+            venta,
+            tipo,
+            detalle=detalle,
+            actor="auditor",
+            estado_anterior=estado_anterior,
+            estado_nuevo=estado_final.value,
+        )
         db.commit()
     except Exception:
         db.rollback()

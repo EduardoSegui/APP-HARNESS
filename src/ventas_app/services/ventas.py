@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from ventas_app.models import EstadoVenta, Integrante, MedioPago, Plan, Venta
+from ventas_app.models import (
+    EstadoVenta,
+    Integrante,
+    MedioPago,
+    Plan,
+    RegimenAfiliacion,
+    TipoEventoVenta,
+    Venta,
+)
 from ventas_app.schemas import VentaIn, VentaUpdateIn
+from ventas_app.services.eventos import registrar_evento
 from ventas_app.services.pricing import CotizacionDetalle, calcular_cotizacion
 
 
@@ -213,6 +222,15 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
 
     try:
         db.add(venta)
+        db.flush()
+        registrar_evento(
+            db,
+            venta,
+            TipoEventoVenta.CREADA,
+            detalle=f"Alta de venta con plan {plan.nombre}.",
+            actor="operador",
+            estado_nuevo=venta.estado,
+        )
         db.commit()
     except Exception:
         db.rollback()
@@ -231,6 +249,7 @@ def actualizar_venta(
     if venta.estado == EstadoVenta.APROBADA.value:
         raise VentaNoEditableError(venta_id)
 
+    estado_anterior = venta.estado
     plan = db.get(Plan, datos.plan_id)
     if plan is None or not plan.activo:
         raise PlanNoDisponibleError(datos.plan_id)
@@ -269,6 +288,18 @@ def actualizar_venta(
         venta.integrantes.clear()
         db.flush()
         venta.integrantes.extend(_construir_integrantes(datos))
+        registrar_evento(
+            db,
+            venta,
+            TipoEventoVenta.EDITADA,
+            detalle=(
+                f"Legajo actualizado: plan {plan.nombre}, "
+                f"{len(datos.integrantes)} adherentes."
+            ),
+            actor="operador",
+            estado_anterior=estado_anterior,
+            estado_nuevo=venta.estado,
+        )
         db.commit()
     except Exception:
         db.rollback()
@@ -307,6 +338,92 @@ def listar_ventas_pendientes(db: Session) -> list[Venta]:
             .order_by(Venta.creado_en.asc(), Venta.id.asc())
         ).all()
     )
+
+
+def buscar_ventas(
+    db: Session,
+    *,
+    q: str | None = None,
+    estado: str | None = None,
+    plan_id: int | None = None,
+    medio_pago: str | None = None,
+    regimen_afiliacion: str | None = None,
+    pagina: int = 1,
+    por_pagina: int = 20,
+) -> tuple[list[tuple[Venta, int]], int]:
+    """Busca ventas con filtros combinables y paginación.
+
+    Devuelve las filas de la página y el total de coincidencias.
+    """
+    if pagina < 1:
+        raise ValueError("La página debe ser mayor o igual a 1.")
+    if por_pagina < 1:
+        raise ValueError("El tamaño de página debe ser mayor o igual a 1.")
+
+    filtros = []
+    texto = (q or "").strip()
+    if texto:
+        patron = f"%{texto}%"
+        filtros.append(
+            or_(
+                Venta.dni_titular.ilike(patron),
+                Venta.nombre_titular.ilike(patron),
+                Venta.apellido_titular.ilike(patron),
+            )
+        )
+
+    if estado:
+        try:
+            filtros.append(Venta.estado == EstadoVenta(estado).value)
+        except ValueError as exc:
+            raise ValueError("El estado de filtro no es válido.") from exc
+
+    if plan_id is not None:
+        if plan_id <= 0:
+            raise ValueError("El plan de filtro no es válido.")
+        filtros.append(Venta.plan_id == plan_id)
+
+    if medio_pago:
+        try:
+            filtros.append(Venta.medio_pago == MedioPago(medio_pago).value)
+        except ValueError as exc:
+            raise ValueError("El medio de pago de filtro no es válido.") from exc
+
+    if regimen_afiliacion:
+        try:
+            filtros.append(
+                Venta.regimen_afiliacion
+                == RegimenAfiliacion(regimen_afiliacion).value
+            )
+        except ValueError as exc:
+            raise ValueError("El régimen de filtro no es válido.") from exc
+
+    total = int(
+        db.scalar(
+            select(func.count()).select_from(Venta).where(*filtros)
+        )
+        or 0
+    )
+
+    cantidad_integrantes = (
+        select(func.count(Integrante.id))
+        .where(Integrante.venta_id == Venta.id)
+        .correlate(Venta)
+        .scalar_subquery()
+    )
+    filas = db.execute(
+        select(Venta, cantidad_integrantes.label("cantidad_integrantes"))
+        .options(
+            joinedload(Venta.plan),
+            selectinload(Venta.integrantes),
+        )
+        .where(*filtros)
+        .order_by(Venta.creado_en.desc(), Venta.id.desc())
+        .offset((pagina - 1) * por_pagina)
+        .limit(por_pagina)
+    ).all()
+
+    return [(venta, int(cantidad)) for venta, cantidad in filas], total
 
 
 def listar_ventas(db: Session) -> list[tuple[Venta, int]]:

@@ -121,7 +121,7 @@
       "titulo": "Buscador, filtros, linaje y credencial",
       "descripcion": "Panel operativo con búsqueda/filtros, ficha de legajo, eventos inmutables de linaje y credencial provisoria para aprobadas.",
       "packet": "features/F18.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F19",

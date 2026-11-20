@@ -12,7 +12,9 @@
     </div>
     <div class="page-head__actions">
       <a href="/ventas" class="btn btn--secondary">Volver al panel</a>
-      {% if venta.estado != "APROBADA" %}
+      {% if venta.estado == "APROBADA" %}
+      <a href="{{ url_for('credencial_venta', venta_id=venta.id) }}" class="btn btn--primary">Imprimir credencial</a>
+      {% else %}
       <a href="{{ url_for('editar_venta', venta_id=venta.id) }}" class="btn btn--primary">Editar legajo</a>
       {% endif %}
     </div>
@@ -165,6 +167,44 @@
     {% if venta.ddjj_preexistencias or venta.ddjj_internaciones or venta.ddjj_discapacidad %}
     <p class="notice notice--warning">Requiere revisión médica.</p>
     {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="sheet">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Línea de tiempo del legajo</h2>
+        <p class="sheet__hint">Hitos inmutables de creación, edición y auditoría.</p>
+      </div>
+    </div>
+    {% if eventos %}
+    <ol class="timeline">
+      {% for evento in eventos %}
+      <li class="timeline__item">
+        <div class="timeline__marker" aria-hidden="true"></div>
+        <div class="timeline__body">
+          <div class="timeline__head">
+            <strong>
+              {% if evento.tipo == "CREADA" %}Legajo creado
+              {% elif evento.tipo == "EDITADA" %}Legajo editado
+              {% elif evento.tipo == "AUDITADA_APROBADA" %}Auditoría: aprobada
+              {% else %}Auditoría: observada{% endif %}
+            </strong>
+            <time datetime="{{ evento.creado_en.isoformat() }}">{{ evento.creado_en.strftime("%d/%m/%Y %H:%M") }}</time>
+          </div>
+          {% if evento.detalle %}<p class="timeline__detail">{{ evento.detalle }}</p>{% endif %}
+          <p class="timeline__meta">
+            Actor: {{ evento.actor }}
+            {% if evento.estado_anterior or evento.estado_nuevo %}
+            · {{ evento.estado_anterior or "—" }} → {{ evento.estado_nuevo or "—" }}
+            {% endif %}
+          </p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="empty-inline">Todavía no hay eventos registrados para este legajo.</p>
     {% endif %}
   </section>
 

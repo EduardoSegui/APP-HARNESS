@@ -85,6 +85,55 @@
     </div>
   </details>
 
+  <form method="get" action="/ventas" class="filter-panel" aria-label="Filtros de ventas">
+    <div class="filter-grid">
+      <div class="field">
+        <label for="panel-q" class="field-label">Buscar</label>
+        <input id="panel-q" name="q" value="{{ filtros.q or '' }}" placeholder="DNI, nombre o apellido" class="field-input">
+      </div>
+      <div class="field">
+        <label for="panel-estado" class="field-label">Estado</label>
+        <select id="panel-estado" name="estado" class="field-select">
+          <option value="">Todos</option>
+          <option value="PENDIENTE_VERIFICACION"{% if filtros.estado == "PENDIENTE_VERIFICACION" %} selected{% endif %}>Pendiente</option>
+          <option value="APROBADA"{% if filtros.estado == "APROBADA" %} selected{% endif %}>Aprobada</option>
+          <option value="OBSERVADA"{% if filtros.estado == "OBSERVADA" %} selected{% endif %}>Observada</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="panel-plan" class="field-label">Plan</label>
+        <select id="panel-plan" name="plan_id" class="field-select">
+          <option value="">Todos</option>
+          {% for plan in planes %}
+          <option value="{{ plan.id }}"{% if filtros.plan_id == plan.id %} selected{% endif %}>{{ plan.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="panel-medio" class="field-label">Medio de pago</label>
+        <select id="panel-medio" name="medio_pago" class="field-select">
+          <option value="">Todos</option>
+          {% for medio in medios_pago %}
+          <option value="{{ medio }}"{% if filtros.medio_pago == medio %} selected{% endif %}>{{ medio }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="panel-regimen" class="field-label">Régimen</label>
+        <select id="panel-regimen" name="regimen_afiliacion" class="field-select">
+          <option value="">Todos</option>
+          {% for regimen in regimenes %}
+          <option value="{{ regimen }}"{% if filtros.regimen_afiliacion == regimen %} selected{% endif %}>{{ regimen }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn--primary">Filtrar</button>
+        <a href="/ventas" class="btn btn--quiet">Limpiar</a>
+      </div>
+    </div>
+  </form>
+
   {% if ventas %}
   {% set ns = namespace(pendientes=0, aprobadas=0, observadas=0) %}
   {% for venta, _ in ventas %}
@@ -202,6 +251,7 @@
             <td data-label="Acciones" data-acciones>
               {% if venta.estado == "APROBADA" %}
               <a href="{{ url_for('detalle_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Ver legajo</a>
+              <a href="{{ url_for('credencial_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Credencial</a>
               {% else %}
               <a href="{{ url_for('editar_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Editar legajo</a>
               {% endif %}
@@ -214,8 +264,18 @@
   </div>
 
   <p class="ledger__count">
-    {{ ventas | length }} venta{% if ventas | length != 1 %}s{% endif %} registrada{% if ventas | length != 1 %}s{% endif %}.
+    {{ total_ventas }} resultado{% if total_ventas != 1 %}s{% endif %} · página {{ pagina }} de {{ total_paginas }}.
   </p>
+  {% if url_pagina_anterior or url_pagina_siguiente %}
+  <nav class="pagination" aria-label="Paginación de ventas">
+    {% if url_pagina_anterior %}
+    <a href="{{ url_pagina_anterior }}" class="btn btn--quiet btn--sm">Anterior</a>
+    {% endif %}
+    {% if url_pagina_siguiente %}
+    <a href="{{ url_pagina_siguiente }}" class="btn btn--quiet btn--sm">Siguiente</a>
+    {% endif %}
+  </nav>
+  {% endif %}
   {% else %}
   <div class="empty-tray">
     <svg class="empty-tray__icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -223,11 +283,17 @@
       <path d="M12 29h40" stroke="currentColor" stroke-width="2.5"/>
       <path d="M22 39h20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
     </svg>
-    <h2 class="empty-tray__title">Todavía no hay ventas registradas</h2>
+    <h2 class="empty-tray__title">
+      {% if hay_filtros %}No hay ventas que coincidan con los filtros{% else %}Todavía no hay ventas registradas{% endif %}
+    </h2>
     <p class="empty-tray__text">
-      Cuando confirmes una venta desde el wizard, aparecerá en este panel.
+      {% if hay_filtros %}Probá con otro texto o limpiá los filtros para ver todo el padrón.{% else %}Cuando confirmes una venta desde el wizard, aparecerá en este panel.{% endif %}
     </p>
+    {% if hay_filtros %}
+    <a href="/ventas" class="btn btn--primary empty-tray__action">Limpiar filtros</a>
+    {% else %}
     <a href="/" class="btn btn--primary empty-tray__action">Cargar primera venta</a>
+    {% endif %}
   </div>
   {% endif %}
 </main>

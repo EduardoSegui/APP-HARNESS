@@ -71,7 +71,9 @@ def test_init_db_crea_las_tablas_esperadas() -> None:
 
     tablas = set(inspect(engine).get_table_names())
 
-    assert {"planes", "ventas", "integrantes"}.issubset(tablas)
+    assert {"planes", "ventas", "integrantes", "venta_eventos"}.issubset(
+        tablas
+    )
 
 
 def test_plan_usa_activo_por_defecto(db: Session) -> None:

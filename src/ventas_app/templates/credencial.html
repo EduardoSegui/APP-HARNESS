@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Credencial {{ numero_afiliado }} | Ventas Obra Social{% endblock %}
+
+{% block content %}
+<main class="app-main credential-print">
+  <div class="page-head no-print">
+    <div class="page-head__main">
+      <p class="page-context">Credencial provisoria</p>
+      <h1 class="page-title">{{ venta.nombre_titular }} {{ venta.apellido_titular }}</h1>
+      <p class="page-sub">Documento interno generado desde el legajo aprobado.</p>
+    </div>
+    <div class="page-head__actions">
+      <button type="button" class="btn btn--primary" onclick="window.print()">Imprimir</button>
+      <a href="{{ url_for('detalle_venta', venta_id=venta.id) }}" class="btn btn--secondary">Volver al legajo</a>
+    </div>
+  </div>
+
+  <section class="credential-card">
+    <div class="credential-card__head">
+      <div>
+        <p class="credential-card__brand">Obra Social</p>
+        <h2 class="credential-card__title">Credencial provisoria</h2>
+      </div>
+      <span class="stamp" data-estado="APROBADA">Aprobada</span>
+    </div>
+
+    <div class="credential-card__number">
+      <span>N° de afiliado</span>
+      <strong>{{ numero_afiliado }}</strong>
+    </div>
+
+    <dl class="credential-card__data">
+      <div><dt>Titular</dt><dd>{{ venta.nombre_titular }} {{ venta.apellido_titular }}</dd></div>
+      <div><dt>DNI</dt><dd>{{ venta.dni_titular }}</dd></div>
+      <div><dt>Plan</dt><dd>{{ venta.plan.nombre }}</dd></div>
+      <div><dt>Fecha de emisión</dt><dd>{{ fecha_emision.strftime("%d/%m/%Y") }}</dd></div>
+    </dl>
+
+    <p class="credential-card__legend">
+      Documento provisorio. No incluye datos de salud ni instrumentos de pago.
+    </p>
+  </section>
+</main>
+{% endblock %}

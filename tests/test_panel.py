@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from ventas_app.database import SessionLocal
 from ventas_app.models import Plan, Venta
+from ventas_app.services.estados import cambiar_estado_venta
 
 
 def _obtener_plan_id(nombre: str) -> int:
@@ -54,6 +55,10 @@ def _crear_venta(
     regimen_afiliacion: str = "PARTICULAR",
     cuil_titular: str | None = None,
     aporte_estimado: int = 0,
+    nombre_titular: str = "Ana",
+    apellido_titular: str = "Pérez",
+    dni_titular: str = "30111222",
+    email: str = "ana.perez@example.com",
 ) -> dict[str, Any]:
     integrantes = [
         {
@@ -66,11 +71,11 @@ def _crear_venta(
         for indice in range(1, cantidad_adherentes + 1)
     ]
     payload = {
-        "nombre_titular": "Ana",
-        "apellido_titular": "Pérez",
-        "dni_titular": "30111222",
+        "nombre_titular": nombre_titular,
+        "apellido_titular": apellido_titular,
+        "dni_titular": dni_titular,
         "fecha_nacimiento_titular": "1990-05-20",
-        "email": "ana.perez@example.com",
+        "email": email,
         "telefono": "+54 11 5555-5555",
         "calle": "Av. Corrientes",
         "altura": "1234",
@@ -149,7 +154,7 @@ def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
     assert "Observaciones" in html
     assert "data-observaciones" in html
     assert "Pendiente de auditoría" in html
-    assert "1 venta registrada" in html
+    assert "1 resultado · página 1 de 1." in html
 
 
 def test_panel_muestra_medio_de_pago_y_total_bonificado(
@@ -210,6 +215,131 @@ def test_panel_muestra_regimen_y_aporte(client: TestClient) -> None:
     assert "$58.000" in html
 
 
+def test_panel_busca_por_dni_y_apellido(client: TestClient) -> None:
+    _crear_venta(client, nombre_titular="Ana", apellido_titular="Pérez")
+    _crear_venta(
+        client,
+        nombre_titular="Beto",
+        apellido_titular="Gómez",
+        dni_titular="30111223",
+        email="beto@example.com",
+    )
+
+    por_dni = client.get("/ventas?q=30111223").text
+    assert "Beto Gómez" in por_dni
+    assert "Ana Pérez" not in por_dni
+    assert "1 resultado" in por_dni
+
+    por_apellido = client.get("/ventas?q=Gómez").text
+    assert "Beto Gómez" in por_apellido
+    assert "Ana Pérez" not in por_apellido
+
+
+def test_panel_filtra_combinando_estado_plan_medio_y_regimen(
+    client: TestClient,
+) -> None:
+    _crear_venta(client, nombre_titular="Ana", apellido_titular="Pérez")
+    beto = _crear_venta(
+        client,
+        nombre_titular="Beto",
+        apellido_titular="Gómez",
+        dni_titular="30111223",
+        email="beto@example.com",
+        plan="Plan Esencial",
+        medio_pago="CBU",
+        regimen_afiliacion="RELACION_DEPENDENCIA",
+        cuil_titular="20123456789",
+        aporte_estimado=5_000,
+    )
+    _cambiar_estado(beto["id"], "APROBADA")
+    plan_id = _obtener_plan_id("Plan Esencial")
+
+    html = client.get(
+        "/ventas",
+        params={
+            "estado": "APROBADA",
+            "plan_id": plan_id,
+            "medio_pago": "CBU",
+            "regimen_afiliacion": "RELACION_DEPENDENCIA",
+        },
+    ).text
+
+    assert "Beto Gómez" in html
+    assert "Ana Pérez" not in html
+    assert "1 resultado" in html
+
+
+def test_panel_acepta_filtros_vacios(client: TestClient) -> None:
+    _crear_venta(client)
+
+    respuesta = client.get(
+        "/ventas",
+        params={
+            "q": "",
+            "estado": "",
+            "plan_id": "",
+            "medio_pago": "",
+            "regimen_afiliacion": "",
+        },
+    )
+
+    assert respuesta.status_code == 200
+    assert "Ana Pérez" in respuesta.text
+
+
+def test_panel_sin_resultados_permite_limpiar_filtros(
+    client: TestClient,
+) -> None:
+    _crear_venta(client)
+
+    html = client.get("/ventas?q=NO-EXISTE").text
+
+    assert "No hay ventas que coincidan con los filtros" in html
+    assert "Limpiar filtros" in html
+    assert "Todavía no hay ventas registradas" not in html
+
+
+def test_panel_pagina_resultados(client: TestClient) -> None:
+    for indice in range(21):
+        _crear_venta(
+            client,
+            nombre_titular=f"Persona {indice}",
+            apellido_titular="Prueba",
+            dni_titular=f"30{100000 + indice:06d}",
+            email=f"persona{indice}@example.com",
+        )
+
+    primera = client.get("/ventas").text
+    segunda = client.get("/ventas?pagina=2").text
+
+    assert "21 resultados · página 1 de 2." in primera
+    assert "Siguiente" in primera
+    assert "21 resultados · página 2 de 2." in segunda
+    assert "Anterior" in segunda
+
+
+def test_api_ventas_filtra_y_pagina(client: TestClient) -> None:
+    _crear_venta(client, nombre_titular="Ana", apellido_titular="Pérez")
+    _crear_venta(
+        client,
+        nombre_titular="Beto",
+        apellido_titular="Gómez",
+        dni_titular="30111223",
+        email="beto@example.com",
+    )
+
+    respuesta = client.get("/api/ventas", params={"q": "Gómez"})
+
+    assert respuesta.status_code == 200
+    datos = respuesta.json()
+    assert datos["total"] == 1
+    assert datos["pagina"] == 1
+    assert datos["items"][0]["nombre_titular"] == "Beto"
+
+    invalido = client.get("/api/ventas", params={"estado": "INEXISTENTE"})
+    assert invalido.status_code == 422
+
+
 def test_panel_muestra_acciones_de_edicion_y_lectura(
     client: TestClient,
 ) -> None:
@@ -225,6 +355,8 @@ def test_panel_muestra_acciones_de_edicion_y_lectura(
 
     assert "Ver legajo" in html_aprobada
     assert f"/ventas/{venta['id']}" in html_aprobada
+    assert "Credencial" in html_aprobada
+    assert f"/ventas/{venta['id']}/credencial" in html_aprobada
     assert "Editar legajo" not in html_aprobada
 
 
@@ -299,6 +431,51 @@ def test_detalle_venta_muestra_regimen_y_aporte(client: TestClient) -> None:
     assert "$58.000" in html
 
 
+def test_legajo_muestra_timeline_y_credencial_aprobada(
+    client: TestClient,
+) -> None:
+    venta = _crear_venta(
+        client,
+        plan="Plan Integral",
+        medio_pago="TARJETA_CREDITO",
+        ddjj={
+            "preexistencias": True,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": "Hipertensión controlada.",
+            "declaracion_confirmada": True,
+        },
+    )
+    with SessionLocal() as db:
+        cambiar_estado_venta(db, venta["id"], "APROBADA")
+
+    legajo = client.get(f"/ventas/{venta['id']}")
+    assert legajo.status_code == 200
+    assert "Línea de tiempo del legajo" in legajo.text
+    assert "Legajo creado" in legajo.text
+    assert "Auditoría: aprobada" in legajo.text
+    assert "Imprimir credencial" in legajo.text
+
+    credencial = client.get(f"/ventas/{venta['id']}/credencial")
+    assert credencial.status_code == 200
+    assert "Credencial provisoria" in credencial.text
+    assert f"OS-{venta['id']:06d}" in credencial.text
+    assert "Ana Pérez" in credencial.text
+    assert "Plan Integral" in credencial.text
+    assert "Hipertensión" not in credencial.text
+    assert "VISA" not in credencial.text
+
+
+def test_credencial_solo_para_ventas_aprobadas(client: TestClient) -> None:
+    venta = _crear_venta(client)
+
+    respuesta = client.get(f"/ventas/{venta['id']}/credencial")
+
+    assert respuesta.status_code == 404
+
+
 def test_rutas_de_venta_inexistente_devuelven_404(client: TestClient) -> None:
     assert client.get("/ventas/999999").status_code == 404
     assert client.get("/ventas/999999/editar").status_code == 404
@@ -352,7 +529,7 @@ def test_panel_muestra_los_badges_de_los_tres_estados(client: TestClient) -> Non
     assert ">Pendiente<" in html
     assert ">Aprobada<" in html
     assert ">Observada<" in html
-    assert "3 ventas registradas" in html
+    assert "3 resultados · página 1 de 1." in html
 
 
 def test_panel_muestra_ventas_con_plan_inactivo(client: TestClient) -> None:

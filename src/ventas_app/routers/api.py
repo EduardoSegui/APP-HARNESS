@@ -5,13 +5,21 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ventas_app.auditor import ejecutar_auditoria
 from ventas_app.database import get_db
 from ventas_app.models import Venta
-from ventas_app.schemas import AuditoriaOut, VentaIn, VentaOut, VentaUpdateIn
+from ventas_app.schemas import (
+    AuditoriaOut,
+    EventoOut,
+    PaginaVentasOut,
+    VentaIn,
+    VentaOut,
+    VentaUpdateIn,
+)
+from ventas_app.services.eventos import listar_eventos
 from ventas_app.services.ventas import (
     AporteInvalidoError,
     DatosPagoInvalidosError,
@@ -19,6 +27,7 @@ from ventas_app.services.ventas import (
     VentaNoEditableError,
     VentaNoEncontradaError,
     actualizar_venta,
+    buscar_ventas,
     crear_venta,
     obtener_venta,
 )
@@ -68,6 +77,45 @@ def crear_venta_endpoint(payload: VentaIn, db: SessionDep) -> Venta:
         ) from exc
 
 
+@router.get("/ventas", response_model=PaginaVentasOut)
+def listar_ventas_endpoint(
+    db: SessionDep,
+    q: str | None = None,
+    estado: str | None = None,
+    plan_id: int | None = None,
+    medio_pago: str | None = None,
+    regimen_afiliacion: str | None = None,
+    pagina: int = Query(default=1, ge=1),
+    por_pagina: int = Query(default=20, ge=1, le=100),
+) -> PaginaVentasOut:
+    """Lista ventas con búsqueda, filtros y paginación."""
+    try:
+        filas, total = buscar_ventas(
+            db,
+            q=q,
+            estado=estado,
+            plan_id=plan_id,
+            medio_pago=medio_pago,
+            regimen_afiliacion=regimen_afiliacion,
+            pagina=pagina,
+            por_pagina=por_pagina,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+    total_paginas = max(1, (total + por_pagina - 1) // por_pagina)
+    return PaginaVentasOut(
+        items=[venta for venta, _ in filas],
+        total=total,
+        pagina=pagina,
+        por_pagina=por_pagina,
+        total_paginas=total_paginas,
+    )
+
+
 @router.get("/ventas/{venta_id}", response_model=VentaOut)
 def obtener_venta_endpoint(venta_id: int, db: SessionDep) -> Venta:
     """Devuelve el detalle de una venta existente."""
@@ -78,6 +126,22 @@ def obtener_venta_endpoint(venta_id: int, db: SessionDep) -> Venta:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+
+
+@router.get(
+    "/ventas/{venta_id}/eventos",
+    response_model=list[EventoOut],
+)
+def listar_eventos_endpoint(venta_id: int, db: SessionDep) -> list[EventoOut]:
+    """Devuelve el linaje de una venta, del evento más reciente al más antiguo."""
+    try:
+        obtener_venta(db, venta_id)
+    except VentaNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    return listar_eventos(db, venta_id)
 
 
 @router.put("/ventas/{venta_id}", response_model=VentaOut)

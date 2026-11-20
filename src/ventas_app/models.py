@@ -31,6 +31,15 @@ class EstadoVenta(str, Enum):
     OBSERVADA = "OBSERVADA"
 
 
+class TipoEventoVenta(str, Enum):
+    """Hitos inmutables del linaje de una venta."""
+
+    CREADA = "CREADA"
+    EDITADA = "EDITADA"
+    AUDITADA_APROBADA = "AUDITADA_APROBADA"
+    AUDITADA_OBSERVADA = "AUDITADA_OBSERVADA"
+
+
 class MedioPago(str, Enum):
     """Medios de pago admitidos para la contratación."""
 
@@ -69,6 +78,9 @@ class Parentesco(str, Enum):
 
 
 _ESTADOS_SQL = ", ".join(f"'{estado.value}'" for estado in EstadoVenta)
+_TIPOS_EVENTO_SQL = ", ".join(
+    f"'{tipo.value}'" for tipo in TipoEventoVenta
+)
 _MEDIOS_PAGO_SQL = ", ".join(f"'{medio.value}'" for medio in MedioPago)
 _PARENTESCOS_SQL = ", ".join(f"'{parentesco.value}'" for parentesco in Parentesco)
 
@@ -256,6 +268,12 @@ class Venta(Base):
         passive_deletes=True,
         order_by="Integrante.id",
     )
+    eventos: Mapped[list[VentaEvento]] = relationship(
+        back_populates="venta",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="VentaEvento.id",
+    )
 
 
 class Integrante(Base):
@@ -283,3 +301,44 @@ class Integrante(Base):
     parentesco: Mapped[str] = mapped_column(String(30), nullable=False)
 
     venta: Mapped[Venta] = relationship(back_populates="integrantes")
+
+
+class VentaEvento(Base):
+    """Evento inmutable de linaje de una venta."""
+
+    __tablename__ = "venta_eventos"
+    __table_args__ = (
+        CheckConstraint(
+            f"tipo IN ({_TIPOS_EVENTO_SQL})",
+            name="ck_venta_eventos_tipo_valido",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    venta_id: Mapped[int] = mapped_column(
+        ForeignKey("ventas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False)
+    estado_anterior: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+    estado_nuevo: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="operador",
+        server_default=text("'operador'"),
+    )
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+        index=True,
+    )
+
+    venta: Mapped[Venta] = relationship(back_populates="eventos")
