@@ -561,6 +561,16 @@
     }
   }
 
+  function inicializarValidacionPago() {
+    const campos = document.querySelectorAll(
+      "#pago-tarjeta input, #pago-tarjeta select, #pago-cbu input",
+    );
+    campos.forEach((campo) => {
+      const evento = campo.tagName === "SELECT" ? "change" : "input";
+      campo.addEventListener(evento, actualizarIndicadoresPaso);
+    });
+  }
+
   function ddjjConIndicadores() {
     return Boolean(
       estado.ddjj.preexistencias
@@ -587,6 +597,145 @@
       estado.ddjj.medicacion_cronica,
       estado.ddjj.discapacidad_declarada,
     ].every((valor) => typeof valor === "boolean");
+  }
+
+  function ddjjValida() {
+    return Boolean(
+      ddjjCompleta()
+      && estado.ddjj.declaracion_confirmada
+      && (
+        !ddjjConIndicadores()
+        || texto(estado.ddjj.detalle).trim().length >= 5
+      ),
+    );
+  }
+
+  function instrumentoPagoCompleto() {
+    if (estado.medio_pago === "TARJETA_CREDITO") {
+      if (
+        hayInstrumentoActual("TARJETA_CREDITO")
+        && formularioPagoVacio("TARJETA_CREDITO")
+      ) {
+        return true;
+      }
+      const datos = datosTarjeta();
+      return Boolean(
+        datos.marca
+        && TARJETA_REGEX.test(datos.numero)
+        && datos.titular.length >= 2
+        && VENCIMIENTO_REGEX.test(datos.vencimiento)
+        && !vencimientoVencido(datos.vencimiento)
+        && CVV_REGEX.test(datos.cvv),
+      );
+    }
+    if (estado.medio_pago === "CBU") {
+      if (hayInstrumentoActual("CBU") && formularioPagoVacio("CBU")) {
+        return true;
+      }
+      const datos = datosCbu();
+      return Boolean(
+        CBU_REGEX.test(datos.numero)
+        && datos.entidad.length >= 2
+        && datos.titular.length >= 2
+        && CUIL_REGEX.test(datos.cuil),
+      );
+    }
+    return Boolean(estado.medio_pago);
+  }
+
+  function pasoCompleto(paso) {
+    if (paso === 1) {
+      const titular = estado.titular;
+      const telefono = texto(titular.telefono).trim();
+      if (
+        texto(titular.nombre).trim().length < 2
+        || texto(titular.apellido).trim().length < 2
+        || !DNI_REGEX.test(texto(titular.dni).trim())
+        || !texto(titular.fecha_nacimiento)
+        || texto(titular.fecha_nacimiento) > HOY_ISO
+        || !EMAIL_REGEX.test(texto(titular.email).trim())
+        || !TELEFONO_REGEX.test(telefono)
+        || telefono.replace(/\D/g, "").length < 6
+      ) {
+        return false;
+      }
+
+      for (const integrante of estado.integrantes) {
+        if (
+          texto(integrante.nombre).trim().length < 2
+          || texto(integrante.apellido).trim().length < 2
+          || !DNI_REGEX.test(texto(integrante.dni).trim())
+          || !texto(integrante.fecha_nacimiento)
+          || texto(integrante.fecha_nacimiento) > HOY_ISO
+          || !texto(integrante.parentesco).trim()
+        ) {
+          return false;
+        }
+      }
+
+      const dnis = [
+        texto(titular.dni).trim(),
+        ...estado.integrantes.map((integrante) =>
+          texto(integrante.dni).trim(),
+        ),
+      ].filter(Boolean);
+      return new Set(dnis).size === dnis.length && ddjjValida();
+    }
+
+    if (paso === 2) {
+      const domicilio = estado.domicilio;
+      return Boolean(
+        texto(domicilio.calle).trim().length >= 2
+        && texto(domicilio.altura).trim().length >= 1
+        && texto(domicilio.altura).trim().length <= 10
+        && ALTURA_REGEX.test(texto(domicilio.altura).trim())
+        && texto(domicilio.piso_depto).trim().length <= 30
+        && texto(domicilio.localidad).trim().length >= 2
+        && texto(domicilio.provincia).trim().length >= 2
+        && CP_REGEX.test(texto(domicilio.codigo_postal).trim()),
+      );
+    }
+
+    if (paso === 3) {
+      if (!estado.plan_id || !estado.medio_pago) {
+        return false;
+      }
+      if (!instrumentoPagoCompleto()) {
+        return false;
+      }
+      if (estado.regimen_afiliacion !== "PARTICULAR") {
+        if (!CUIL_REGEX.test(texto(estado.cuil_titular).trim())) {
+          return false;
+        }
+        const aporte = Number(estado.aporte_estimado || 0);
+        if (!Number.isInteger(aporte) || aporte < 0) {
+          return false;
+        }
+        const base = baseBonificadaActual();
+        if (base === null || aporte > base) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  function actualizarIndicadoresPaso() {
+    indicadores.forEach((indicador) => {
+      const numero = Number(indicador.dataset.indicador);
+      const completo = pasoCompleto(numero);
+      indicador.dataset.completo = completo ? "true" : "false";
+
+      if (numero === estado.paso) {
+        indicador.dataset.estado = "activo";
+        indicador.setAttribute("aria-current", "step");
+      } else {
+        indicador.dataset.estado = completo ? "completado" : "pendiente";
+        indicador.removeAttribute("aria-current");
+      }
+    });
   }
 
   function actualizarDDJJDetalle() {
@@ -661,6 +810,7 @@
           guardarEstado();
           actualizarDDJJDetalle();
           actualizarResumen();
+          actualizarIndicadoresPaso();
         });
       });
     });
@@ -671,6 +821,7 @@
       detalle.addEventListener("input", () => {
         estado.ddjj.detalle = detalle.value;
         guardarEstado();
+        actualizarIndicadoresPaso();
       });
     }
 
@@ -681,6 +832,7 @@
         estado.ddjj.declaracion_confirmada = confirmada.checked;
         guardarEstado();
         actualizarResumen();
+        actualizarIndicadoresPaso();
       });
     }
 
@@ -764,6 +916,7 @@
     actualizarFormularioRegimen();
     actualizarContador();
     actualizarResumen();
+    actualizarIndicadoresPaso();
 
     if (cantidadEl) {
       cantidadEl.textContent = String(cantidad);
@@ -776,7 +929,9 @@
       if (filaDescuentoEl) filaDescuentoEl.classList.add("hidden");
       if (filaAporteEl) filaAporteEl.classList.add("hidden");
       if (totalEl) totalEl.textContent = "—";
-      btnConfirmar.disabled = true;
+      btnConfirmar.disabled = !document.querySelector(
+        'input[name="plan_id"]',
+      );
       return;
     }
 
@@ -821,7 +976,7 @@
       totalEl.textContent = formatoMoneda.format(total);
     }
 
-    btnConfirmar.disabled = !planSeleccionado || !medioSeleccionado;
+    btnConfirmar.disabled = !document.querySelector('input[name="plan_id"]');
   }
 
   function mostrarErrorGeneral(mensaje) {
@@ -1056,16 +1211,7 @@
       pasoActual.textContent = String(estado.paso);
     }
 
-    indicadores.forEach((indicador) => {
-      const numero = Number(indicador.dataset.indicador);
-      if (numero === estado.paso) {
-        indicador.dataset.estado = "activo";
-        indicador.setAttribute("aria-current", "step");
-      } else {
-        indicador.dataset.estado = numero < estado.paso ? "completado" : "pendiente";
-        indicador.removeAttribute("aria-current");
-      }
-    });
+    actualizarIndicadoresPaso();
 
     actualizarCotizacion();
     window.scrollTo({
@@ -1074,19 +1220,22 @@
     });
   }
 
-  function avanzar(paso) {
-    if (!validarPaso(estado.paso)) {
+  function irAPaso(paso) {
+    if (![1, 2, 3].includes(paso)) {
       return;
     }
+    limpiarErrores();
     estado.paso = paso;
     guardarEstado();
     mostrarPaso();
   }
 
+  function avanzar(paso) {
+    irAPaso(paso);
+  }
+
   function retroceder(paso) {
-    estado.paso = paso;
-    guardarEstado();
-    mostrarPaso();
+    irAPaso(paso);
   }
 
   function construirPayload() {
@@ -1299,6 +1448,7 @@
     pageHead?.classList.add("hidden");
     progreso.classList.add("hidden");
     resumenLegajo?.classList.add("hidden");
+    document.querySelector("#wizard-sidebar")?.classList.add("hidden");
     formWizard.classList.add("hidden");
     ocultarErrorGeneral();
     comprobante.classList.remove("hidden");
@@ -1362,6 +1512,17 @@
     tarjetas[tarjetas.length - 1]?.querySelector('[data-campo="nombre"]')?.focus();
   });
 
+  indicadores.forEach((indicador) => {
+    const ir = () => irAPaso(Number(indicador.dataset.indicador));
+    indicador.addEventListener("click", ir);
+    indicador.addEventListener("keydown", (evento) => {
+      if (evento.key === "Enter" || evento.key === " ") {
+        evento.preventDefault();
+        ir();
+      }
+    });
+  });
+
   document.querySelector("#btn-siguiente-1").addEventListener("click", () => avanzar(2));
   document.querySelector("#btn-siguiente-2").addEventListener("click", () => avanzar(3));
   document.querySelector("#btn-volver-2").addEventListener("click", () => retroceder(1));
@@ -1389,6 +1550,7 @@
 
   inicializarDDJJ();
   inicializarCampos();
+  inicializarValidacionPago();
   renderizarIntegrantes();
   inicializarPlanes();
   inicializarMediosPago();

@@ -14,6 +14,7 @@ def test_base_carga_fuentes_css_y_shell(client: TestClient) -> None:
     assert "/static/css/design.css" in html
     assert 'class="app-header"' in html
     assert 'class="step-tab' in html
+    assert 'id="wizard-sidebar"' in html
     assert 'id="resumen-legajo"' in html
 
 
@@ -32,3 +33,5 @@ def test_css_incluye_tokens_y_accesibilidad(client: TestClient) -> None:
     assert ":focus-visible" in css
     assert ".stamp" in css
     assert ".ledger__table" in css
+    assert ".wizard-sidebar" in css
+    assert ".field-checkbox" in css

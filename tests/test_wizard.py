@@ -64,8 +64,11 @@ def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
     assert 'id="ddjj-detalle-required"' in html
     assert 'id="ddjj-detalle-hint"' in html
     assert 'id="ddjj-confirmada"' in html
+    assert 'class="field-checkbox"' in html
     assert 'id="legajo-ddjj"' in html
     assert 'id="comprobante-ddjj"' in html
+    assert 'id="wizard-sidebar"' in html
+    assert html.count('role="button"') == 3
     assert 'id="regimen-afiliacion"' in html
     assert 'id="cuil-titular"' in html
     assert 'id="aporte-estimado"' in html
@@ -186,11 +189,17 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
         "inicializarDDJJ",
         "ddjjConIndicadores",
         "ddjjCompleta",
+        "ddjjValida",
         "actualizarDDJJDetalle",
         "radio.value === \"si\"",
         "detalle.required = hayIndicadores",
         "Respondé Sí o No",
         "declaracion_confirmada",
+        "pasoCompleto",
+        "actualizarIndicadoresPaso",
+        "irAPaso",
+        "inicializarValidacionPago",
+        "campo.addEventListener(evento, actualizarIndicadoresPaso)",
         "comprobante-ddjj",
         "legajo-ddjj",
         "actualizarFormularioRegimen",

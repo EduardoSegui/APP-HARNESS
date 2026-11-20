@@ -135,7 +135,7 @@
       "titulo": "Wizard con sticky rail y navegación libre",
       "descripcion": "Columna lateral sticky, navegación libre por las tres etapas, indicadores de completitud y checkbox DDJJ corregido.",
       "packet": "features/F21.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F22",

@@ -3,28 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 18 — F18: buscador, filtros, linaje y credencial
-
----
-feature: F18
-fecha: 2026-11-20
-tests: 351 passed
-harness: OK
-commit: feat(F18): buscador, filtros, linaje y credencial
----
-
-**Fecha:** 2026-11-20
-
-**Rol:** Verifier. **Feature:** F18 — Buscador, filtros, linaje y credencial. **Estado:** verificada y aprobada.
-
-Panel `GET /ventas` con `q` por DNI/nombre/apellido, filtros combinables por estado, plan, medio de pago y régimen, paginación de 20 y filtros preservados en formulario y links. `VentaEvento` registra CREADA/EDITADA/AUDITADA_APROBADA/AUDITADA_OBSERVADA con estados anterior/nuevo, detalle, actor y timestamp en la misma transacción; ficha con timeline; credencial provisoria solo para aprobadas, sin salud ni instrumentos de pago. API `GET /api/ventas` y `/api/ventas/{id}/eventos` con 422/404 defensivos.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 351 passed. Smoke con TestClient sobre base temporal: búsqueda DNI/apellido, filtros combinados preservados, 23 ventas en 2 páginas, eventos en orden con actores operador/auditor, rollback de edición sin evento falso, timeline, credencial aprobada sin DDJJ/tarjeta/CBU/CUIL y 404 para pendiente/observada, API filtrada y 422. Copia de `ventas.db`: `venta_eventos` creada con índices/CHECK, 7 ventas y 3 integrantes preservados; F17 intacto. `ventas.db` real sin modificar.
-
-**Decisión:** la credencial usa `OS-{id:06d}` y la fecha de emisión es `actualizado_en`; los eventos se ordenan por `creado_en DESC, id DESC` para desempatar.
-
-**Próximo paso:** F19 — Tablero analítico y exportación — packet: `features/F19.md`.
-
 ## Sesión 19 — F19: Tablero analítico y exportación
 
 ---
@@ -46,3 +24,23 @@ El tablero `GET /dashboard` y `GET /api/metricas` exponen embudo, cobertura, MRR
 **Decisión:** el redondeo por venta usa el mismo criterio que `pricing.calcular_descuento_monto`; las filas exportadas reconcilian exactamente con los agregados.
 
 **Próximo paso:** no quedan features pendientes; corresponde planificar (SDD pasos 1–5) antes de construir.
+
+## Sesión 20 — F21: wizard con sticky rail y navegación libre
+
+---
+feature: F21
+fecha: 2026-11-20
+tests: 358 passed
+harness: OK
+commit: feat(F21): wizard con sticky rail y navegación libre
+---
+
+**Fecha:** 2026-11-20
+
+**Rol:** Verifier. **Feature:** F21 — Wizard con sticky rail y navegación libre. **Estado:** verificada y aprobada.
+
+`#wizard-sidebar` unifica rail y resumen sticky en escritorio y se apila en móvil. Las tres solapas navegan libremente sin validar, conservan datos en DOM/estado y muestran activo/pendiente/completado con check verde. La confirmación valida 1–3 y redirige al primer paso inválido. Los indicadores se recalculan al cambiar DDJJ (radios, detalle y confirmación) y al editar cualquier campo de tarjeta/CBU; el checkbox DDJJ quedó inline 18×18.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 358 passed; `node --check` → OK. Chrome headless sobre base temporal: sticky top 20 al scrollear, static en 390px, gap rail/resumen 16px, checkbox 18×18 inline; navegación libre y conservación en alta y edición; check de paso 1 baja/sube al desmarcar/reconfirmar DDJJ y al escribir/borrar detalle; check de paso 3 cambia al completar/borrar tarjeta y CBU; confirmación con faltantes va a pasos 1 y 2; alta POST y edición PUT con comprobante. Endpoints `/health`, `/api/ventas`, detalle, `/ventas`, `/dashboard` y `/api/metricas` OK.
+
+**Próximo paso:** F22 — Tablero con KPIs, barras y filtros de exportación — packet: `features/F22.md`.
