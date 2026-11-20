@@ -129,6 +129,10 @@ El valor se persiste como texto controlado por la aplicación. No se admiten val
 - Los errores se muestran junto al campo correspondiente, sin perder los datos cargados.
 - La cantidad de adherentes impacta en la cotización de la Etapa 3 y debe reflejarse en el resumen.
 
+### 5.5 Declaración jurada de salud (F16)
+
+El alta incorpora una DDJJ familiar con indicadores de preexistencias, internaciones en los últimos 12 meses, embarazo, medicación crónica y discapacidad declarada. Si algún indicador es positivo, el campo `detalle_salud` es obligatorio. La DDJJ se persiste con la venta y R7 deriva a revisión médica los casos que correspondan. No se adjuntan estudios ni se muestra el detalle en el listado general.
+
 ---
 
 ## 6. Etapa 2 — Domicilio
@@ -203,8 +207,40 @@ Al presionar **Confirmar venta**:
 4. Se inserta la venta y todos sus integrantes en **una única transacción**.
 5. Si cualquier inserción falla, se hace rollback completo: no quedan ventas ni integrantes parciales.
 6. La venta se crea con estado `PENDIENTE_VERIFICACION`, `observaciones = null` y timestamps de creación/actualización.
-7. La respuesta incluye el comprobante: número de venta, fecha, titular, plan, cantidad de adherentes, desglose y total.
+7. La respuesta incluye el comprobante: número de venta, fecha, titular, plan, cantidad de adherentes, desglose, instrumento enmascarado y total.
 8. La interfaz muestra el comprobante final y un enlace al panel de ventas.
+
+### 7.4 Instrumento de pago (F14)
+
+Cuando el medio es `TARJETA_CREDITO` o `CBU`, el alta exige datos del instrumento:
+
+| Tarjeta | CBU |
+|---|---|
+| Marca (VISA, MASTERCARD, AMEX, CABAL) | Entidad bancaria |
+| Número de 16 dígitos | Número de 22 dígitos |
+| Titular de la tarjeta | Titular de la cuenta |
+| Vencimiento `MM/AA` futuro | CUIL/CUIT de 11 dígitos |
+| CVV de 3 o 4 dígitos | — |
+
+Reglas de seguridad y persistencia:
+
+- El número completo y el CVV **nunca** se persisten; el CVV solo se valida en memoria.
+- Se guardan `pago_titular`, `pago_marca_entidad`, `pago_ultimos_4`, `pago_vencimiento` y `pago_cuil`.
+- La API rechaza con `422` un instrumento faltante, inválido o incoherente con el medio de pago.
+- Pago Fácil y Cobrador no requieren datos bancarios.
+- Comprobante y panel muestran solo el instrumento enmascarado (`VISA •••• 4242`, `Banco X · CBU •••• 8901`).
+- Los datos son ficticios en desarrollo; no hay cobro, débito ni integración bancaria real.
+
+### 7.5 Régimen y aportes (F17)
+
+El régimen `PARTICULAR` paga la base bonificada. Los regímenes `RELACION_DEPENDENCIA` y `MONOTRIBUTO` requieren CUIL y permiten declarar un `aporte_estimado`:
+
+```text
+base_bonificada = subtotal_base - descuento_monto
+precio_total = max(0, base_bonificada - aporte_estimado)
+```
+
+El aporte es declarativo en v1; no se integra con ANSES/ARCA. R8 valida la coherencia del régimen, CUIL y aporte.
 
 ---
 
@@ -221,9 +257,12 @@ Al presionar **Confirmar venta**:
 ```text
 PENDIENTE_VERIFICACION ──► APROBADA
 PENDIENTE_VERIFICACION ──► OBSERVADA
+OBSERVADA ──► PENDIENTE_VERIFICACION   (edición/subsanación en F15)
+PENDIENTE_VERIFICACION ──► PENDIENTE_VERIFICACION (edición en F15)
 ```
 
-- `APROBADA` y `OBSERVADA` son estados terminales en v1.
+- `APROBADA` es terminal e inmutable.
+- `OBSERVADA` deja de ser terminal a partir de F15: puede corregirse y volver a pendiente.
 - Toda transición a `OBSERVADA` debe incluir al menos una observación.
 - Toda transición a `APROBADA` debe limpiar las observaciones previas (deben quedar en `null`).
 - No se permite crear una venta directamente en `APROBADA` u `OBSERVADA`.
@@ -240,15 +279,17 @@ El Agente Auditor evalúa las ventas en estado `PENDIENTE_VERIFICACION` y aplica
 | `R2` | Los DNIs del grupo familiar son **únicos** dentro de la venta: no se repite el DNI del titular ni el de ningún integrante. | `OBSERVADA` |
 | `R3` | Los **datos obligatorios** de titular, integrantes y domicilio están completos y cumplen formato (nombre, apellido, DNI de 7–8 dígitos, email, teléfono, fechas válidas, parentesco permitido, calle, altura, localidad, provincia). | `OBSERVADA` |
 | `R4` | El **código postal** tiene exactamente 4 dígitos. | `OBSERVADA` |
-| `R5` | El **plan** existe, está activo, el **medio de pago** es válido y el desglose persistido (`subtotal_base`, `descuento_porcentaje` y `precio_total`) coincide con el cálculo vigente con redondeo half-up. | `OBSERVADA` |
+| `R5` | El **plan** existe, está activo, el **medio de pago** es válido, el instrumento de tarjeta/CBU está completo y el desglose persistido (`subtotal_base`, `descuento_porcentaje`, `aporte_estimado` y `precio_total`) coincide con el cálculo vigente con redondeo half-up. | `OBSERVADA` |
 | `R6` | La venta posee un titular y todos sus integrantes pertenecen a la misma venta (integridad referencial). | `OBSERVADA` |
+| `R7` | La **DDJJ de salud** está completa; los casos con preexistencias, internaciones o discapacidad declarada se derivan a revisión médica. | `OBSERVADA` |
+| `R8` | El **régimen de afiliación**, CUIL y aporte estimado son coherentes: desregulado exige CUIL, particular exige aporte 0 y el aporte no supera la base bonificada. | `OBSERVADA` |
 
 ### 9.1 Resultado de la auditoría
 
 - Si **todas** las reglas pasan: `estado = APROBADA`, `observaciones = null`.
 - Si **alguna** regla falla: `estado = OBSERVADA` y `observaciones` contiene una lista legible con una razón por línea, identificando el campo o integrante afectado.
 - La actualización de estado y observaciones se realiza de forma atómica.
-- La auditoría es idempotente para ventas ya procesadas: no vuelve a modificar `APROBADA` ni `OBSERVADA` en v1.
+- La auditoría es idempotente para ventas ya procesadas: no vuelve a modificar `APROBADA` ni `OBSERVADA` sin una edición previa.
 - Una venta inexistente no puede auditarse.
 
 ### 9.2 Ejemplos de observaciones
@@ -261,6 +302,9 @@ R4: El código postal 'C1425' no tiene el formato de 4 dígitos.
 R5: El plan seleccionado no existe o está inactivo.
 R5: El subtotal base persistido (100000) no coincide con el cálculo vigente (130000).
 R5: El descuento persistido (0%) no coincide con el medio de pago 'TARJETA_CREDITO' (30%).
+R5: Faltan los datos enmascarados de la tarjeta de crédito.
+R7: La DDJJ de salud declara preexistencias y requiere revisión médica.
+R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 ```
 
 ---
@@ -276,7 +320,10 @@ R5: El descuento persistido (0%) no coincide con el medio de pago 'TARJETA_CREDI
 - Validación del lado del cliente para UX y validación definitiva del lado del servidor.
 - Diseño responsive: escritorio y móvil.
 - La Etapa 3 incluye la selección obligatoria de medio de pago, con badges de descuento y actualización en vivo del subtotal, descuento y total.
-- Al finalizar, pantalla de comprobante con los datos de la venta, medio de pago, subtotal, descuento y total a pagar.
+- Si el medio es tarjeta o CBU, se despliega el subformulario de instrumento con validación de formatos; el CVV y el número completo no se persisten.
+- La Etapa 1 incorpora la DDJJ de salud (F16) y la Etapa 3 el régimen de afiliación y aportes (F17).
+- Al finalizar, pantalla de comprobante con los datos de la venta, medio de pago, instrumento enmascarado, subtotal, descuento, aporte y total a pagar.
+- F15 agrega el modo edición del wizard para ventas pendientes u observadas, con navegación libre entre etapas.
 
 ### 10.2 Panel de ventas
 
@@ -296,7 +343,10 @@ R5: El descuento persistido (0%) no coincide con el medio de pago 'TARJETA_CREDI
   - Al finalizar, despliega un panel colapsable con el resumen numérico, el resumen narrativo del LLM o su advertencia, y la traza ordenada de herramientas MCP.
   - Actualiza en pantalla el estado y las observaciones de las ventas procesadas.
 - Estado vacío explícito cuando no hay ventas.
-- No se requieren filtros, paginación ni acciones de edición en v1.
+- F15 agrega la acción **Ver / Editar legajo** para ventas pendientes u observadas; las aprobadas se abren en modo solo lectura.
+- F18 agrega buscador por DNI/nombre/apellido, filtros por estado, plan, medio de pago y régimen, ficha de legajo con línea de tiempo y credencial provisoria para aprobadas.
+- F19 agrega un tablero ejecutivo en `/dashboard` con KPIs y exportaciones CSV/JSON de padrón y cobranzas.
+- La paginación se incorpora junto con los filtros para mantener el panel operativo.
 
 ---
 
@@ -307,20 +357,31 @@ R5: El descuento persistido (0%) no coincide con el medio de pago 'TARJETA_CREDI
 | `GET` | `/health` | Healthcheck: `{"status": "ok"}`. | F01 |
 | `POST` | `/api/ventas` | Crea una venta completa, calcula el total y devuelve el comprobante. | F03 |
 | `GET` | `/api/ventas/{id}` | Devuelve el detalle de una venta con integrantes y plan. | F03 |
+| `PUT` | `/api/ventas/{id}` | Reemplaza un legajo pendiente/observado, recalcula y reabre la auditoría. | F15 |
 | `POST` | `/api/auditar` | Ejecuta el auditor sobre las ventas pendientes y devuelve resultados y traza MCP. | F08 |
+| `GET` | `/api/metricas` | Devuelve KPIs y distribuciones del negocio. | F19 |
+| `GET` | `/api/exportar/padron` | Exporta padrón aprobado en CSV/JSON. | F19 |
+| `GET` | `/api/exportar/cobranzas` | Exporta lote de cobranzas en CSV/JSON. | F19 |
 | `GET` | `/` | Wizard web de 3 etapas. | F04 |
-| `GET` | `/ventas` | Panel HTML de ventas. | F05 |
+| `GET` | `/ventas` | Panel HTML de ventas con búsqueda y filtros. | F05/F18 |
+| `GET` | `/ventas/{id}` | Ficha de legajo con línea de tiempo. | F18 |
+| `GET` | `/ventas/{id}/editar` | Wizard en modo edición. | F15 |
+| `GET` | `/ventas/{id}/credencial` | Credencial provisoria de una venta aprobada. | F18 |
+| `GET` | `/dashboard` | Tablero ejecutivo de KPIs. | F19 |
 
 ### 11.1 Reglas de la API
 
-- `POST /api/ventas` recibe titular, domicilio, `plan_id`, `medio_pago` y la lista de integrantes.
+- `POST /api/ventas` recibe titular, domicilio, `plan_id`, `medio_pago`, la lista de integrantes y, según el medio, `tarjeta` o `cbu`.
+- `tarjeta` incluye marca, número, titular, vencimiento y CVV; `cbu` incluye número, entidad, titular y CUIL. El servidor valida y enmascara antes de persistir.
 - `medio_pago` es obligatorio y debe ser uno de `TARJETA_CREDITO`, `CBU`, `PAGO_FACIL` o `COBRADOR_DOMICILIO`.
-- El cliente **no** envía `subtotal_base`, `descuento_porcentaje`, `precio_total`, `estado` ni `observaciones`; el servidor los determina.
+- El cliente **no** envía `pago_*`, `subtotal_base`, `descuento_porcentaje`, `aporte_estimado`, `precio_total`, `estado` ni `observaciones`; el servidor los determina.
+- F15 agrega `PUT /api/ventas/{id}`: `404` inexistente, `409` aprobada, `422` payload inválido.
+- F16/F17 agregan DDJJ de salud, régimen, CUIL y aporte estimado.
 - Error de validación: HTTP `422` con detalle por campo.
 - Plan inexistente/inactivo: HTTP `422` o `400` con mensaje claro.
 - Venta inexistente en `GET`: HTTP `404`.
-- La creación es atómica y devuelve HTTP `201`.
-- Los errores no exponen trazas internas ni detalles de SQL.
+- La creación y la edición son atómicas; creación `201`, edición `200`.
+- Los errores no exponen trazas internas, detalles de SQL ni datos completos de instrumentos.
 
 ### 11.2 Contrato de `POST /api/auditar`
 
@@ -421,8 +482,13 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 8. El auditor aplica las reglas y actualiza el estado con observaciones.
 9. El panel permite lanzar la auditoría, muestra el resumen del LLM y la traza MCP, y expone las observaciones exactas por venta.
 10. El wizard, el comprobante y el panel muestran el medio de pago y el descuento aplicado.
-11. `./init.sh` y `uv run pytest` pasan antes de marcar cualquier feature como completada.
-12. Cada feature cerrada queda registrada en `CHECKPOINT.md` y en un commit de Git.
+11. El instrumento de tarjeta/CBU se captura cuando corresponde y se persiste enmascarado, sin PAN completo ni CVV.
+12. Las ventas pendientes u observadas se pueden reabrir y editar por etapas; las aprobadas son inmutables.
+13. La DDJJ de salud y el régimen/aportes se persisten y se validan con R7/R8.
+14. El panel permite buscar, filtrar, ver la línea de tiempo y emitir credencial provisoria.
+15. El tablero ejecutivo y las exportaciones CSV/JSON usan datos enmascarados.
+16. `./init.sh` y `uv run pytest` pasan antes de marcar cualquier feature como completada.
+17. Cada feature cerrada queda registrada en `CHECKPOINT.md` y en un commit de Git.
 
 ---
 
@@ -443,3 +509,9 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 | F11 | Feature packets e intake SDD. |
 | F12 | Rediseño visual del wizard y el panel. |
 | F13 | Medios de pago y descuentos en la cotización. |
+| F14 | Instrumentos de tarjeta/CBU, validación y persistencia enmascarada. |
+| F15 | Reapertura y edición multi-etapa de ventas pendientes/observadas. |
+| F16 | DDJJ de salud y regla de auditoría médica R7. |
+| F17 | Régimen de afiliación, CUIL, aportes y regla R8. |
+| F18 | Buscador, filtros, linaje de legajo y credencial provisoria. |
+| F19 | Tablero ejecutivo y exportación CSV/JSON de padrón y cobranzas. |

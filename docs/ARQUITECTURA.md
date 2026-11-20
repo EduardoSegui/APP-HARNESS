@@ -232,7 +232,21 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 | `medio_pago` | String(30) | NOT NULL, default `PAGO_FACIL`, CHECK contra el catálogo. |
 | `subtotal_base` | Integer | NOT NULL, >= 0. Precio de lista antes del descuento. |
 | `descuento_porcentaje` | Integer | NOT NULL, >= 0. 30, 20 o 0 según el medio de pago. |
-| `precio_total` | Integer | NOT NULL, > 0. Total bonificado persistido. |
+| `pago_titular` | String(80) | NULL. Titular de tarjeta o cuenta. |
+| `pago_marca_entidad` | String(80) | NULL. Marca de tarjeta o entidad bancaria. |
+| `pago_ultimos_4` | String(4) | NULL. Últimos 4 dígitos; nunca PAN/CBU completo. |
+| `pago_vencimiento` | String(5) | NULL. `MM/AA` de tarjeta. |
+| `pago_cuil` | String(11) | NULL. CUIL/CUIT declarado para CBU. |
+| `regimen_afiliacion` | String(30) | NOT NULL, default `PARTICULAR`. F17. |
+| `cuil_titular` | String(11) | NULL. Obligatorio para desregulados. F17. |
+| `aporte_estimado` | Integer | NOT NULL, default 0. F17. |
+| `ddjj_preexistencias` | Boolean | NOT NULL, default false. F16. |
+| `ddjj_internaciones` | Boolean | NOT NULL, default false. F16. |
+| `ddjj_embarazo` | Boolean | NOT NULL, default false. F16. |
+| `ddjj_medicacion_cronica` | Boolean | NOT NULL, default false. F16. |
+| `ddjj_discapacidad` | Boolean | NOT NULL, default false. F16. |
+| `ddjj_detalle` | Text | NULL. Detalle declarado de salud. F16. |
+| `precio_total` | Integer | NOT NULL, > 0. Total neto a pagar. |
 | `estado` | String(30) | NOT NULL, default `PENDIENTE_VERIFICACION`, CHECK en los 3 estados. |
 | `observaciones` | Text | NULL. |
 | `creado_en` | DateTime | NOT NULL, default UTC now. |
@@ -241,6 +255,8 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 Índices: `ix_ventas_estado`, `ix_ventas_dni_titular`.
 
 Las bases creadas antes de F13 se actualizan al arrancar mediante una migración SQLite idempotente en `database.py`: agrega las tres columnas nuevas y completa las filas históricas con `medio_pago='PAGO_FACIL'`, `subtotal_base=precio_total` y `descuento_porcentaje=0`.
+
+F14 agrega las cinco columnas `pago_*` (NULL para filas históricas), F16 las columnas `ddjj_*` (false/NULL) y F17 `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` (NULL) y `aporte_estimado` (0). La misma migración es idempotente y se ejecuta en `init_db()` y al arrancar el servidor MCP.
 
 No se impone unicidad global de DNI: la regla de negocio exige unicidad **dentro del grupo familiar de una venta**, no entre ventas distintas.
 
@@ -264,6 +280,21 @@ Restricción: `UNIQUE (venta_id, dni)` para impedir duplicados a nivel de base. 
 - Borrar una venta elimina sus integrantes (`CASCADE`). La UI no expone borrado en v1.
 - Los estados y parentescos se validan en Pydantic y, cuando sea posible, con `CHECK` en la base.
 - Montos en enteros para evitar errores de punto flotante.
+
+### 5.6 Tabla `venta_eventos` (F18)
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | Integer | PK, autoincrement. |
+| `venta_id` | Integer | FK `ventas.id` ON DELETE CASCADE, NOT NULL, indexado. |
+| `tipo` | String(30) | NOT NULL: `CREADA`, `EDITADA`, `AUDITADA_APROBADA`, `AUDITADA_OBSERVADA`. |
+| `estado_anterior` | String(30) | NULL. |
+| `estado_nuevo` | String(30) | NULL. |
+| `detalle` | Text | NULL. Resumen del hito, sin datos sensibles. |
+| `actor` | String(30) | NOT NULL: `operador` o `auditor`. |
+| `creado_en` | DateTime | NOT NULL, default UTC now. |
+
+Los eventos son inmutables y se registran dentro de la misma transacción que la mutación de la venta. Se indexan por `venta_id` y `creado_en` para la línea de tiempo.
 
 ---
 
@@ -297,10 +328,11 @@ Reglas de transición:
 |---|---|---|
 | `PENDIENTE_VERIFICACION` | `APROBADA` | Todas las reglas de auditoría pasan. |
 | `PENDIENTE_VERIFICACION` | `OBSERVADA` | Al menos una regla falla; observaciones no vacías. |
-| `APROBADA` | — | Terminal. |
-| `OBSERVADA` | — | Terminal. |
+| `PENDIENTE_VERIFICACION` | `PENDIENTE_VERIFICACION` | Edición del legajo en F15; se limpian observaciones. |
+| `OBSERVADA` | `PENDIENTE_VERIFICACION` | Edición/subsanación en F15; se limpian observaciones. |
+| `APROBADA` | — | Terminal e inmutable. |
 
-La validación de transiciones se centraliza en `services/estados.py` y se reutiliza tanto en la API como en MCP y en el auditor. Una transición inválida devuelve error `409` (API) o error de herramienta MCP, sin modificar la fila.
+La validación de transiciones de auditoría se centraliza en `services/estados.py` y se reutiliza tanto en la API como en MCP y en el auditor. La edición de F15 se valida en el servicio de ventas y devuelve `409` si la venta está aprobada. Una transición inválida no modifica la fila.
 
 ---
 
@@ -309,26 +341,29 @@ La validación de transiciones se centraliza en `services/estados.py` y se reuti
 `POST /api/ventas` ejecuta el siguiente algoritmo:
 
 ```text
-1. Validar payload con Pydantic (titular, domicilio, plan_id, medio_pago, integrantes).
+1. Validar payload con Pydantic (titular, domicilio, plan_id, medio_pago, instrumento, DDJJ, régimen e integrantes).
 2. Abrir sesión SQLAlchemy.
 3. BEGIN implícito.
 4. Buscar plan por id y verificar activo=True.
 5. Normalizar datos (trim, DNI sin puntos).
 6. Validar que los DNIs del payload sean únicos (titular + integrantes).
-7. Calcular subtotal_base con precios leídos de la fila del plan.
-8. Aplicar el descuento del medio_pago con redondeo half-up y calcular precio_total.
-9. Crear Venta con estado=PENDIENTE_VERIFICACION, desglose y observaciones=null.
-10. flush() para obtener venta.id.
-11. Crear Integrante para cada adherente con venta_id.
-12. commit().
-13. Refrescar y devolver el comprobante (HTTP 201).
+7. Validar el instrumento de pago y derivar solo metadatos enmascarados; descartar PAN/CVV.
+8. Calcular subtotal_base con precios leídos de la fila del plan.
+9. Aplicar descuento half-up y aporte estimado; calcular precio_total neto.
+10. Crear Venta con estado=PENDIENTE_VERIFICACION, desglose, DDJJ y observaciones=null.
+11. flush() para obtener venta.id.
+12. Crear Integrante para cada adherente con venta_id.
+13. commit().
+14. Refrescar y devolver el comprobante (HTTP 201).
 
-Si cualquier paso 4–11 falla:
+Si cualquier paso 4–12 falla:
     rollback()
     devolver error controlado (400/422/500), sin filas parciales.
 ```
 
-El payload del cliente incluye `medio_pago` como dato obligatorio, pero no incluye `subtotal_base`, `descuento_porcentaje`, `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se ignoran o se rechazan por configuración de Pydantic (`extra="forbid"`).
+El payload del cliente incluye `medio_pago`, `tarjeta`/`cbu` cuando corresponde, DDJJ de salud y datos de régimen. No incluye `pago_*`, `subtotal_base`, `descuento_porcentaje`, `aporte_estimado`, `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se rechazan por configuración de Pydantic (`extra="forbid"`).
+
+`PUT /api/ventas/{id}` (F15) reutiliza el mismo algoritmo, elimina los integrantes anteriores y crea los nuevos dentro de la transacción. Si la venta está `APROBADA`, devuelve `409` antes de modificar nada.
 
 ---
 
@@ -341,9 +376,17 @@ El payload del cliente incluye `medio_pago` como dato obligatorio, pero no inclu
 | `GET` | `/health` | F01 | `{"status": "ok"}` |
 | `POST` | `/api/ventas` | F03 | `201` + comprobante completo. |
 | `GET` | `/api/ventas/{id}` | F03 | `200` + detalle; `404` si no existe. |
+| `PUT` | `/api/ventas/{id}` | F15 | `200` + legajo actualizado; `404`/`409`/`422`. |
 | `POST` | `/api/auditar` | F08 | `200` + resultado estructurado y traza MCP. |
+| `GET` | `/api/metricas` | F19 | KPIs y distribuciones en JSON. |
+| `GET` | `/api/exportar/padron` | F19 | CSV/JSON del padrón aprobado. |
+| `GET` | `/api/exportar/cobranzas` | F19 | CSV/JSON del lote de cobranzas. |
 | `GET` | `/` | F04 | HTML wizard. |
-| `GET` | `/ventas` | F05/F08 | HTML panel con auditoría en vivo. |
+| `GET` | `/ventas` | F05/F08/F18 | HTML panel con auditoría, búsqueda y filtros. |
+| `GET` | `/ventas/{id}` | F18 | Ficha de legajo y línea de tiempo. |
+| `GET` | `/ventas/{id}/editar` | F15 | Wizard en modo edición. |
+| `GET` | `/ventas/{id}/credencial` | F18 | Credencial provisoria de aprobada. |
+| `GET` | `/dashboard` | F19 | Tablero ejecutivo. |
 
 Se podrá agregar `GET /api/planes` como apoyo del wizard (no obligatorio), devolviendo los planes activos.
 
@@ -368,11 +411,17 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 ### 8.3 Schemas Pydantic v2
 
 - `IntegranteIn`: nombre, apellido, dni, fecha_nacimiento, parentesco.
-- `VentaIn`: datos del titular + domicilio + `plan_id` + `medio_pago` obligatorio + `integrantes: list[IntegranteIn]`.
-- `VentaOut`: todos los datos persistidos + `plan` + `medio_pago` + `subtotal_base` + `descuento_porcentaje` + `precio_total` + `integrantes` + estado + observaciones + timestamps.
+- `TarjetaIn`: marca, número, titular, vencimiento, CVV. El CVV no se persiste.
+- `CbuIn`: número, entidad, titular, CUIL.
+- `SaludIn`: indicadores de DDJJ y detalle.
+- `VentaIn`: titular + domicilio + `plan_id` + `medio_pago` + `tarjeta`/`cbu` condicional + DDJJ + régimen + `integrantes`.
+- `VentaUpdateIn`: misma estructura, con instrumento opcional para conservar metadatos enmascarados si el medio no cambia.
+- `VentaOut`: datos persistidos + `plan` + `medio_pago` + desglose + `pago_*` enmascarados + DDJJ + régimen + integrantes + estado + observaciones + timestamps.
+- `MetricasOut` y `DistribucionOut`: agregados de F19.
 - `PlanOut`: id, nombre, precios, activo.
-- Validadores reutilizables para DNI, teléfono, código postal y email.
+- Validadores reutilizables para DNI, teléfono, código postal, email, tarjeta, CBU, CUIL y vencimiento.
 - `model_config = ConfigDict(extra="forbid", from_attributes=True)` en los schemas de entrada/salida correspondientes.
+- Los schemas de salida nunca incluyen PAN completo, CBU completo ni CVV.
 
 ---
 
@@ -388,20 +437,25 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
     integrantes: [...],
     domicilio: {...},
     plan_id: null,
-    medio_pago: null
+    medio_pago: null,
+    salud: {...},
+    regimen: {...}
   }
   ```
-- Se sincroniza en `sessionStorage` para tolerar recargas accidentales.
-- Navegación: Paso 1 → Paso 2 → Paso 3 → Confirmación.
+- Se sincroniza en `sessionStorage` para tolerar recargas accidentales. Los números completos de tarjeta/CBU y el CVV **no** se guardan en `sessionStorage`.
+- Navegación: Paso 1 → Paso 2 → Paso 3 → Confirmación. En modo edición (F15), la navegación es libre entre las tres etapas.
 - **Adherentes dinámicos:** agregar crea un objeto con ID temporal; eliminar lo quita del array y del DOM; el contador se actualiza.
-- La Etapa 3 exige elegir un plan y un medio de pago. La cotización se calcula en el cliente solo como vista previa, con el mismo redondeo half-up del backend. Al confirmar, se envía el payload a `POST /api/ventas` y se usa el total devuelto por el servidor.
-- El comprobante final muestra ID, fecha, titular, plan, medio de pago, adherentes, subtotal, descuento, total y estado inicial.
+- La Etapa 3 exige elegir un plan y un medio de pago. Si el medio es tarjeta/CBU, muestra el subformulario de instrumento (F14). La cotización se calcula en el cliente como vista previa, con el mismo redondeo half-up del backend. Al confirmar, se envía el payload a `POST /api/ventas` (o `PUT` en edición) y se usa el total devuelto por el servidor.
+- La Etapa 1 incorpora la DDJJ de salud (F16); la Etapa 3 incorpora régimen, CUIL y aporte (F17).
+- El comprobante final muestra ID, fecha, titular, plan, medio de pago, instrumento enmascarado, adherentes, subtotal, descuento, aporte, total y estado inicial.
 - Tailwind se carga por CDN; no hay build de frontend.
 
 ### 9.2 Panel
 
-- `GET /ventas` consulta las ventas con `joinedload` del plan y conteo de integrantes.
-- Tabla responsive con columna de **Medio de pago**, total bonificado, badges de estado y una columna de **Observaciones** que muestra el texto persistido o el estado de la auditoría.
+- `GET /ventas` consulta las ventas con `joinedload` del plan y conteo de integrantes; F18 agrega filtros por texto, estado, plan, medio de pago y régimen, con paginación.
+- Tabla responsive con columna de **Medio de pago** e instrumento enmascarado, total bonificado, badges de estado y una columna de **Observaciones** que muestra el texto persistido o el estado de la auditoría.
+- F15 agrega **Ver / Editar legajo** para pendientes/observadas; F18 agrega ficha con línea de tiempo y credencial provisoria para aprobadas.
+- F19 agrega el enlace al tablero `/dashboard` y exportaciones CSV/JSON.
 - Botón **“Auditar Pendientes con IA”** en la cabecera:
   - Hace `POST /api/auditar` y bloquea el botón mientras corre.
   - Muestra un panel colapsable con `procesadas`/`aprobadas`/`observadas`, el resumen del LLM, su advertencia si corresponde y la tabla de `traza_mcp`.
@@ -437,7 +491,7 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
   ventas = listar_ventas_pendientes()
   para cada venta:
       detalle = obtener_detalle_venta(id)
-      errores = aplicar_reglas(detalle)   # R1–R6
+      errores = aplicar_reglas(detalle)   # R1–R8
       si errores:
           actualizar_estado_venta(id, "OBSERVADA", "\n".join(errores))
       else:
@@ -453,9 +507,12 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 - Las reglas se implementan como funciones puras que reciben el detalle y
   devuelven una lista de strings. Esto facilita tests unitarios sin base de
   datos.
-- R5 valida que el plan esté activo, que el medio de pago sea válido y que
-  `subtotal_base`, `descuento_porcentaje` y `precio_total` coincidan con la
+- R5 valida que el plan esté activo, que el medio de pago sea válido, que el
+  instrumento de tarjeta/CBU esté completo y que `subtotal_base`,
+  `descuento_porcentaje`, `aporte_estimado` y `precio_total` coincidan con la
   cotización vigente, usando el mismo redondeo half-up que el backend.
+- R7 valida la DDJJ de salud y deriva a revisión médica los casos declarados.
+- R8 valida régimen de afiliación, CUIL y aporte estimado.
 - Fecha de referencia inyectable (`hoy: date | None`) para tests determinísticos
   de edad.
 - El auditor comparte la capa de servicios con el servidor MCP a través del
@@ -466,7 +523,7 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
   - `OPENAI_BASE_URL`: URL base alternativa (por ejemplo, Ollama).
   - `OPENAI_MODEL`: modelo a utilizar.
   - `OPENAI_TIMEOUT`: timeout de la llamada.
-  - El LLM **no decide estados**: las reglas R1–R6 son la fuente de verdad.
+  - El LLM **no decide estados**: las reglas R1–R8 son la fuente de verdad.
   - Timeout, error HTTP o respuesta inválida se informan como advertencia y se
     usa el resumen local; la auditoría continúa.
 - No modifica ventas que no estén en `PENDIENTE_VERIFICACION`.
@@ -640,6 +697,12 @@ No se escribe código hasta que la ficha exista y esté commiteada. El Builder n
 | F11 | Feature packets e intake. | Plantilla, packets autocontenidos y protocolo de planificación. |
 | F12 | Rediseño visual del wizard y el panel. | Render, estados y pruebas visuales existentes. |
 | F13 | Medios de pago y descuentos. | Cotización, desglose, API, wizard, panel, comprobante, migración y R5. |
+| F14 | Instrumentos de tarjeta/CBU enmascarados. | Validación, persistencia enmascarada, UI condicional, R5 y migración. |
+| F15 | Edición multi-etapa de ventas. | `PUT`, precarga, recálculo, rollback, 409 en aprobadas y tests de UI. |
+| F16 | DDJJ de salud y R7. | Migración, validaciones, R7 y privacidad. |
+| F17 | Régimen, CUIL y aportes. | Pricing neto, migración, R8 y tests de API/UI. |
+| F18 | Búsqueda, filtros, linaje y credencial. | `VentaEvento`, filtros, ficha, timeline y credencial. |
+| F19 | Tablero y exportaciones. | Métricas SQL, CSV/JSON, filtros y privacidad. |
 
 ---
 

@@ -80,6 +80,48 @@
       "descripcion": "Selección de medio de pago en Etapa 3 del wizard (tarjeta de crédito, CBU, pago fácil, cobrador), cálculo de descuentos en cotización, desglose en comprobante y panel, y validación en regla R5 del Auditor MCP.",
       "packet": "features/F13.md",
       "passes": true
+    },
+    {
+      "id": "F14",
+      "titulo": "Instrumentos de pago: tarjeta y CBU enmascarados",
+      "descripcion": "Captura condicional de datos de tarjeta y CBU, validación, persistencia enmascarada sin PAN completo ni CVV, visualización en comprobante/panel y validación R5.",
+      "packet": "features/F14.md",
+      "passes": false
+    },
+    {
+      "id": "F15",
+      "titulo": "Ver, reabrir y editar ventas por etapas",
+      "descripcion": "Edición integral de ventas pendientes y observadas desde el wizard, con retroceso entre etapas, recálculo, reauditoría y bloqueo de ventas aprobadas.",
+      "packet": "features/F15.md",
+      "passes": false
+    },
+    {
+      "id": "F16",
+      "titulo": "Declaración jurada de salud y auditoría médica",
+      "descripcion": "DDJJ de salud familiar, persistencia de indicadores y detalle, y regla R7 de derivación a revisión médica.",
+      "packet": "features/F16.md",
+      "passes": false
+    },
+    {
+      "id": "F17",
+      "titulo": "Régimen de afiliación, CUIL y aportes",
+      "descripcion": "Particular, relación de dependencia y monotributo; CUIL, aporte estimado, precio neto y regla R8.",
+      "packet": "features/F17.md",
+      "passes": false
+    },
+    {
+      "id": "F18",
+      "titulo": "Buscador, filtros, linaje y credencial",
+      "descripcion": "Panel operativo con búsqueda/filtros, ficha de legajo, eventos inmutables de linaje y credencial provisoria para aprobadas.",
+      "packet": "features/F18.md",
+      "passes": false
+    },
+    {
+      "id": "F19",
+      "titulo": "Tablero analítico y exportación",
+      "descripcion": "KPIs ejecutivos, métricas JSON y exportación CSV/JSON de padrón y cobranzas con datos enmascarados.",
+      "packet": "features/F19.md",
+      "passes": false
     }
   ]
 }

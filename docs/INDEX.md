@@ -12,8 +12,12 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Etapa 2: domicilio | `docs/PRD.md` §6 |
 | Etapa 3: plan, cotización y confirmación | `docs/PRD.md` §7 |
 | Planes, fórmula de precio y descuentos | `docs/PRD.md` §7.1–7.2 |
+| Instrumentos de pago tarjeta/CBU | `docs/PRD.md` §7.4 |
+| Régimen de afiliación y aportes | `docs/PRD.md` §7.5 |
+| DDJJ de salud | `docs/PRD.md` §5.5 |
 | Estados y transiciones | `docs/PRD.md` §8 |
-| Reglas de auditoría R1–R6 | `docs/PRD.md` §9 |
+| Reglas de auditoría R1–R8 | `docs/PRD.md` §9 |
+| Edición y reapertura de legajos | `docs/PRD.md` §8, §10.2 |
 | Interfaz web (wizard y panel) | `docs/PRD.md` §10 |
 | API y contrato de auditoría | `docs/PRD.md` §11 |
 | Capa MCP y Agente Auditor | `docs/PRD.md` §12 |
@@ -25,8 +29,9 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Stack y dependencias | `docs/ARQUITECTURA.md` §2 |
 | Estructura del repositorio | `docs/ARQUITECTURA.md` §3 |
 | Configuración y arranque | `docs/ARQUITECTURA.md` §4 |
-| Modelo relacional | `docs/ARQUITECTURA.md` §5 |
+| Modelo relacional y `venta_eventos` | `docs/ARQUITECTURA.md` §5 |
 | Flujo de estados | `docs/ARQUITECTURA.md` §6 |
+| Instrumentos enmascarados y aportes | `docs/ARQUITECTURA.md` §5.3, §7, §8.3 |
 | Creación atómica de ventas | `docs/ARQUITECTURA.md` §7 |
 | API y schemas | `docs/ARQUITECTURA.md` §8 |
 | Interfaz web | `docs/ARQUITECTURA.md` §9 |
@@ -34,6 +39,7 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Testing | `docs/ARQUITECTURA.md` §11 |
 | Harness, roles y ciclo | `docs/ARQUITECTURA.md` §12 |
 | Decisiones y riesgos | `docs/ARQUITECTURA.md` §13–14 |
+| Roadmap F14–F19 | `docs/ARQUITECTURA.md` §15 |
 
 ## Diseño de interfaz
 
