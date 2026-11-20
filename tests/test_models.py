@@ -5,9 +5,11 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import MetaData, create_engine, inspect
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateTable
 
 from ventas_app.database import _migrar_ventas_sqlite, engine, init_db
 from ventas_app.models import EstadoVenta, Integrante, Parentesco, Plan, Venta
@@ -205,6 +207,63 @@ def test_venta_persiste_metadatos_de_pago_enmascarados(db: Session) -> None:
     assert venta.pago_cuil is None
 
 
+def test_migracion_f17_reconstruye_check_y_conserva_integrantes(
+    tmp_path,
+) -> None:
+    engine_viejo = create_engine(f"sqlite:///{tmp_path / 'ventas-f17.db'}")
+    metadata = MetaData()
+    planes = Plan.__table__.to_metadata(metadata, name="planes")
+    ventas = Venta.__table__.to_metadata(metadata, name="ventas")
+    integrantes = Integrante.__table__.to_metadata(
+        metadata,
+        name="integrantes",
+    )
+    with engine_viejo.begin() as conexion:
+        planes.create(bind=conexion)
+        ddl = str(
+            CreateTable(ventas).compile(dialect=sqlite.dialect())
+        ).replace("precio_total >= 0", "precio_total > 0")
+        assert "precio_total > 0" in ddl
+        conexion.exec_driver_sql(ddl)
+        integrantes.create(bind=conexion)
+
+    with Session(engine_viejo) as db:
+        plan = crear_plan(db)
+        venta = crear_venta(plan)
+        venta.integrantes.append(crear_integrante())
+        db.add(venta)
+        db.commit()
+        db.refresh(venta)
+        venta_id = venta.id
+        plan_id = plan.id
+
+    _migrar_ventas_sqlite(engine_viejo)
+
+    with engine_viejo.begin() as conexion:
+        sql = conexion.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='ventas'"
+        ).scalar_one()
+        assert "precio_total >= 0" in sql
+        assert "precio_total > 0" not in sql
+        assert conexion.exec_driver_sql(
+            "PRAGMA foreign_key_check"
+        ).fetchall() == []
+
+    with Session(engine_viejo) as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        assert len(venta.integrantes) == 1
+        assert venta.integrantes[0].dni == "40111222"
+
+        plan = db.get(Plan, plan_id)
+        assert plan is not None
+        cero = crear_venta(plan, precio_total=0)
+        db.add(cero)
+        db.commit()
+
+    engine_viejo.dispose()
+
+
 def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
     engine_viejo = create_engine(f"sqlite:///{tmp_path / 'ventas-viejas.db'}")
     with engine_viejo.begin() as conexion:
@@ -231,7 +290,8 @@ def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
             "pago_titular, pago_marca_entidad, pago_ultimos_4, "
             "pago_vencimiento, pago_cuil, ddjj_completada, "
             "ddjj_preexistencias, ddjj_internaciones, ddjj_embarazo, "
-            "ddjj_medicacion_cronica, ddjj_discapacidad, ddjj_detalle "
+            "ddjj_medicacion_cronica, ddjj_discapacidad, ddjj_detalle, "
+            "regimen_afiliacion, cuil_titular, aporte_estimado "
             "FROM ventas WHERE id = 7"
         ).one()
 
@@ -251,6 +311,9 @@ def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
         "ddjj_medicacion_cronica",
         "ddjj_discapacidad",
         "ddjj_detalle",
+        "regimen_afiliacion",
+        "cuil_titular",
+        "aporte_estimado",
     }.issubset(columnas)
     assert fila == (
         "PAGO_FACIL",
@@ -268,5 +331,8 @@ def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
         0,
         0,
         None,
+        "PARTICULAR",
+        None,
+        0,
     )
     engine_viejo.dispose()

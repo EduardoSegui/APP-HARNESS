@@ -174,8 +174,11 @@ Un adherente es cada integrante cargado en la Etapa 1. El titular no se cuenta c
 subtotal_base = precio_titular(plan) + cantidad_adherentes × precio_adherente(plan)
 descuento_porcentaje = según medio de pago
 descuento_monto = round_half_up(subtotal_base × descuento_porcentaje / 100)
-precio_total = subtotal_base - descuento_monto
+base_bonificada = subtotal_base - descuento_monto
+precio_total = max(0, base_bonificada - aporte_estimado)
 ```
+
+`aporte_estimado` es 0 para particulares y un monto declarado para desregulados (F17).
 
 Medios de pago y descuentos:
 
@@ -203,7 +206,7 @@ Al presionar **Confirmar venta**:
 
 1. Se revalidan todos los datos de las tres etapas.
 2. Se verifica que el plan exista y esté activo.
-3. Se valida el medio de pago y se calculan `subtotal_base`, `descuento_porcentaje` y `precio_total` en el servidor.
+3. Se validan el medio de pago, la DDJJ, el régimen y el aporte; se calculan `subtotal_base`, `descuento_porcentaje`, `aporte_estimado` y `precio_total` en el servidor.
 4. Se inserta la venta y todos sus integrantes en **una única transacción**.
 5. Si cualquier inserción falla, se hace rollback completo: no quedan ventas ni integrantes parciales.
 6. La venta se crea con estado `PENDIENTE_VERIFICACION`, `observaciones = null` y timestamps de creación/actualización.
@@ -240,7 +243,7 @@ base_bonificada = subtotal_base - descuento_monto
 precio_total = max(0, base_bonificada - aporte_estimado)
 ```
 
-El aporte es declarativo en v1; no se integra con ANSES/ARCA. R8 valida la coherencia del régimen, CUIL y aporte.
+El aporte es declarativo en v1; no se integra con ANSES/ARCA. R8 valida la coherencia del régimen, CUIL y aporte. Si el aporte cubre toda la base, el total puede ser `0`; la migración F17 relaja el CHECK histórico sin perder filas.
 
 ---
 
@@ -329,7 +332,7 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 
 - Ruta: `GET /ventas`.
 - Lista las ventas de la más reciente a la más antigua.
-- Columnas mínimas: ID, titular, plan, cantidad de integrantes, medio de pago, total bonificado, estado y observaciones.
+- Columnas mínimas: ID, titular, plan, cantidad de integrantes, medio de pago, régimen, total bonificado, aporte, estado y observaciones.
 - La columna **Observaciones** muestra el motivo exacto de la auditoría:
   - `APROBADA`: “Sin observaciones”.
   - `OBSERVADA`: el texto persistido, una razón `R1`–`R6` por línea.
@@ -371,10 +374,10 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 
 ### 11.1 Reglas de la API
 
-- `POST /api/ventas` recibe titular, domicilio, `plan_id`, `medio_pago`, la lista de integrantes y, según el medio, `tarjeta` o `cbu`.
+- `POST /api/ventas` recibe titular, domicilio, `plan_id`, `medio_pago`, la lista de integrantes y, según el medio, `tarjeta` o `cbu`; también recibe `ddjj`, `regimen_afiliacion`, `cuil_titular` y `aporte_estimado`.
 - `tarjeta` incluye marca, número, titular, vencimiento y CVV; `cbu` incluye número, entidad, titular y CUIL. El servidor valida y enmascara antes de persistir.
 - `medio_pago` es obligatorio y debe ser uno de `TARJETA_CREDITO`, `CBU`, `PAGO_FACIL` o `COBRADOR_DOMICILIO`.
-- El cliente **no** envía `pago_*`, `subtotal_base`, `descuento_porcentaje`, `aporte_estimado`, `precio_total`, `estado` ni `observaciones`; el servidor los determina.
+- El cliente **no** envía `pago_*`, `subtotal_base`, `descuento_porcentaje`, `base_bonificada`, `precio_total`, `estado` ni `observaciones`; el servidor los determina.
 - F15 agrega `PUT /api/ventas/{id}`: `404` inexistente, `409` aprobada, `422` payload inválido.
 - F16/F17 agregan DDJJ de salud, régimen, CUIL y aporte estimado.
 - Error de validación: HTTP `422` con detalle por campo.

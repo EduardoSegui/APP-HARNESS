@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ventas_app.models import EstadoVenta, Integrante, MedioPago, Plan, Venta
 from ventas_app.schemas import VentaIn, VentaUpdateIn
-from ventas_app.services.pricing import calcular_cotizacion
+from ventas_app.services.pricing import CotizacionDetalle, calcular_cotizacion
 
 
 class PlanNoDisponibleError(ValueError):
@@ -38,6 +38,10 @@ class VentaNoEditableError(ValueError):
 
 class DatosPagoInvalidosError(ValueError):
     """Faltan o son inválidos los datos del instrumento de pago."""
+
+
+class AporteInvalidoError(ValueError):
+    """El aporte estimado no es compatible con la base bonificada."""
 
 
 def _pago_vacio() -> dict[str, str | None]:
@@ -138,6 +142,21 @@ def _datos_salud(
     }
 
 
+def _calcular_cotizacion(
+    plan: Plan,
+    datos: VentaIn | VentaUpdateIn,
+) -> CotizacionDetalle:
+    try:
+        return calcular_cotizacion(
+            plan,
+            len(datos.integrantes),
+            datos.medio_pago,
+            datos.aporte_estimado,
+        )
+    except ValueError as exc:
+        raise AporteInvalidoError(str(exc)) from exc
+
+
 def _construir_integrantes(
     datos: VentaIn | VentaUpdateIn,
 ) -> list[Integrante]:
@@ -163,7 +182,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
     if plan is None or not plan.activo:
         raise PlanNoDisponibleError(datos.plan_id)
 
-    cotizacion = calcular_cotizacion(plan, len(datos.integrantes), datos.medio_pago)
+    cotizacion = _calcular_cotizacion(plan, datos)
     datos_pago = _datos_pago_enmascarados(datos)
     datos_salud = _datos_salud(datos)
     venta = Venta(
@@ -183,6 +202,9 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
         medio_pago=cotizacion.medio_pago.value,
         subtotal_base=cotizacion.subtotal_base,
         descuento_porcentaje=cotizacion.descuento_porcentaje,
+        regimen_afiliacion=datos.regimen_afiliacion.value,
+        cuil_titular=datos.cuil_titular,
+        aporte_estimado=cotizacion.aporte_estimado,
         **datos_pago,
         **datos_salud,
         precio_total=cotizacion.precio_total,
@@ -214,11 +236,7 @@ def actualizar_venta(
         raise PlanNoDisponibleError(datos.plan_id)
 
     datos_pago = _resolver_pago_actualizacion(datos, venta)
-    cotizacion = calcular_cotizacion(
-        plan,
-        len(datos.integrantes),
-        datos.medio_pago,
-    )
+    cotizacion = _calcular_cotizacion(plan, datos)
 
     venta.nombre_titular = datos.nombre_titular
     venta.apellido_titular = datos.apellido_titular
@@ -236,6 +254,9 @@ def actualizar_venta(
     venta.medio_pago = cotizacion.medio_pago.value
     venta.subtotal_base = cotizacion.subtotal_base
     venta.descuento_porcentaje = cotizacion.descuento_porcentaje
+    venta.regimen_afiliacion = datos.regimen_afiliacion.value
+    venta.cuil_titular = datos.cuil_titular
+    venta.aporte_estimado = cotizacion.aporte_estimado
     for campo, valor in datos_pago.items():
         setattr(venta, campo, valor)
     for campo, valor in _datos_salud(datos).items():

@@ -156,9 +156,17 @@
               {% if venta.pago_ultimos_4 %}
               <p class="ledger__meta">{{ venta.pago_marca_entidad }} •••• {{ venta.pago_ultimos_4 }}{% if venta.pago_vencimiento %} · {{ venta.pago_vencimiento }}{% endif %}</p>
               {% endif %}
+              <p class="ledger__meta">
+                {% if venta.regimen_afiliacion == "RELACION_DEPENDENCIA" %}Rel. dependencia
+                {% elif venta.regimen_afiliacion == "MONOTRIBUTO" %}Monotributo
+                {% else %}Particular{% endif %}
+              </p>
             </td>
             <td data-label="Total" class="ledger__amount">
               {{ venta.precio_total | pesos }}
+              {% if venta.aporte_estimado %}
+              <p class="ledger__meta">Aporte {{ venta.aporte_estimado | pesos }}</p>
+              {% endif %}
             </td>
             <td data-label="Estado">
               {% if venta.estado == "PENDIENTE_VERIFICACION" %}

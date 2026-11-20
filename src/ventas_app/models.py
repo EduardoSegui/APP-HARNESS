@@ -49,6 +49,14 @@ class TarjetaMarca(str, Enum):
     CABAL = "CABAL"
 
 
+class RegimenAfiliacion(str, Enum):
+    """Régimen comercial del afiliado."""
+
+    PARTICULAR = "PARTICULAR"
+    RELACION_DEPENDENCIA = "RELACION_DEPENDENCIA"
+    MONOTRIBUTO = "MONOTRIBUTO"
+
+
 class Parentesco(str, Enum):
     """Parentescos admitidos para los integrantes del grupo familiar."""
 
@@ -104,7 +112,10 @@ class Venta(Base):
 
     __tablename__ = "ventas"
     __table_args__ = (
-        CheckConstraint("precio_total > 0", name="ck_ventas_precio_total_positivo"),
+        CheckConstraint(
+            "precio_total >= 0",
+            name="ck_ventas_precio_total_no_negativo",
+        ),
         CheckConstraint(
             f"estado IN ({_ESTADOS_SQL})",
             name="ck_ventas_estado_valido",
@@ -201,6 +212,19 @@ class Venta(Base):
         server_default=text("0"),
     )
     ddjj_detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regimen_afiliacion: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default=RegimenAfiliacion.PARTICULAR.value,
+        server_default=text(f"'{RegimenAfiliacion.PARTICULAR.value}'"),
+    )
+    cuil_titular: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    aporte_estimado: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
     precio_total: Mapped[int] = mapped_column(Integer, nullable=False)
     estado: Mapped[str] = mapped_column(
         String(30),

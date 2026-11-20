@@ -3,28 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 14 — F15: ver, reabrir y editar ventas por etapas
-
----
-feature: F15
-fecha: 2026-11-20
-tests: 292 passed
-harness: OK
-commit: feat(F15): edición de ventas por etapas
----
-
-**Fecha:** 2026-11-20
-
-**Rol:** Verifier (Builder en sesión previa). **Feature:** F15 — Ver, reabrir y editar ventas por etapas. **Estado:** verificada y aprobada.
-
-`VentaUpdateIn` reutiliza las validaciones comunes y permite omitir el instrumento para conservar los metadatos enmascarados; `PUT /api/ventas/{id}` responde 200 con recálculo, 400 plan inválido, 404 inexistente, 409 aprobada y 422 payload/instrumento inválido. `actualizar_venta` reemplaza el legajo y sus adherentes en una transacción, recalcula subtotal/descuento/total, limpia observaciones y vuelve a `PENDIENTE_VERIFICACION`; el wizard de edición precarga las tres etapas sin persistir datos sensibles, y el panel ofrece **Editar legajo** o **Ver legajo** según el estado.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 292 passed; `node --check wizard.js` → OK. Prueba manual con TestClient sobre copia temporal de `ventas.db`: 130.000 → 91.000 con tarjeta, conservación de tarjeta al omitir instrumento y cambiar de plan, observada → pendiente con observaciones `null`, alta/baja de adherentes, cambio tarjeta ↔ CBU y limpieza a Pago Fácil, 409/404/400/422, rollback total ante fallo de commit, rutas `/ventas/{id}/editar`, `/ventas/{id}` y acciones del panel. `ventas.db` real sin modificar.
-
-**Decisión:** si el medio no cambia y el formulario de pago está vacío se conservan los metadatos; cualquier instrumento nuevo se revalida y reemplaza. La venta aprobada queda inmutable (la ficha HTML redirige 303; la API responde 409).
-
-**Próximo paso:** F16 — Declaración jurada de salud y auditoría médica — packet: `features/F16.md`.
-
 ## Sesión 15 — F16: declaración jurada de salud y R7
 
 ---
@@ -46,3 +24,25 @@ commit: feat(F16): declaración jurada de salud y R7
 **Decisión:** R7 es determinística y solo deriva; el detalle declarado se minimiza a la ficha interna del legajo.
 
 **Próximo paso:** F17 — Régimen de afiliación, CUIL y aportes — packet: `features/F17.md`.
+
+## Sesión 16 — F17: régimen de afiliación, CUIL y aportes
+
+---
+feature: F17
+fecha: 2026-11-20
+tests: 338 passed
+harness: OK
+commit: feat(F17): régimen de afiliación, CUIL y aportes
+---
+
+**Fecha:** 2026-11-20
+
+**Rol:** Verifier (Builder en sesión previa). **Feature:** F17 — Régimen de afiliación, CUIL y aportes estimados. **Estado:** verificada y aprobada.
+
+`Venta` persiste `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` y `aporte_estimado`; `POST`/`PUT` validan CUIL de 11 dígitos para desregulados, aporte 0 para particulares y aporte ≤ base bonificada. El pricing calcula `base_bonificada = subtotal - descuento` y `precio_total = max(0, base_bonificada - aporte)`. R8 observa régimen inválido, CUIL faltante/incorrecto y aporte excesivo; R5 descuenta el aporte del total esperado. El wizard muestra CUIL/aporte solo para desregulados; panel, legajo y comprobante exhiben régimen y aporte, con CUIL enmascarado.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 338 passed; `node --check wizard.js` → OK. Prueba manual con TestClient sobre copia temporal de `ventas.db`: particular 45.000, relación de dependencia 45.000−20.000=25.000, monotributo con aporte igual a la base → total 0; 422 por particular con aporte, desregulado sin CUIL, CUIL inválido y aporte > base; PUT F15 cambia régimen/aporte y recalcula; R5/R8 observan; panel/legajo/comprobante OK. Migración con hijos: 7 ventas y 3 integrantes antes/después, ids conservados, CHECK `>= 0`, índices y FKs intactos, `PRAGMA foreign_key_check` vacío, idempotente. `ventas.db` real sin modificar.
+
+**Decisión:** el fix de migración respalda y reinserta `integrantes` antes/después del `DROP TABLE ventas`, porque el cascade de SQLite elimina los hijos aunque las FKs estén diferidas.
+
+**Próximo paso:** F18 — Buscador, filtros, linaje y credencial — packet: `features/F18.md`.

@@ -33,6 +33,14 @@
           <dd id="comprobante-ddjj"></dd>
         </div>
         <div>
+          <dt>Régimen</dt>
+          <dd id="comprobante-regimen"></dd>
+        </div>
+        <div id="comprobante-fila-cuil" class="hidden">
+          <dt>CUIL</dt>
+          <dd id="comprobante-cuil"></dd>
+        </div>
+        <div>
           <dt>Fecha</dt>
           <dd id="comprobante-fecha"></dd>
         </div>
@@ -51,6 +59,10 @@
           <div class="credential__row">
             <span class="credential__label">Subtotal de lista</span>
             <span id="comprobante-subtotal-base" class="credential__value"></span>
+          </div>
+          <div id="comprobante-fila-aporte" class="credential__row hidden">
+            <span class="credential__label">Aporte estimado</span>
+            <span id="comprobante-aporte" class="credential__value"></span>
           </div>
           <div id="comprobante-fila-descuento" class="credential__row hidden">
             <span class="credential__label">Descuento aplicado</span>

@@ -111,10 +111,17 @@ def mostrar_detalle_venta(
 ) -> HTMLResponse:
     """Renderiza una ficha de legajo en modo lectura."""
     venta = _obtener_venta_o_404(db, venta_id)
+    descuento_monto = (
+        venta.subtotal_base * venta.descuento_porcentaje + 50
+    ) // 100
     return templates.TemplateResponse(
         request=request,
         name="legajo.html",
-        context={"venta": venta},
+        context={
+            "venta": venta,
+            "descuento_monto": descuento_monto,
+            "base_bonificada": venta.subtotal_base - descuento_monto,
+        },
     )
 
 

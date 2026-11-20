@@ -107,7 +107,7 @@
       "titulo": "Régimen de afiliación, CUIL y aportes",
       "descripcion": "Particular, relación de dependencia y monotributo; CUIL, aporte estimado, precio neto y regla R8.",
       "packet": "features/F17.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F18",

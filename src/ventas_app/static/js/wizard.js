@@ -44,6 +44,7 @@
   const legajoPlan = document.querySelector("#legajo-plan");
   const legajoMedioPago = document.querySelector("#legajo-medio-pago");
   const legajoDDJJ = document.querySelector("#legajo-ddjj");
+  const legajoRegimen = document.querySelector("#legajo-regimen");
   const comprobanteEstado = document.querySelector("#comprobante-estado");
   const edicion = cargarEdicion();
   const modoEdicion = Boolean(edicion);
@@ -69,6 +70,9 @@
     },
     plan_id: null,
     medio_pago: null,
+    regimen_afiliacion: "PARTICULAR",
+    cuil_titular: "",
+    aporte_estimado: "",
     ddjj: {
       preexistencias: false,
       internaciones_ultimos_12m: false,
@@ -127,6 +131,12 @@
       },
       plan_id: Number.isInteger(Number(venta.plan_id)) ? Number(venta.plan_id) : null,
       medio_pago: texto(venta.medio_pago) || null,
+      regimen_afiliacion: texto(venta.regimen_afiliacion) || "PARTICULAR",
+      cuil_titular: texto(venta.cuil_titular),
+      aporte_estimado:
+        venta.aporte_estimado === null || venta.aporte_estimado === undefined
+          ? ""
+          : String(venta.aporte_estimado),
       integrantes: Array.isArray(venta.integrantes)
         ? venta.integrantes.map(normalizarIntegrante)
         : [],
@@ -183,6 +193,15 @@
           : [],
         plan_id: Number.isInteger(planId) && planId > 0 ? planId : null,
         medio_pago: typeof datos?.medio_pago === "string" ? datos.medio_pago : null,
+        regimen_afiliacion:
+          typeof datos?.regimen_afiliacion === "string"
+            ? datos.regimen_afiliacion
+            : "PARTICULAR",
+        cuil_titular: texto(datos?.cuil_titular),
+        aporte_estimado:
+          datos?.aporte_estimado === null || datos?.aporte_estimado === undefined
+            ? ""
+            : String(datos.aporte_estimado),
         ddjj: {
           preexistencias: Boolean(ddjj.preexistencias),
           internaciones_ultimos_12m: Boolean(ddjj.internaciones_ultimos_12m),
@@ -540,6 +559,34 @@
     detalleWrap?.classList.toggle("hidden", !ddjjConIndicadores());
   }
 
+  function actualizarFormularioRegimen() {
+    const desregulado = estado.regimen_afiliacion !== "PARTICULAR";
+    const wrap = document.querySelector("#regimen-aportes");
+    wrap?.classList.toggle("hidden", !desregulado);
+
+    if (!desregulado) {
+      estado.aporte_estimado = "";
+      const aporte = document.querySelector("#aporte-estimado");
+      if (aporte) {
+        aporte.value = "";
+      }
+    }
+  }
+
+  function baseBonificadaActual() {
+    const plan = document.querySelector('input[name="plan_id"]:checked');
+    const medio = document.querySelector('input[name="medio_pago"]:checked');
+    if (!plan || !medio) {
+      return null;
+    }
+    const subtotal =
+      Number(plan.dataset.precioTitular)
+      + Number(plan.dataset.precioAdherente) * estado.integrantes.length;
+    const descuentoPct = Number(medio.dataset.descuento || 0);
+    const descuentoMonto = Math.round(subtotal * (descuentoPct / 100));
+    return Math.max(0, subtotal - descuentoMonto);
+  }
+
   function inicializarDDJJ() {
     const campos = [
       ["#ddjj-preexistencias", "preexistencias"],
@@ -630,6 +677,16 @@
         legajoDDJJ.textContent = "Completa";
       }
     }
+
+    if (legajoRegimen) {
+      const etiquetas = {
+        PARTICULAR: "Particular",
+        RELACION_DEPENDENCIA: "Rel. dependencia",
+        MONOTRIBUTO: "Monotributo",
+      };
+      legajoRegimen.textContent =
+        etiquetas[estado.regimen_afiliacion] || "Particular";
+    }
   }
 
   function actualizarCotizacion() {
@@ -641,10 +698,13 @@
     const filaDescuentoEl = document.querySelector("#fila-descuento");
     const descuentoPctEl = document.querySelector("#cotizacion-descuento-pct");
     const descuentoEl = document.querySelector("#cotizacion-descuento");
+    const filaAporteEl = document.querySelector("#fila-aporte");
+    const aporteEl = document.querySelector("#cotizacion-aporte");
     const totalEl = document.querySelector("#cotizacion-total");
     const planSeleccionado = document.querySelector('input[name="plan_id"]:checked');
     const medioSeleccionado = document.querySelector('input[name="medio_pago"]:checked');
 
+    actualizarFormularioRegimen();
     actualizarContador();
     actualizarResumen();
 
@@ -657,6 +717,7 @@
       if (subtotalEl) subtotalEl.textContent = "—";
       if (baseEl) baseEl.textContent = "—";
       if (filaDescuentoEl) filaDescuentoEl.classList.add("hidden");
+      if (filaAporteEl) filaAporteEl.classList.add("hidden");
       if (totalEl) totalEl.textContent = "—";
       btnConfirmar.disabled = true;
       return;
@@ -673,7 +734,12 @@
 
     const descuentoPct = medioSeleccionado ? Number(medioSeleccionado.dataset.descuento || 0) : 0;
     const descuentoMonto = Math.round(subtotalBase * (descuentoPct / 100));
-    const total = subtotalBase - descuentoMonto;
+    const baseBonificada = subtotalBase - descuentoMonto;
+    const desregulado = estado.regimen_afiliacion !== "PARTICULAR";
+    const aporte = desregulado
+      ? Math.max(0, Number(estado.aporte_estimado) || 0)
+      : 0;
+    const total = Math.max(0, baseBonificada - aporte);
 
     if (descuentoPct > 0 && filaDescuentoEl) {
       filaDescuentoEl.classList.remove("hidden");
@@ -681,6 +747,17 @@
       if (descuentoEl) descuentoEl.textContent = `- ${formatoMoneda.format(descuentoMonto)}`;
     } else if (filaDescuentoEl) {
       filaDescuentoEl.classList.add("hidden");
+    }
+
+    if (desregulado && filaAporteEl) {
+      filaAporteEl.classList.remove("hidden");
+      if (aporteEl) {
+        aporteEl.textContent = aporte > 0
+          ? `- ${formatoMoneda.format(aporte)}`
+          : formatoMoneda.format(0);
+      }
+    } else if (filaAporteEl) {
+      filaAporteEl.classList.add("hidden");
     }
 
     if (totalEl) {
@@ -866,6 +943,33 @@
       } else {
         validarInstrumentoPago(errores);
       }
+
+      const regimen = document.querySelector("#regimen-afiliacion");
+      const cuil = document.querySelector("#cuil-titular");
+      const aporte = document.querySelector("#aporte-estimado");
+      const regimenes = [
+        "PARTICULAR",
+        "RELACION_DEPENDENCIA",
+        "MONOTRIBUTO",
+      ];
+      if (!regimenes.includes(estado.regimen_afiliacion)) {
+        registrarError(regimen, "Seleccioná un régimen de afiliación.", errores);
+      }
+
+      if (estado.regimen_afiliacion !== "PARTICULAR") {
+        if (!CUIL_REGEX.test(texto(cuil?.value).trim())) {
+          registrarError(cuil, "El CUIL del titular debe tener 11 dígitos.", errores);
+        }
+        const valorAporte = Number(estado.aporte_estimado || 0);
+        if (!Number.isInteger(valorAporte) || valorAporte < 0) {
+          registrarError(aporte, "El aporte estimado debe ser un entero mayor o igual a 0.", errores);
+        } else {
+          const base = baseBonificadaActual();
+          if (base !== null && valorAporte > base) {
+            registrarError(aporte, "El aporte no puede superar la base bonificada.", errores);
+          }
+        }
+      }
     }
 
     if (errores.length > 0) {
@@ -950,6 +1054,15 @@
           : null,
         declaracion_confirmada: estado.ddjj.declaracion_confirmada,
       },
+      regimen_afiliacion: estado.regimen_afiliacion || "PARTICULAR",
+      cuil_titular:
+        estado.regimen_afiliacion === "PARTICULAR"
+          ? null
+          : texto(estado.cuil_titular).trim() || null,
+      aporte_estimado:
+        estado.regimen_afiliacion === "PARTICULAR"
+          ? 0
+          : Number(estado.aporte_estimado) || 0,
       integrantes: estado.integrantes.map((integrante) => ({
         nombre: texto(integrante.nombre).trim(),
         apellido: texto(integrante.apellido).trim(),
@@ -1058,15 +1171,46 @@
       }
     }
 
+    const etiquetasRegimen = {
+      PARTICULAR: "Particular",
+      RELACION_DEPENDENCIA: "Relación de dependencia",
+      MONOTRIBUTO: "Monotributo",
+    };
+    const regimenEl = document.querySelector("#comprobante-regimen");
+    if (regimenEl) {
+      regimenEl.textContent = etiquetasRegimen[venta.regimen_afiliacion] || venta.regimen_afiliacion || "—";
+    }
+
+    const filaCuilEl = document.querySelector("#comprobante-fila-cuil");
+    const cuilEl = document.querySelector("#comprobante-cuil");
+    if (filaCuilEl && cuilEl && venta.cuil_titular) {
+      cuilEl.textContent = `${venta.cuil_titular.slice(0, 2)}••••••${venta.cuil_titular.slice(-2)}`;
+      filaCuilEl.classList.remove("hidden");
+    } else if (filaCuilEl) {
+      filaCuilEl.classList.add("hidden");
+    }
+
     const subtotalBaseEl = document.querySelector("#comprobante-subtotal-base");
+    const subtotalBase = venta.subtotal_base || venta.precio_total;
     if (subtotalBaseEl) {
-      subtotalBaseEl.textContent = formatoMoneda.format(venta.subtotal_base || venta.precio_total);
+      subtotalBaseEl.textContent = formatoMoneda.format(subtotalBase);
+    }
+
+    const filaAporteEl = document.querySelector("#comprobante-fila-aporte");
+    const aporteEl = document.querySelector("#comprobante-aporte");
+    if (filaAporteEl && aporteEl && venta.aporte_estimado > 0) {
+      aporteEl.textContent = `- ${formatoMoneda.format(venta.aporte_estimado)}`;
+      filaAporteEl.classList.remove("hidden");
+    } else if (filaAporteEl) {
+      filaAporteEl.classList.add("hidden");
     }
 
     const filaDescuentoEl = document.querySelector("#comprobante-fila-descuento");
     const descuentoEl = document.querySelector("#comprobante-descuento");
     if (venta.descuento_porcentaje > 0 && filaDescuentoEl && descuentoEl) {
-      const montoDescuento = (venta.subtotal_base || venta.precio_total) - venta.precio_total;
+      const montoDescuento = Math.round(
+        subtotalBase * (venta.descuento_porcentaje / 100),
+      );
       descuentoEl.textContent = `- ${formatoMoneda.format(montoDescuento)} (${venta.descuento_porcentaje}% OFF)`;
       filaDescuentoEl.classList.remove("hidden");
     } else if (filaDescuentoEl) {

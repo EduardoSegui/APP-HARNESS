@@ -80,6 +80,9 @@ def _detalle_valido() -> dict[str, Any]:
         "ddjj_medicacion_cronica": False,
         "ddjj_discapacidad": False,
         "ddjj_detalle": None,
+        "regimen_afiliacion": "PARTICULAR",
+        "cuil_titular": None,
+        "aporte_estimado": 0,
         "precio_total": 130_000,
         "estado": "PENDIENTE_VERIFICACION",
         "observaciones": None,
@@ -615,6 +618,78 @@ def test_r7_venta_historica_sin_ddjj_es_observada() -> None:
 
     assert aplicar_reglas(detalle, HOY) == [
         "R7: Falta completar la declaración jurada de salud."
+    ]
+
+
+def test_r8_particular_con_aporte_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["aporte_estimado"] = 10_000
+    detalle["precio_total"] = 120_000
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R8: El régimen PARTICULAR no admite aporte estimado."
+    ]
+
+
+def test_r8_desregulado_sin_cuil_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["regimen_afiliacion"] = "RELACION_DEPENDENCIA"
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R8: El régimen RELACION_DEPENDENCIA exige un CUIL de 11 dígitos "
+        "para el titular."
+    ]
+
+
+def test_r8_cuil_invalido_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["regimen_afiliacion"] = "MONOTRIBUTO"
+    detalle["cuil_titular"] = "123"
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R8: El régimen MONOTRIBUTO exige un CUIL de 11 dígitos para el "
+        "titular."
+    ]
+
+
+def test_r8_aporte_mayor_a_la_base_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["regimen_afiliacion"] = "RELACION_DEPENDENCIA"
+    detalle["cuil_titular"] = "20123456789"
+    detalle["aporte_estimado"] = 130_001
+    detalle["precio_total"] = 0
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R8: El aporte estimado no puede superar la base bonificada."
+    ]
+
+
+def test_r8_aporte_igual_a_la_base_permite_total_cero() -> None:
+    detalle = _detalle_valido()
+    detalle["regimen_afiliacion"] = "MONOTRIBUTO"
+    detalle["cuil_titular"] = "20123456789"
+    detalle["aporte_estimado"] = 130_000
+    detalle["precio_total"] = 0
+
+    assert aplicar_reglas(detalle, HOY) == []
+
+
+def test_r8_desregulado_valido() -> None:
+    detalle = _detalle_valido()
+    detalle["regimen_afiliacion"] = "RELACION_DEPENDENCIA"
+    detalle["cuil_titular"] = "20123456789"
+    detalle["aporte_estimado"] = 20_000
+    detalle["precio_total"] = 110_000
+
+    assert aplicar_reglas(detalle, HOY) == []
+
+
+def test_r8_regimen_invalido() -> None:
+    detalle = _detalle_valido()
+    detalle["regimen_afiliacion"] = "INEXISTENTE"
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R8: El régimen de afiliación no es válido."
     ]
 
 

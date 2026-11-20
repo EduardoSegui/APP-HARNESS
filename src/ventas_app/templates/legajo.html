@@ -64,8 +64,28 @@
         </div>
         <div class="credential__row">
           <span class="credential__label">Descuento ({{ venta.descuento_porcentaje }}%)</span>
-          <span class="credential__value">{{ (venta.subtotal_base - venta.precio_total) | pesos }}</span>
+          <span class="credential__value">{{ descuento_monto | pesos }}</span>
         </div>
+        <div class="credential__row">
+          <span class="credential__label">Régimen</span>
+          <span class="credential__value">
+            {% if venta.regimen_afiliacion == "RELACION_DEPENDENCIA" %}Relación de dependencia
+            {% elif venta.regimen_afiliacion == "MONOTRIBUTO" %}Monotributo
+            {% else %}Particular{% endif %}
+          </span>
+        </div>
+        {% if venta.cuil_titular %}
+        <div class="credential__row">
+          <span class="credential__label">CUIL</span>
+          <span class="credential__value">{{ venta.cuil_titular[:2] }}••••••{{ venta.cuil_titular[-2:] }}</span>
+        </div>
+        {% endif %}
+        {% if venta.aporte_estimado %}
+        <div class="credential__row">
+          <span class="credential__label">Aporte estimado</span>
+          <span class="credential__value">- {{ venta.aporte_estimado | pesos }}</span>
+        </div>
+        {% endif %}
       </div>
       <div class="credential__total">
         <span class="credential__total-label">Total a pagar</span>

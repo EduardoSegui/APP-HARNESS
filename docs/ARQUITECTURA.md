@@ -248,7 +248,7 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 | `ddjj_medicacion_cronica` | Boolean | NOT NULL, default false. F16. |
 | `ddjj_discapacidad` | Boolean | NOT NULL, default false. F16. |
 | `ddjj_detalle` | Text | NULL. Detalle declarado de salud. F16. |
-| `precio_total` | Integer | NOT NULL, > 0. Total neto a pagar. |
+| `precio_total` | Integer | NOT NULL, >= 0. Total neto a pagar; puede ser 0 si el aporte cubre la base. |
 | `estado` | String(30) | NOT NULL, default `PENDIENTE_VERIFICACION`, CHECK en los 3 estados. |
 | `observaciones` | Text | NULL. |
 | `creado_en` | DateTime | NOT NULL, default UTC now. |
@@ -258,7 +258,7 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 
 Las bases creadas antes de F13 se actualizan al arrancar mediante una migración SQLite idempotente en `database.py`: agrega las tres columnas nuevas y completa las filas históricas con `medio_pago='PAGO_FACIL'`, `subtotal_base=precio_total` y `descuento_porcentaje=0`.
 
-F14 agrega las cinco columnas `pago_*` (NULL para filas históricas), F16 las columnas `ddjj_*` (indicadores false, `ddjj_completada=false`, detalle NULL) y F17 `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` (NULL) y `aporte_estimado` (0). La misma migración es idempotente y se ejecuta en `init_db()` y al arrancar el servidor MCP.
+F14 agrega las cinco columnas `pago_*` (NULL para filas históricas), F16 las columnas `ddjj_*` (indicadores false, `ddjj_completada=false`, detalle NULL) y F17 `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` (NULL) y `aporte_estimado` (0). F17 también reconstruye la tabla si el CHECK histórico `precio_total > 0` impide un total cero, conservando filas, índices y claves foráneas; los `integrantes` se respaldan y reinsertan porque `DROP TABLE ventas` dispara el `ON DELETE CASCADE`. La misma migración es idempotente y se ejecuta en `init_db()` y al arrancar el servidor MCP.
 
 No se impone unicidad global de DNI: la regla de negocio exige unicidad **dentro del grupo familiar de una venta**, no entre ventas distintas.
 
@@ -363,7 +363,7 @@ Si cualquier paso 4–12 falla:
     devolver error controlado (400/422/500), sin filas parciales.
 ```
 
-El payload del cliente incluye `medio_pago`, `tarjeta`/`cbu` cuando corresponde, DDJJ de salud y datos de régimen. No incluye `pago_*`, `subtotal_base`, `descuento_porcentaje`, `aporte_estimado`, `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se rechazan por configuración de Pydantic (`extra="forbid"`).
+El payload del cliente incluye `medio_pago`, `tarjeta`/`cbu` cuando corresponde, DDJJ de salud, régimen, CUIL y `aporte_estimado`. No incluye `pago_*`, `subtotal_base`, `descuento_porcentaje`, `base_bonificada`, `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se rechazan por configuración de Pydantic (`extra="forbid"`).
 
 `PUT /api/ventas/{id}` (F15) reutiliza el mismo algoritmo, elimina los integrantes anteriores y crea los nuevos dentro de la transacción. Si la venta está `APROBADA`, devuelve `409` antes de modificar nada.
 

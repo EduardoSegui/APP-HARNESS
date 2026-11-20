@@ -120,6 +120,9 @@ def test_crear_venta_calcula_el_total_en_el_servidor(
     assert datos["subtotal_base"] == total_esperado
     assert datos["descuento_porcentaje"] == 0
     assert datos["medio_pago"] == "PAGO_FACIL"
+    assert datos["regimen_afiliacion"] == "PARTICULAR"
+    assert datos["cuil_titular"] is None
+    assert datos["aporte_estimado"] == 0
     assert datos["plan"]["nombre"] == nombre_plan
     assert datos["estado"] == "PENDIENTE_VERIFICACION"
     assert datos["observaciones"] is None
@@ -192,6 +195,84 @@ def test_crear_venta_con_indicador_sin_detalle_devuelve_422(
 
     assert respuesta.status_code == 422
     assert "detalle" in respuesta.text
+
+
+def test_crear_venta_desregulada_descuenta_aporte(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    payload = payload_venta(plan_id, 1)
+    payload["regimen_afiliacion"] = "RELACION_DEPENDENCIA"
+    payload["cuil_titular"] = "20123456789"
+    payload["aporte_estimado"] = 20_000
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 201, respuesta.text
+    datos = respuesta.json()
+    assert datos["regimen_afiliacion"] == "RELACION_DEPENDENCIA"
+    assert datos["cuil_titular"] == "20123456789"
+    assert datos["subtotal_base"] == 130_000
+    assert datos["aporte_estimado"] == 20_000
+    assert datos["precio_total"] == 110_000
+
+    with SessionLocal() as db:
+        venta = db.get(Venta, datos["id"])
+        assert venta is not None
+        assert venta.regimen_afiliacion == "RELACION_DEPENDENCIA"
+        assert venta.aporte_estimado == 20_000
+
+
+def test_crear_venta_particular_rechaza_aporte(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload["aporte_estimado"] = 1_000
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "PARTICULAR" in respuesta.text
+
+
+def test_crear_venta_desregulada_sin_cuil_devuelve_422(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload["regimen_afiliacion"] = "MONOTRIBUTO"
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "CUIL" in respuesta.text
+
+
+def test_crear_venta_con_aporte_mayor_a_la_base_devuelve_422(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload["regimen_afiliacion"] = "RELACION_DEPENDENCIA"
+    payload["cuil_titular"] = "20123456789"
+    payload["aporte_estimado"] = 45_001
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "base bonificada" in respuesta.text
+
+
+def test_crear_venta_con_aporte_igual_a_la_base_permite_total_cero(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0, medio_pago="PAGO_FACIL")
+    payload["regimen_afiliacion"] = "MONOTRIBUTO"
+    payload["cuil_titular"] = "20123456789"
+    payload["aporte_estimado"] = 45_000
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["precio_total"] == 0
 
 
 def test_crear_venta_persiste_venta_e_integrantes(client: TestClient) -> None:
@@ -613,6 +694,32 @@ def test_actualizar_venta_a_pago_facil_limpia_instrumento(
     assert datos["pago_titular"] is None
     assert datos["pago_marca_entidad"] is None
     assert datos["pago_ultimos_4"] is None
+
+
+def test_actualizar_venta_permite_cambiar_regimen_y_aporte(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    creada = client.post(
+        "/api/ventas",
+        json=payload_venta(plan_id, 0),
+    )
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_id, 0)
+    payload["regimen_afiliacion"] = "RELACION_DEPENDENCIA"
+    payload["cuil_titular"] = "20123456789"
+    payload["aporte_estimado"] = 10_000
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["regimen_afiliacion"] == "RELACION_DEPENDENCIA"
+    assert datos["cuil_titular"] == "20123456789"
+    assert datos["aporte_estimado"] == 10_000
+    assert datos["precio_total"] == 68_000
+    assert datos["estado"] == "PENDIENTE_VERIFICACION"
 
 
 def test_actualizar_venta_permite_corregir_ddjj(client: TestClient) -> None:

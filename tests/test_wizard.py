@@ -58,6 +58,14 @@ def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
     assert 'id="ddjj-confirmada"' in html
     assert 'id="legajo-ddjj"' in html
     assert 'id="comprobante-ddjj"' in html
+    assert 'id="regimen-afiliacion"' in html
+    assert 'id="cuil-titular"' in html
+    assert 'id="aporte-estimado"' in html
+    assert 'id="fila-aporte"' in html
+    assert 'id="legajo-regimen"' in html
+    assert 'id="comprobante-regimen"' in html
+    assert 'id="comprobante-cuil"' in html
+    assert 'id="comprobante-aporte"' in html
 
     for campo in (
         "titular.nombre",
@@ -172,6 +180,12 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
         "declaracion_confirmada",
         "comprobante-ddjj",
         "legajo-ddjj",
+        "actualizarFormularioRegimen",
+        "baseBonificadaActual",
+        "regimen_afiliacion",
+        "aporte_estimado",
+        "comprobante-regimen",
+        "comprobante-aporte",
     ):
         assert fragmento in js
 

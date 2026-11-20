@@ -13,6 +13,7 @@ from ventas_app.database import get_db
 from ventas_app.models import Venta
 from ventas_app.schemas import AuditoriaOut, VentaIn, VentaOut, VentaUpdateIn
 from ventas_app.services.ventas import (
+    AporteInvalidoError,
     DatosPagoInvalidosError,
     PlanNoDisponibleError,
     VentaNoEditableError,
@@ -60,6 +61,11 @@ def crear_venta_endpoint(payload: VentaIn, db: SessionDep) -> Venta:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+    except AporteInvalidoError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/ventas/{venta_id}", response_model=VentaOut)
@@ -99,6 +105,11 @@ def actualizar_venta_endpoint(
             detail=str(exc),
         ) from exc
     except DatosPagoInvalidosError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except AporteInvalidoError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),

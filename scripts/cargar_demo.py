@@ -106,6 +106,9 @@ def _ventas_demo(db) -> list[VentaIn]:
             codigo_postal="5000",
             plan_id=_plan_id(db, "Plan Esencial"),
             medio_pago="CBU",
+            regimen_afiliacion="RELACION_DEPENDENCIA",
+            cuil_titular="20251234567",
+            aporte_estimado=10_000,
             cbu={
                 "numero": "0170099220000067890123",
                 "entidad": "Banco Ejemplo",

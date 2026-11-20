@@ -9,7 +9,15 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from ventas_app.models import EstadoVenta, Integrante, MedioPago, Parentesco, Plan, Venta
+from ventas_app.models import (
+    EstadoVenta,
+    Integrante,
+    MedioPago,
+    Parentesco,
+    Plan,
+    RegimenAfiliacion,
+    Venta,
+)
 from ventas_app.schemas import (
     IntegranteIn,
     PlanOut,
@@ -285,6 +293,9 @@ def test_venta_out_desde_orm_con_plan_e_integrantes(db: Session) -> None:
     assert salida.ddjj_medicacion_cronica is False
     assert salida.ddjj_discapacidad is False
     assert salida.ddjj_detalle is None
+    assert salida.regimen_afiliacion is RegimenAfiliacion.PARTICULAR
+    assert salida.cuil_titular is None
+    assert salida.aporte_estimado == 0
     assert salida.plan.nombre == "Plan Superior Test"
     assert salida.integrantes[0].parentesco is Parentesco.HIJO_A
     assert salida.observaciones is None
@@ -431,6 +442,56 @@ def test_venta_in_acepta_ddjj_con_detalle() -> None:
 
     assert venta.ddjj.preexistencias is True
     assert venta.ddjj.detalle == "Hipertensión controlada."
+
+
+def test_venta_in_particular_rechaza_aporte() -> None:
+    with pytest.raises(ValidationError, match="PARTICULAR no admite aporte"):
+        VentaIn.model_validate(payload_valido(aporte_estimado=1_000))
+
+
+def test_venta_in_desregulado_exige_cuil() -> None:
+    with pytest.raises(ValidationError, match="exige el CUIL"):
+        VentaIn.model_validate(
+            payload_valido(regimen_afiliacion="RELACION_DEPENDENCIA")
+        )
+
+
+@pytest.mark.parametrize("regimen", ["RELACION_DEPENDENCIA", "MONOTRIBUTO"])
+def test_venta_in_desregulado_valido(regimen: str) -> None:
+    venta = VentaIn.model_validate(
+        payload_valido(
+            regimen_afiliacion=regimen,
+            cuil_titular="20123456789",
+            aporte_estimado=10_000,
+        )
+    )
+
+    assert venta.regimen_afiliacion.value == regimen
+    assert venta.cuil_titular == "20123456789"
+    assert venta.aporte_estimado == 10_000
+
+
+def test_venta_in_rechaza_cuil_invalido() -> None:
+    with pytest.raises(ValidationError):
+        VentaIn.model_validate(
+            payload_valido(
+                regimen_afiliacion="MONOTRIBUTO",
+                cuil_titular="123",
+            )
+        )
+
+
+def test_venta_update_hereda_regimen_y_aporte() -> None:
+    venta = VentaUpdateIn.model_validate(
+        payload_valido(
+            regimen_afiliacion="RELACION_DEPENDENCIA",
+            cuil_titular="20123456789",
+            aporte_estimado=5_000,
+        )
+    )
+
+    assert venta.regimen_afiliacion.value == "RELACION_DEPENDENCIA"
+    assert venta.aporte_estimado == 5_000
 
 
 def test_venta_update_permite_omitir_instrumento_para_conservarlo() -> None:

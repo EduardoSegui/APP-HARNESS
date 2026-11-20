@@ -46,11 +46,12 @@ class Base(DeclarativeBase):
 
 
 def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
-    """Agrega las columnas de F13/F14/F16 a una base SQLite anterior.
+    """Agrega las columnas de F13/F14/F16/F17 a una base SQLite anterior.
 
     ``create_all`` no modifica tablas existentes. Esta migración es idempotente
     y conserva las ventas históricas: las filas previas quedan sin datos de
-    pago, sin DDJJ, sin descuento y con el total anterior como subtotal base.
+    pago, sin DDJJ, sin aportes, sin descuento y con el total anterior como
+    subtotal base.
     """
     if engine_objetivo.dialect.name != "sqlite":
         return
@@ -132,12 +133,103 @@ def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
             conexion.exec_driver_sql(
                 "ALTER TABLE ventas ADD COLUMN ddjj_detalle TEXT"
             )
+        if "regimen_afiliacion" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN regimen_afiliacion "
+                "VARCHAR(30) NOT NULL DEFAULT 'PARTICULAR'"
+            )
+        if "cuil_titular" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN cuil_titular VARCHAR(11)"
+            )
+        if "aporte_estimado" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN aporte_estimado "
+                "INTEGER NOT NULL DEFAULT 0"
+            )
 
         if "precio_total" in columnas:
             conexion.exec_driver_sql(
                 "UPDATE ventas SET subtotal_base = precio_total "
                 "WHERE subtotal_base = 0 AND precio_total > 0"
             )
+
+        _reformar_ventas_para_precio_cero(conexion)
+
+
+def _reformar_ventas_para_precio_cero(conexion) -> None:
+    """Reconstruye la tabla si el CHECK histórico impedía un total cero.
+
+    F17 permite que el aporte cubra toda la base bonificada. Las bases
+    anteriores tenían ``CHECK (precio_total > 0)``; SQLite no permite alterar
+    un CHECK, así que se reconstruye la tabla conservando las filas.
+    """
+    fila = conexion.exec_driver_sql(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='ventas'"
+    ).fetchone()
+    if not fila or "precio_total > 0" not in (fila[0] or ""):
+        return
+
+    from sqlalchemy import MetaData
+
+    from ventas_app.models import Plan, Venta
+
+    columnas_modelo = {columna.name for columna in Venta.__table__.columns}
+    columnas_actuales = {
+        registro[1]
+        for registro in conexion.exec_driver_sql("PRAGMA table_info(ventas)")
+    }
+    if not columnas_modelo.issubset(columnas_actuales):
+        return
+
+    from ventas_app.models import Integrante
+
+    columnas_hijos = [columna.name for columna in Integrante.__table__.columns]
+    filas_hijos: list[dict[str, object]] = []
+    tablas = {
+        fila[0]
+        for fila in conexion.exec_driver_sql(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+    }
+    if "integrantes" in tablas:
+        from datetime import date
+
+        filas_hijos = [
+            dict(fila)
+            for fila in conexion.exec_driver_sql(
+                f"SELECT {', '.join(columnas_hijos)} FROM integrantes"
+            ).mappings()
+        ]
+        for fila in filas_hijos:
+            if isinstance(fila.get("fecha_nacimiento"), str):
+                fila["fecha_nacimiento"] = date.fromisoformat(
+                    fila["fecha_nacimiento"]
+                )
+
+    conexion.exec_driver_sql("PRAGMA defer_foreign_keys=ON")
+    metadata = MetaData()
+    Plan.__table__.to_metadata(metadata)
+    nueva = Venta.__table__.to_metadata(metadata, name="ventas_f17")
+    for indice in list(nueva.indexes):
+        nueva.indexes.remove(indice)
+    nueva.create(bind=conexion)
+    columnas_sql = ", ".join(columna.name for columna in Venta.__table__.columns)
+    conexion.exec_driver_sql(
+        f"INSERT INTO ventas_f17 ({columnas_sql}) "
+        f"SELECT {columnas_sql} FROM ventas"
+    )
+    conexion.exec_driver_sql("DROP TABLE ventas")
+    conexion.exec_driver_sql("ALTER TABLE ventas_f17 RENAME TO ventas")
+    for indice in Venta.__table__.indexes:
+        indice.create(bind=conexion)
+
+    if "integrantes" in tablas:
+        # DROP TABLE dispara ON DELETE CASCADE aunque las FK estén diferidas.
+        # Restauramos los hijos desde el respaldo tomado antes del DROP.
+        conexion.exec_driver_sql("DELETE FROM integrantes")
+        if filas_hijos:
+            conexion.execute(Integrante.__table__.insert(), filas_hijos)
 
 
 def init_db() -> None:

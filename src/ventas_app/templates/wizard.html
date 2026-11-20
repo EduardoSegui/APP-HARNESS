@@ -460,6 +460,37 @@
         <div class="sheet">
           <div class="sheet__head">
             <div>
+              <h2 class="sheet__title">Régimen de afiliación</h2>
+              <p class="sheet__hint">Particular paga la base bonificada. Los desregulados descuentan su aporte estimado.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field field--full">
+              <label for="regimen-afiliacion" class="field-label">Régimen <span class="required">*</span></label>
+              <select id="regimen-afiliacion" data-state="regimen_afiliacion" class="field-select">
+                <option value="PARTICULAR">Particular / Voluntario</option>
+                <option value="RELACION_DEPENDENCIA">Relación de dependencia</option>
+                <option value="MONOTRIBUTO">Monotributo</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="regimen-aportes" class="field-grid hidden">
+            <div class="field">
+              <label for="cuil-titular" class="field-label">CUIL del titular <span class="required">*</span></label>
+              <input id="cuil-titular" type="text" data-state="cuil_titular" inputmode="numeric" maxlength="11" pattern="[0-9]{11}" autocomplete="off" placeholder="20123456789" class="field-input">
+            </div>
+            <div class="field">
+              <label for="aporte-estimado" class="field-label">Aporte estimado (ARS)</label>
+              <input id="aporte-estimado" type="number" data-state="aporte_estimado" min="0" step="1" autocomplete="off" placeholder="0" class="field-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
               <h2 class="sheet__title">Resumen de cotización</h2>
               <p class="sheet__hint">El total final lo confirma el servidor al guardar la venta.</p>
             </div>
@@ -482,6 +513,10 @@
               <div id="fila-descuento" class="credential__row hidden">
                 <span class="credential__label">Descuento aplicado (<span id="cotizacion-descuento-pct">0%</span>)</span>
                 <span id="cotizacion-descuento" class="credential__value" style="color: var(--color-success, #2e7d32); font-weight: 600;">—</span>
+              </div>
+              <div id="fila-aporte" class="credential__row hidden">
+                <span class="credential__label">Aporte estimado</span>
+                <span id="cotizacion-aporte" class="credential__value">—</span>
               </div>
             </div>
             <div class="credential__total">
@@ -533,6 +568,10 @@
         <li class="legajo-summary__item">
           <span class="legajo-summary__label">DDJJ de salud</span>
           <span id="legajo-ddjj" class="legajo-summary__value">Sin confirmar</span>
+        </li>
+        <li class="legajo-summary__item">
+          <span class="legajo-summary__label">Régimen</span>
+          <span id="legajo-regimen" class="legajo-summary__value">Particular</span>
         </li>
       </ul>
     </aside>

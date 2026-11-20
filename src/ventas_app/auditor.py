@@ -66,6 +66,9 @@ _PARENTESCOS_VALIDOS = frozenset(
 )
 
 _MARCAS_TARJETA = frozenset({"VISA", "MASTERCARD", "AMEX", "CABAL"})
+_REGIMENES_AFILIACION = frozenset(
+    {"PARTICULAR", "RELACION_DEPENDENCIA", "MONOTRIBUTO"}
+)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -636,11 +639,20 @@ def validar_r5_plan_y_precio(detalle: Mapping[str, Any]) -> list[str]:
 
     _validar_datos_pago(medio_pago, detalle, errores)
 
+    aporte_estimado = detalle.get("aporte_estimado", 0)
+    if (
+        not isinstance(aporte_estimado, int)
+        or isinstance(aporte_estimado, bool)
+        or aporte_estimado < 0
+    ):
+        errores.append("R5: El aporte estimado persistido no es válido.")
+        aporte_estimado = 0
+
     descuento_monto = calcular_descuento_monto(
         subtotal_esperado,
         descuento_pct,
     )
-    esperado = subtotal_esperado - descuento_monto
+    esperado = max(0, subtotal_esperado - descuento_monto - aporte_estimado)
 
     if precio_total != esperado:
         errores.append(
@@ -744,11 +756,58 @@ def validar_r7_ddjj_salud(detalle: Mapping[str, Any]) -> list[str]:
     return []
 
 
+def validar_r8_regimen_aportes(detalle: Mapping[str, Any]) -> list[str]:
+    """R8: valida régimen, CUIL y aporte estimado."""
+    regimen = detalle.get("regimen_afiliacion")
+    if regimen not in _REGIMENES_AFILIACION:
+        return ["R8: El régimen de afiliación no es válido."]
+
+    aporte = detalle.get("aporte_estimado")
+    if not isinstance(aporte, int) or isinstance(aporte, bool) or aporte < 0:
+        return ["R8: El aporte estimado no es válido."]
+
+    cuil = detalle.get("cuil_titular")
+    if regimen == "PARTICULAR":
+        if aporte != 0:
+            return ["R8: El régimen PARTICULAR no admite aporte estimado."]
+    elif not isinstance(cuil, str) or re.fullmatch(r"\d{11}", cuil) is None:
+        return [
+            f"R8: El régimen {regimen} exige un CUIL de 11 dígitos "
+            "para el titular."
+        ]
+
+    if cuil is not None and (
+        not isinstance(cuil, str) or re.fullmatch(r"\d{11}", cuil) is None
+    ):
+        return ["R8: El CUIL del titular debe tener 11 dígitos."]
+
+    subtotal = detalle.get("subtotal_base")
+    descuento_pct = detalle.get("descuento_porcentaje")
+    if (
+        isinstance(subtotal, int)
+        and not isinstance(subtotal, bool)
+        and subtotal >= 0
+        and isinstance(descuento_pct, int)
+        and not isinstance(descuento_pct, bool)
+        and 0 <= descuento_pct <= 100
+    ):
+        base_bonificada = subtotal - calcular_descuento_monto(
+            subtotal,
+            descuento_pct,
+        )
+        if aporte > base_bonificada:
+            return [
+                "R8: El aporte estimado no puede superar la base bonificada."
+            ]
+
+    return []
+
+
 def aplicar_reglas(
     detalle: Mapping[str, Any],
     hoy: date | None = None,
 ) -> list[str]:
-    """Aplica R1–R7 y devuelve una lista legible de incumplimientos."""
+    """Aplica R1–R8 y devuelve una lista legible de incumplimientos."""
     if not isinstance(detalle, Mapping):
         return ["R6: El detalle de la venta no es válido."]
 
@@ -764,6 +823,7 @@ def aplicar_reglas(
     errores.extend(validar_r5_plan_y_precio(detalle))
     errores.extend(validar_r6_integridad(detalle))
     errores.extend(validar_r7_ddjj_salud(detalle))
+    errores.extend(validar_r8_regimen_aportes(detalle))
 
     return errores
 

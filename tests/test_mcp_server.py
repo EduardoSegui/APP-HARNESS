@@ -253,6 +253,8 @@ def test_obtener_detalle_venta_incluye_desglose_de_descuento(
     assert detalle["pago_vencimiento"] == "12/99"
     assert detalle["ddjj_completada"] is True
     assert detalle["ddjj_preexistencias"] is False
+    assert detalle["regimen_afiliacion"] == "PARTICULAR"
+    assert detalle["aporte_estimado"] == 0
     assert detalle["precio_total"] == 91_000
     assert "numero" not in detalle
     assert "cvv" not in detalle

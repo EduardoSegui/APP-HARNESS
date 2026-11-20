@@ -2,9 +2,9 @@
 
 > Generado por `uv run python scripts/contexto.py estado`. No editar a mano.
 
-- **Plan:** 16/19 features verificadas (`features.json`).
-- **Próximo paso:** F17 — Régimen de afiliación, CUIL y aportes — packet: `features/F17.md`.
-- **Última sesión:** Sesión 15 — F16: declaración jurada de salud y R7 (2026-11-20).
-- **Última entrada:** `CHECKPOINT.md#sesión-15`.
-- **Tests:** 310 passed.
+- **Plan:** 17/19 features verificadas (`features.json`).
+- **Próximo paso:** F18 — Buscador, filtros, linaje y credencial — packet: `features/F18.md`.
+- **Última sesión:** Sesión 16 — F17: régimen de afiliación, CUIL y aportes (2026-11-20).
+- **Última entrada:** `CHECKPOINT.md#sesión-16`.
+- **Tests:** 338 passed.
 - **Harness:** OK.

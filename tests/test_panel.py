@@ -51,6 +51,9 @@ def _crear_venta(
     cantidad_adherentes: int = 0,
     medio_pago: str = "PAGO_FACIL",
     ddjj: dict[str, Any] | None = None,
+    regimen_afiliacion: str = "PARTICULAR",
+    cuil_titular: str | None = None,
+    aporte_estimado: int = 0,
 ) -> dict[str, Any]:
     integrantes = [
         {
@@ -88,6 +91,9 @@ def _crear_venta(
             "declaracion_confirmada": True,
         },
         "integrantes": integrantes,
+        "regimen_afiliacion": regimen_afiliacion,
+        "cuil_titular": cuil_titular,
+        "aporte_estimado": aporte_estimado,
     }
     payload.update(_instrumento_para(medio_pago))
 
@@ -189,6 +195,21 @@ def test_panel_muestra_ddjj_completa_y_revision_medica(
     assert "Hipertensión controlada." not in html
 
 
+def test_panel_muestra_regimen_y_aporte(client: TestClient) -> None:
+    _crear_venta(
+        client,
+        regimen_afiliacion="RELACION_DEPENDENCIA",
+        cuil_titular="20123456789",
+        aporte_estimado=20_000,
+    )
+
+    html = client.get("/ventas").text
+
+    assert "Rel. dependencia" in html
+    assert "Aporte $20.000" in html
+    assert "$58.000" in html
+
+
 def test_panel_muestra_acciones_de_edicion_y_lectura(
     client: TestClient,
 ) -> None:
@@ -219,6 +240,7 @@ def test_editar_venta_precarga_el_wizard(client: TestClient) -> None:
     assert "Guardar cambios" in html
     assert "Ana" in html
     assert "PAGO_FACIL" in html
+    assert "regimen_afiliacion" in html
 
 
 def test_editar_venta_aprobada_redirige_al_legajo(client: TestClient) -> None:
@@ -258,6 +280,23 @@ def test_detalle_venta_muestra_lectura_y_enmascaramiento(
     assert aprobada.status_code == 200
     assert "Aprobada" in aprobada.text
     assert "Editar legajo" not in aprobada.text
+
+
+def test_detalle_venta_muestra_regimen_y_aporte(client: TestClient) -> None:
+    venta = _crear_venta(
+        client,
+        plan="Plan Integral",
+        regimen_afiliacion="RELACION_DEPENDENCIA",
+        cuil_titular="20123456789",
+        aporte_estimado=20_000,
+    )
+
+    html = client.get(f"/ventas/{venta['id']}").text
+
+    assert "Relación de dependencia" in html
+    assert "20••••••89" in html
+    assert "Aporte estimado" in html
+    assert "$58.000" in html
 
 
 def test_rutas_de_venta_inexistente_devuelven_404(client: TestClient) -> None:

@@ -22,6 +22,8 @@ class CotizacionDetalle:
     medio_pago: MedioPago
     descuento_porcentaje: int
     descuento_monto: int
+    base_bonificada: int
+    aporte_estimado: int
     precio_total: int
 
 
@@ -74,12 +76,22 @@ def calcular_cotizacion(
     plan: Plan,
     cantidad_adherentes: int,
     medio_pago: MedioPago | str = MedioPago.PAGO_FACIL,
+    aporte_estimado: int = 0,
 ) -> CotizacionDetalle:
-    """Calcula la cotización completa aplicando los descuentos por medio de pago."""
+    """Calcula la cotización completa con descuento y aporte estimado."""
+    if aporte_estimado < 0:
+        raise ValueError("El aporte estimado no puede ser negativo.")
+
     subtotal = calcular_precio_total(plan, cantidad_adherentes)
     descuento_pct = obtener_descuento_porcentaje(medio_pago)
     descuento_monto = calcular_descuento_monto(subtotal, descuento_pct)
-    precio_final = subtotal - descuento_monto
+    base_bonificada = subtotal - descuento_monto
+    if aporte_estimado > base_bonificada:
+        raise ValueError(
+            "El aporte estimado no puede superar la base bonificada."
+        )
+
+    precio_final = base_bonificada - aporte_estimado
     medio_enum = MedioPago(medio_pago) if isinstance(medio_pago, str) else medio_pago
 
     return CotizacionDetalle(
@@ -87,5 +99,7 @@ def calcular_cotizacion(
         medio_pago=medio_enum,
         descuento_porcentaje=descuento_pct,
         descuento_monto=descuento_monto,
+        base_bonificada=base_bonificada,
+        aporte_estimado=aporte_estimado,
         precio_total=precio_final,
     )

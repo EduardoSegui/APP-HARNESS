@@ -14,7 +14,13 @@ from pydantic import (
     model_validator,
 )
 
-from ventas_app.models import EstadoVenta, MedioPago, Parentesco, TarjetaMarca
+from ventas_app.models import (
+    EstadoVenta,
+    MedioPago,
+    Parentesco,
+    RegimenAfiliacion,
+    TarjetaMarca,
+)
 
 _EMAIL_REGEX = (
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
@@ -230,6 +236,9 @@ class _VentaDatosIn(BaseModel):
     tarjeta: TarjetaIn | None = None
     cbu: CbuIn | None = None
     ddjj: SaludIn
+    regimen_afiliacion: RegimenAfiliacion = RegimenAfiliacion.PARTICULAR
+    cuil_titular: Cuil | None = None
+    aporte_estimado: int = Field(default=0, ge=0)
     integrantes: list[IntegranteIn] = Field(default_factory=list)
 
     @field_validator("fecha_nacimiento_titular")
@@ -257,6 +266,19 @@ class _VentaDatosIn(BaseModel):
             raise ValueError(
                 "Los DNIs del grupo familiar deben ser únicos. "
                 f"Duplicados: {', '.join(duplicados)}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validar_regimen_aportes(self) -> Self:
+        if self.regimen_afiliacion is RegimenAfiliacion.PARTICULAR:
+            if self.aporte_estimado != 0:
+                raise ValueError(
+                    "El régimen PARTICULAR no admite aporte estimado."
+                )
+        elif self.cuil_titular is None:
+            raise ValueError(
+                "El régimen desregulado exige el CUIL del titular."
             )
         return self
 
@@ -383,6 +405,9 @@ class VentaOut(BaseModel):
     ddjj_medicacion_cronica: bool
     ddjj_discapacidad: bool
     ddjj_detalle: str | None
+    regimen_afiliacion: RegimenAfiliacion
+    cuil_titular: str | None
+    aporte_estimado: int
     precio_total: int
     estado: EstadoVenta
     observaciones: str | None
