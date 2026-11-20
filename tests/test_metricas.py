@@ -148,9 +148,13 @@ def test_metricas_ejecutivas(client: TestClient) -> None:
     assert datos["recaudacion_neta"] == 91_000
     assert datos["ticket_promedio"] == 91_000
     assert datos["por_plan"][0]["etiqueta"] == "Plan Integral"
+    assert datos["por_plan"][0]["porcentaje"] == 100.0
     assert datos["por_medio_pago"][0]["etiqueta"] == "Tarjeta de crédito"
     assert any(
-        motivo["codigo"] == "R1" and motivo["cantidad"] == 1
+        motivo["codigo"] == "R1"
+        and motivo["etiqueta"] == "Edad del titular"
+        and motivo["cantidad"] == 1
+        and motivo["porcentaje"] == 100.0
         for motivo in datos["motivos_observacion"]
     )
 
@@ -208,6 +212,12 @@ def test_metricas_filtran_por_plan_y_fecha(client: TestClient) -> None:
     assert por_plan.status_code == 200
     assert por_plan.json()["total_ventas"] == 1
 
+    por_estado = client.get("/api/metricas", params={"estado": "OBSERVADA"})
+    assert por_estado.status_code == 200
+    assert por_estado.json()["total_ventas"] == 1
+    assert por_estado.json()["observadas"] == 1
+    assert por_estado.json()["aprobadas"] == 0
+
     futuro = client.get("/api/metricas", params={"desde": "2099-01-01"})
     assert futuro.status_code == 200
     assert futuro.json()["total_ventas"] == 0
@@ -224,6 +234,8 @@ def test_dashboard_renderiza_kpis(client: TestClient) -> None:
     assert "MRR bruto" in html
     assert "Recaudación neta" in html
     assert "Motivos de observación" in html
+    assert 'id="dashboard-estado"' in html
+    assert 'class="prop-bar"' in html
     assert "$130.000" in html
     assert "R1" in html
     assert "Tablero" in html
@@ -249,6 +261,35 @@ def test_exportacion_padron_csv_y_json(client: TestClient) -> None:
     assert len(datos) == 1
     assert datos[0]["ID"] == aprobada["id"]
     assert "4111111111111111" not in json_response.text
+
+
+def test_exportacion_respeta_filtro_estado_y_dashboard_filtra_urls(
+    client: TestClient,
+) -> None:
+    aprobada, observada, _ = _preparar_datos(client)
+
+    observadas = client.get(
+        "/api/exportar/padron",
+        params={"formato": "json", "estado": "OBSERVADA"},
+    )
+    assert observadas.status_code == 200
+    assert [fila["ID"] for fila in observadas.json()] == [observada["id"]]
+
+    dashboard = client.get(
+        "/dashboard",
+        params={
+            "desde": "2026-01-01",
+            "hasta": "2026-12-31",
+            "plan_id": aprobada["plan_id"],
+            "estado": "APROBADA",
+        },
+    )
+    assert dashboard.status_code == 200
+    html = dashboard.text
+    assert "Métricas y exportación filtradas" in html
+    assert "estado=APROBADA" in html
+    assert "plan_id=" in html
+    assert "formato=csv" in html
 
 
 def test_metricas_y_exportacion_sin_datos(client: TestClient) -> None:

@@ -142,7 +142,7 @@
       "titulo": "Tablero con KPIs, barras y filtros de exportación",
       "descripcion": "KPIs separados, porcentajes y barras de proporción, grilla compacta de motivos y exportaciones sincronizadas con filtros.",
       "packet": "features/F22.md",
-      "passes": false
+      "passes": true
     }
   ]
 }

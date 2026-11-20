@@ -179,6 +179,16 @@ def mostrar_panel_ventas(
     )
 
 
+def _url_exportacion(tipo: str, filtros: dict[str, object]) -> str:
+    parametros = {
+        clave: valor
+        for clave, valor in filtros.items()
+        if valor not in (None, "")
+    }
+    parametros["formato"] = "csv"
+    return f"/api/exportar/{tipo}?" + urlencode(parametros)
+
+
 def _parse_fecha_filtro(valor: str | None, nombre: str) -> date | None:
     if not valor:
         return None
@@ -198,8 +208,9 @@ def mostrar_dashboard(
     desde: str | None = None,
     hasta: str | None = None,
     plan_id: str | None = None,
+    estado: str | None = None,
 ) -> HTMLResponse:
-    """Renderiza el tablero ejecutivo con filtros de fecha y plan."""
+    """Renderiza el tablero ejecutivo con filtros de fecha, plan y estado."""
     fecha_desde = _parse_fecha_filtro(desde, "desde")
     fecha_hasta = _parse_fecha_filtro(hasta, "hasta")
     plan_id_valor: int | None = None
@@ -218,22 +229,29 @@ def mostrar_dashboard(
             desde=fecha_desde,
             hasta=fecha_hasta,
             plan_id=plan_id_valor,
+            estado=estado,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     planes = list(db.scalars(select(Plan).order_by(Plan.id)).all())
+    filtros = {
+        "desde": desde or "",
+        "hasta": hasta or "",
+        "plan_id": plan_id_valor,
+        "estado": estado or "",
+    }
+    hay_filtros = any(valor not in (None, "") for valor in filtros.values())
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={
             "metricas": metricas,
             "planes": planes,
-            "filtros": {
-                "desde": desde or "",
-                "hasta": hasta or "",
-                "plan_id": plan_id_valor,
-            },
+            "filtros": filtros,
+            "hay_filtros": hay_filtros,
+            "url_export_padron": _url_exportacion("padron", filtros),
+            "url_export_cobranzas": _url_exportacion("cobranzas", filtros),
         },
     )
 

@@ -448,13 +448,16 @@ class DistribucionOut(BaseModel):
     etiqueta: str
     cantidad: int
     total: int
+    porcentaje: float
 
 
 class MotivoObservacionOut(BaseModel):
     """Cantidad de ventas observadas por código de regla."""
 
     codigo: str
+    etiqueta: str
     cantidad: int
+    porcentaje: float
 
 
 class MetricasOut(BaseModel):
@@ -463,6 +466,7 @@ class MetricasOut(BaseModel):
     desde: date | None
     hasta: date | None
     plan_id: int | None
+    estado: str | None
     total_ventas: int
     pendientes: int
     aprobadas: int

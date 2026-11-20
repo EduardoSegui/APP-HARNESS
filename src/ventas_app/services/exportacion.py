@@ -65,17 +65,20 @@ def _descuento_monto(venta: Venta) -> int:
     return (venta.subtotal_base * venta.descuento_porcentaje + 50) // 100
 
 
-def _ventas_aprobadas(
+def _ventas_exportacion(
     db: Session,
     *,
     desde: date | None,
     hasta: date | None,
     plan_id: int | None,
+    estado: str | None,
 ) -> list[Venta]:
+    estado_exportacion = estado or EstadoVenta.APROBADA.value
     filtros = construir_filtros(
         desde=desde,
         hasta=hasta,
         plan_id=plan_id,
+        estado=estado_exportacion,
     )
     return list(
         db.scalars(
@@ -84,10 +87,7 @@ def _ventas_aprobadas(
                 joinedload(Venta.plan),
                 selectinload(Venta.integrantes),
             )
-            .where(
-                *filtros,
-                Venta.estado == EstadoVenta.APROBADA.value,
-            )
+            .where(*filtros)
             .order_by(Venta.creado_en.asc(), Venta.id.asc())
         ).all()
     )
@@ -160,6 +160,7 @@ def generar_exportacion(
     desde: date | None = None,
     hasta: date | None = None,
     plan_id: int | None = None,
+    estado: str | None = None,
 ) -> tuple[str, str, str]:
     """Devuelve (contenido, media_type, nombre_archivo)."""
     if tipo not in {"padron", "cobranzas"}:
@@ -167,11 +168,12 @@ def generar_exportacion(
     if formato not in {"csv", "json"}:
         raise ValueError("El formato de exportación no es válido.")
 
-    ventas = _ventas_aprobadas(
+    ventas = _ventas_exportacion(
         db,
         desde=desde,
         hasta=hasta,
         plan_id=plan_id,
+        estado=estado,
     )
     cabeceras = (
         _CABECERAS_PADRON if tipo == "padron" else _CABECERAS_COBRANZAS

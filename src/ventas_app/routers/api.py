@@ -87,6 +87,7 @@ def metricas_endpoint(
     desde: date | None = None,
     hasta: date | None = None,
     plan_id: int | None = None,
+    estado: str | None = None,
 ) -> MetricasOut:
     """Devuelve las métricas ejecutivas del negocio."""
     try:
@@ -96,6 +97,7 @@ def metricas_endpoint(
                 desde=desde,
                 hasta=hasta,
                 plan_id=plan_id,
+                estado=estado,
             )
         )
     except ValueError as exc:
@@ -113,8 +115,9 @@ def exportar_endpoint(
     desde: date | None = None,
     hasta: date | None = None,
     plan_id: int | None = None,
+    estado: str | None = None,
 ) -> Response:
-    """Exporta el padrón aprobado o el lote de cobranzas."""
+    """Exporta el padrón o lote según los filtros activos."""
     try:
         contenido, media_type, nombre = generar_exportacion(
             db,
@@ -123,6 +126,7 @@ def exportar_endpoint(
             desde=desde,
             hasta=hasta,
             plan_id=plan_id,
+            estado=estado,
         )
     except ValueError as exc:
         raise HTTPException(

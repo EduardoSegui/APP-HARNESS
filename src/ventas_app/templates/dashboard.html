@@ -13,8 +13,8 @@
       </p>
     </div>
     <div class="page-head__actions">
-      <a href="/api/exportar/padron?formato=csv" class="btn btn--secondary">Exportar padrón CSV</a>
-      <a href="/api/exportar/cobranzas?formato=csv" class="btn btn--secondary">Exportar cobranzas CSV</a>
+      <a href="{{ url_export_padron }}" class="btn btn--secondary">Exportar padrón CSV</a>
+      <a href="{{ url_export_cobranzas }}" class="btn btn--secondary">Exportar cobranzas CSV</a>
     </div>
   </div>
 
@@ -37,6 +37,15 @@
           {% endfor %}
         </select>
       </div>
+      <div class="field">
+        <label for="dashboard-estado" class="field-label">Estado</label>
+        <select id="dashboard-estado" name="estado" class="field-select">
+          <option value="">Todos</option>
+          <option value="APROBADA"{% if filtros.estado == "APROBADA" %} selected{% endif %}>Aprobada</option>
+          <option value="PENDIENTE_VERIFICACION"{% if filtros.estado == "PENDIENTE_VERIFICACION" %} selected{% endif %}>Pendiente</option>
+          <option value="OBSERVADA"{% if filtros.estado == "OBSERVADA" %} selected{% endif %}>Observada</option>
+        </select>
+      </div>
       <div class="filter-actions">
         <button type="submit" class="btn btn--primary">Aplicar</button>
         <a href="/dashboard" class="btn btn--quiet">Limpiar</a>
@@ -44,40 +53,51 @@
     </div>
   </form>
 
+  {% if hay_filtros %}
+  <p class="dashboard-filter-note" role="status">
+    Métricas y exportación filtradas por la selección actual.
+  </p>
+  {% endif %}
+
+  <h2 class="dashboard-section-title">Operación y padrón</h2>
   <div class="dashboard-grid">
     <article class="kpi-card">
-      <p class="kpi-card__label">Ventas</p>
+      <p class="kpi-card__label">Ventas totales</p>
       <p class="kpi-card__value">{{ metricas.total_ventas }}</p>
-      <p class="kpi-card__meta">{{ metricas.pendientes }} pendientes · {{ metricas.observadas }} observadas</p>
+      <p class="kpi-card__meta">{{ metricas.pendientes }} pendientes de auditoría</p>
     </article>
     <article class="kpi-card kpi-card--ok">
-      <p class="kpi-card__label">Aprobadas</p>
-      <p class="kpi-card__value">{{ metricas.aprobadas }}</p>
-      <p class="kpi-card__meta">{{ metricas.tasa_aprobacion }}% del total</p>
+      <p class="kpi-card__label">Tasa de aprobación</p>
+      <p class="kpi-card__value">{{ metricas.tasa_aprobacion }}%</p>
+      <p class="kpi-card__meta">{{ metricas.aprobadas }} aprobadas · {{ metricas.observadas }} observadas ({{ metricas.tasa_observacion }}%)</p>
     </article>
     <article class="kpi-card">
       <p class="kpi-card__label">Personas cubiertas</p>
       <p class="kpi-card__value">{{ metricas.personas_cubiertas }}</p>
       <p class="kpi-card__meta">{{ metricas.titulares_cubiertos }} titulares · {{ metricas.adherentes_cubiertos }} adherentes</p>
     </article>
+  </div>
+
+  <h2 class="dashboard-section-title">Finanzas</h2>
+  <div class="dashboard-grid">
     <article class="kpi-card kpi-card--money">
       <p class="kpi-card__label">MRR bruto</p>
       <p class="kpi-card__value">{{ metricas.mrr_bruto | pesos }}</p>
-      <p class="kpi-card__meta">Descuentos {{ metricas.descuentos | pesos }} · aportes {{ metricas.aportes | pesos }}</p>
+      <p class="kpi-card__meta">Descuentos -{{ metricas.descuentos | pesos }}</p>
     </article>
     <article class="kpi-card kpi-card--money">
       <p class="kpi-card__label">Recaudación neta</p>
       <p class="kpi-card__value">{{ metricas.recaudacion_neta | pesos }}</p>
-      <p class="kpi-card__meta">Ticket promedio {{ metricas.ticket_promedio | pesos }}</p>
+      <p class="kpi-card__meta">Aportes -{{ metricas.aportes | pesos }}</p>
     </article>
     <article class="kpi-card">
-      <p class="kpi-card__label">Ticket por persona</p>
-      <p class="kpi-card__value">{{ metricas.ticket_promedio_persona | pesos }}</p>
-      <p class="kpi-card__meta">Tasa de observación {{ metricas.tasa_observacion }}%</p>
+      <p class="kpi-card__label">Ticket promedio</p>
+      <p class="kpi-card__value">{{ metricas.ticket_promedio | pesos }}</p>
+      <p class="kpi-card__meta">Por persona {{ metricas.ticket_promedio_persona | pesos }}</p>
     </article>
   </div>
 
-  <div class="dashboard-tables">
+  <div class="dashboard-tables dashboard-tables--tri">
     <section class="sheet">
       <div class="sheet__head">
         <div>
@@ -90,7 +110,14 @@
         <thead><tr><th>Plan</th><th class="ledger__th--right">Afiliados</th><th class="ledger__th--right">Total</th></tr></thead>
         <tbody>
           {% for fila in metricas.por_plan %}
-          <tr><td>{{ fila.etiqueta }}</td><td class="ledger__th--right">{{ fila.cantidad }}</td><td class="ledger__th--right">{{ fila.total | pesos }}</td></tr>
+          <tr>
+            <td>
+              <span class="dist-label">{{ fila.etiqueta }}</span>
+              <span class="prop-bar" aria-hidden="true"><span class="prop-bar__fill" style="width: {{ fila.porcentaje }}%"></span></span>
+            </td>
+            <td class="ledger__th--right">{{ fila.cantidad }} <span class="dist-pct">({{ fila.porcentaje }}%)</span></td>
+            <td class="ledger__th--right">{{ fila.total | pesos }}</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -111,7 +138,14 @@
         <thead><tr><th>Medio</th><th class="ledger__th--right">Afiliados</th><th class="ledger__th--right">Total</th></tr></thead>
         <tbody>
           {% for fila in metricas.por_medio_pago %}
-          <tr><td>{{ fila.etiqueta }}</td><td class="ledger__th--right">{{ fila.cantidad }}</td><td class="ledger__th--right">{{ fila.total | pesos }}</td></tr>
+          <tr>
+            <td>
+              <span class="dist-label">{{ fila.etiqueta }}</span>
+              <span class="prop-bar" aria-hidden="true"><span class="prop-bar__fill" style="width: {{ fila.porcentaje }}%"></span></span>
+            </td>
+            <td class="ledger__th--right">{{ fila.cantidad }} <span class="dist-pct">({{ fila.porcentaje }}%)</span></td>
+            <td class="ledger__th--right">{{ fila.total | pesos }}</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -132,7 +166,14 @@
         <thead><tr><th>Régimen</th><th class="ledger__th--right">Afiliados</th><th class="ledger__th--right">Total</th></tr></thead>
         <tbody>
           {% for fila in metricas.por_regimen %}
-          <tr><td>{{ fila.etiqueta }}</td><td class="ledger__th--right">{{ fila.cantidad }}</td><td class="ledger__th--right">{{ fila.total | pesos }}</td></tr>
+          <tr>
+            <td>
+              <span class="dist-label">{{ fila.etiqueta }}</span>
+              <span class="prop-bar" aria-hidden="true"><span class="prop-bar__fill" style="width: {{ fila.porcentaje }}%"></span></span>
+            </td>
+            <td class="ledger__th--right">{{ fila.cantidad }} <span class="dist-pct">({{ fila.porcentaje }}%)</span></td>
+            <td class="ledger__th--right">{{ fila.total | pesos }}</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -140,23 +181,27 @@
       <p class="empty-inline">Sin datos.</p>
       {% endif %}
     </section>
-
-    <section class="sheet">
-      <div class="sheet__head">
-        <div>
-          <h2 class="sheet__title">Motivos de observación</h2>
-          <p class="sheet__hint">Ranking de reglas R1–R8 en ventas observadas.</p>
-        </div>
-      </div>
-      <table class="dashboard-table">
-        <thead><tr><th>Regla</th><th class="ledger__th--right">Ventas</th></tr></thead>
-        <tbody>
-          {% for motivo in metricas.motivos_observacion %}
-          <tr><td>{{ motivo.codigo }}</td><td class="ledger__th--right">{{ motivo.cantidad }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
   </div>
+
+  <section class="sheet dashboard-motivos">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Motivos de observación (R1–R8)</h2>
+        <p class="sheet__hint">Ranking de reglas en ventas observadas. Las reglas sin incidencias se atenúan.</p>
+      </div>
+    </div>
+    <div class="motivos-grid">
+      {% for motivo in metricas.motivos_observacion %}
+      <article class="motivo{% if motivo.cantidad == 0 %} motivo--zero{% endif %}">
+        <div class="motivo__head">
+          <strong>{{ motivo.codigo }}</strong>
+          <span>{{ motivo.etiqueta }}</span>
+          <span class="motivo__value">{{ motivo.cantidad }} · {{ motivo.porcentaje }}%</span>
+        </div>
+        <span class="prop-bar" aria-hidden="true"><span class="prop-bar__fill" style="width: {{ motivo.porcentaje }}%"></span></span>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
 </main>
 {% endblock %}

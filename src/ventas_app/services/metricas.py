@@ -29,6 +29,16 @@ _ETIQUETAS_REGIMEN = {
     RegimenAfiliacion.RELACION_DEPENDENCIA.value: "Relación de dependencia",
     RegimenAfiliacion.MONOTRIBUTO.value: "Monotributo",
 }
+_ETIQUETAS_MOTIVO = {
+    "R1": "Edad del titular",
+    "R2": "DNI duplicado",
+    "R3": "Datos obligatorios",
+    "R4": "Código postal",
+    "R5": "Plan, pago y precio",
+    "R6": "Integridad del legajo",
+    "R7": "DDJJ / revisión médica",
+    "R8": "Régimen y aportes",
+}
 
 
 def construir_filtros(
@@ -102,11 +112,17 @@ def _distribucion(
         .group_by(columna)
         .order_by(columna)
     ).all()
+    total_dimension = sum(int(cantidad) for _, cantidad, _ in filas)
     return [
         {
             "etiqueta": (etiquetas or {}).get(str(valor), str(valor)),
             "cantidad": int(cantidad),
             "total": int(total),
+            "porcentaje": (
+                round(int(cantidad) / total_dimension * 100, 1)
+                if total_dimension
+                else 0.0
+            ),
         }
         for valor, cantidad, total in filas
     ]
@@ -124,8 +140,18 @@ def _motivos_observacion(db: Session, filtros: list) -> list[dict[str, object]]:
     for texto in observaciones:
         for coincidencia in re.finditer(r"^(R\d+):", texto or "", re.MULTILINE):
             conteo[coincidencia.group(1)] += 1
+    total = sum(conteo.values())
     return [
-        {"codigo": f"R{indice}", "cantidad": conteo.get(f"R{indice}", 0)}
+        {
+            "codigo": f"R{indice}",
+            "etiqueta": _ETIQUETAS_MOTIVO[f"R{indice}"],
+            "cantidad": conteo.get(f"R{indice}", 0),
+            "porcentaje": (
+                round(conteo.get(f"R{indice}", 0) / total * 100, 1)
+                if total
+                else 0.0
+            ),
+        }
         for indice in range(1, 9)
     ]
 
@@ -136,9 +162,15 @@ def calcular_metricas(
     desde: date | None = None,
     hasta: date | None = None,
     plan_id: int | None = None,
+    estado: str | None = None,
 ) -> dict[str, object]:
     """Calcula el tablero ejecutivo con una foto del padrón."""
-    filtros = construir_filtros(desde=desde, hasta=hasta, plan_id=plan_id)
+    filtros = construir_filtros(
+        desde=desde,
+        hasta=hasta,
+        plan_id=plan_id,
+        estado=estado,
+    )
     estados = dict(
         db.execute(
             select(Venta.estado, func.count(Venta.id))
@@ -201,10 +233,12 @@ def calcular_metricas(
         .order_by(Plan.nombre)
     ).all()
 
+    planes_total = sum(int(cantidad) for _, cantidad, _ in planes)
     return {
         "desde": desde,
         "hasta": hasta,
         "plan_id": plan_id,
+        "estado": estado,
         "total_ventas": total,
         "pendientes": pendientes,
         "aprobadas": aprobadas,
@@ -225,6 +259,11 @@ def calcular_metricas(
                 "etiqueta": str(nombre),
                 "cantidad": int(cantidad),
                 "total": int(total_plan),
+                "porcentaje": (
+                    round(int(cantidad) / planes_total * 100, 1)
+                    if planes_total
+                    else 0.0
+                ),
             }
             for nombre, cantidad, total_plan in planes
         ],
