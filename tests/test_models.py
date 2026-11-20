@@ -181,6 +181,30 @@ def test_parentesco_invalido_es_rechazado_por_la_base(db: Session) -> None:
     db.rollback()
 
 
+def test_venta_persiste_metadatos_de_pago_enmascarados(db: Session) -> None:
+    plan = crear_plan(db)
+    venta = crear_venta(
+        plan,
+        medio_pago="TARJETA_CREDITO",
+        subtotal_base=45_000,
+        descuento_porcentaje=30,
+        precio_total=31_500,
+        pago_titular="Ana Pérez",
+        pago_marca_entidad="VISA",
+        pago_ultimos_4="1111",
+        pago_vencimiento="12/30",
+    )
+    db.add(venta)
+    db.commit()
+    db.refresh(venta)
+
+    assert venta.pago_titular == "Ana Pérez"
+    assert venta.pago_marca_entidad == "VISA"
+    assert venta.pago_ultimos_4 == "1111"
+    assert venta.pago_vencimiento == "12/30"
+    assert venta.pago_cuil is None
+
+
 def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
     engine_viejo = create_engine(f"sqlite:///{tmp_path / 'ventas-viejas.db'}")
     with engine_viejo.begin() as conexion:
@@ -203,12 +227,21 @@ def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
             for fila in conexion.exec_driver_sql("PRAGMA table_info(ventas)")
         }
         fila = conexion.exec_driver_sql(
-            "SELECT medio_pago, subtotal_base, descuento_porcentaje "
+            "SELECT medio_pago, subtotal_base, descuento_porcentaje, "
+            "pago_titular, pago_marca_entidad, pago_ultimos_4, "
+            "pago_vencimiento, pago_cuil "
             "FROM ventas WHERE id = 7"
         ).one()
 
-    assert {"medio_pago", "subtotal_base", "descuento_porcentaje"}.issubset(
-        columnas
-    )
-    assert fila == ("PAGO_FACIL", 45_000, 0)
+    assert {
+        "medio_pago",
+        "subtotal_base",
+        "descuento_porcentaje",
+        "pago_titular",
+        "pago_marca_entidad",
+        "pago_ultimos_4",
+        "pago_vencimiento",
+        "pago_cuil",
+    }.issubset(columnas)
+    assert fila == ("PAGO_FACIL", 45_000, 0, None, None, None, None, None)
     engine_viejo.dispose()

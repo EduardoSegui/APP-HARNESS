@@ -3,32 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 11 — F12: rediseño visual del wizard y el panel
-
----
-feature: F12
-fecha: 2026-11-19
-tests: 206 passed
-harness: OK
-commit: feat(F12): rediseño visual del wizard y panel
----
-
-**Fecha:** 2026-11-19
-
-**Rol:** Builder + Verifier (fases separadas). **Feature:** F12 — Rediseño visual del wizard y el panel. **Estado:** verificada y aprobada.
-
-Aplicar la identidad “legajo de alta / mesa de entradas” con `frontend-design`, sin tocar lógica, API, DB ni contratos JS. Entregables:
-
-- `design.css` con tokens, shell, hojas, campos, sellos, planilla, acta y responsive; templates `base`, `wizard`, `panel` y `comprobante`.
-- `wizard.js` con resumen del legajo y sello del comprobante; `auditoria.js` con sellos semánticos; `tests/test_ui_design.py` y aserciones visuales del panel.
-- `docs/design/F12.md` con la revisión visual.
-
-**Verificación:** `./init.sh` y `uv run pytest` → OK, 206 passed. 360/768/1280 sin desborde; wizard, comprobante, panel vacío, tabla, acta y traza revisados; formulario inválido con 6 errores y foco; auditoría en vivo actualiza sellos y observaciones.
-
-**Decisiones:** audacia en rail de solapas y sellos; sin card soup, eyebrows en mayúsculas ni gradientes. “Pendiente/Aprobada/Observada” visibles; `data-estado` conserva el enum. Bricolage Grotesque + Public Sans; tinta/papel/verde/vino/mostaza.
-
-**Próximo paso:** no quedan features pendientes; planificar con `features/_TEMPLATE.md` antes de construir.
-
 ## Sesión 12 — F13: medios de pago y descuentos en cotización
 
 ---
@@ -50,3 +24,25 @@ commit: feat(F13): medios de pago y descuentos en cotización
 **Decisión:** el redondeo se centraliza en `pricing.py` y replica `Math.round`; las filas históricas quedan en `PAGO_FACIL`, descuento 0 y `subtotal_base=precio_total`.
 
 **Próximo paso:** no quedan features pendientes; planificar con `features/_TEMPLATE.md` antes de construir.
+
+## Sesión 13 — F14: instrumentos de pago enmascarados
+
+---
+feature: F14
+fecha: 2026-11-20
+tests: 274 passed
+harness: OK
+commit: feat(F14): instrumentos de pago enmascarados
+---
+
+**Fecha:** 2026-11-20
+
+**Rol:** Verifier (Builder en sesión previa). **Feature:** F14 — Instrumentos de pago: tarjeta y CBU con datos enmascarados. **Estado:** verificada y aprobada.
+
+`TarjetaMarca` + `TarjetaIn`/`CbuIn` validan formato y vencimiento; `VentaIn` exige y hace coherente el instrumento con `medio_pago`. Se persisten solo `pago_titular`, `pago_marca_entidad`, `pago_ultimos_4`, `pago_vencimiento` y `pago_cuil`; nunca PAN/CBU completo ni CVV. `VentaOut`, panel y MCP muestran el instrumento enmascarado; R5 valida metadatos; migración SQLite idempotente agrega las cinco columnas y conserva filas F13.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 274 passed. Prueba manual con TestClient sobre copia temporal de `ventas.db`: tarjeta (VISA •••• 1111) y CBU (Banco Ejemplo •••• 0123), 8 casos 422, DB y respuesta sin PAN/CVV, panel enmascarado, R5/MCP con descuento y venta histórica observada. `ventas.db` real sin modificar.
+
+**Decisión:** el CVV se valida en memoria y se descarta; los datos demo usan instrumentos ficticios.
+
+**Próximo paso:** F15 — Ver, reabrir y editar ventas por etapas — packet: `features/F15.md`.

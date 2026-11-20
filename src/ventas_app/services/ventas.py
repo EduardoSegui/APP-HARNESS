@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from ventas_app.models import EstadoVenta, Integrante, Plan, Venta
+from ventas_app.models import EstadoVenta, Integrante, MedioPago, Plan, Venta
 from ventas_app.schemas import VentaIn
 from ventas_app.services.pricing import calcular_cotizacion
 
@@ -24,6 +24,37 @@ class VentaNoEncontradaError(LookupError):
     def __init__(self, venta_id: int) -> None:
         self.venta_id = venta_id
         super().__init__(f"La venta {venta_id} no existe.")
+
+
+def _datos_pago_enmascarados(datos: VentaIn) -> dict[str, str | None]:
+    """Deriva solo metadatos seguros; nunca devuelve PAN, CBU completo ni CVV."""
+    if datos.medio_pago is MedioPago.TARJETA_CREDITO:
+        assert datos.tarjeta is not None
+        return {
+            "pago_titular": datos.tarjeta.titular,
+            "pago_marca_entidad": datos.tarjeta.marca.value,
+            "pago_ultimos_4": datos.tarjeta.numero[-4:],
+            "pago_vencimiento": datos.tarjeta.vencimiento,
+            "pago_cuil": None,
+        }
+
+    if datos.medio_pago is MedioPago.CBU:
+        assert datos.cbu is not None
+        return {
+            "pago_titular": datos.cbu.titular,
+            "pago_marca_entidad": datos.cbu.entidad,
+            "pago_ultimos_4": datos.cbu.numero[-4:],
+            "pago_vencimiento": None,
+            "pago_cuil": datos.cbu.cuil,
+        }
+
+    return {
+        "pago_titular": None,
+        "pago_marca_entidad": None,
+        "pago_ultimos_4": None,
+        "pago_vencimiento": None,
+        "pago_cuil": None,
+    }
 
 
 def _construir_integrantes(datos: VentaIn) -> list[Integrante]:
@@ -50,6 +81,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
         raise PlanNoDisponibleError(datos.plan_id)
 
     cotizacion = calcular_cotizacion(plan, len(datos.integrantes), datos.medio_pago)
+    datos_pago = _datos_pago_enmascarados(datos)
     venta = Venta(
         nombre_titular=datos.nombre_titular,
         apellido_titular=datos.apellido_titular,
@@ -67,6 +99,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
         medio_pago=cotizacion.medio_pago.value,
         subtotal_base=cotizacion.subtotal_base,
         descuento_porcentaje=cotizacion.descuento_porcentaje,
+        **datos_pago,
         precio_total=cotizacion.precio_total,
         integrantes=_construir_integrantes(datos),
     )

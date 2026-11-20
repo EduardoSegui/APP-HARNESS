@@ -86,7 +86,7 @@
       "titulo": "Instrumentos de pago: tarjeta y CBU enmascarados",
       "descripcion": "Captura condicional de datos de tarjeta y CBU, validación, persistencia enmascarada sin PAN completo ni CVV, visualización en comprobante/panel y validación R5.",
       "packet": "features/F14.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F15",

@@ -342,6 +342,72 @@
           </div>
         </div>
 
+        <div id="pago-tarjeta" class="sheet hidden">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Datos de la tarjeta</h2>
+              <p class="sheet__hint">Datos ficticios de desarrollo. No se cobra ni se contacta al banco; el CVV no se guarda.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="tarjeta-marca" class="field-label">Marca <span class="required">*</span></label>
+              <select id="tarjeta-marca" autocomplete="off" class="field-select">
+                <option value="">Seleccioná una marca</option>
+                <option value="VISA">VISA</option>
+                <option value="MASTERCARD">MASTERCARD</option>
+                <option value="AMEX">AMEX</option>
+                <option value="CABAL">CABAL</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="tarjeta-numero" class="field-label">Número de tarjeta <span class="required">*</span></label>
+              <input id="tarjeta-numero" type="text" inputmode="numeric" maxlength="16" pattern="[0-9]{16}" autocomplete="off" placeholder="4111111111111111" class="field-input">
+            </div>
+            <div class="field">
+              <label for="tarjeta-titular" class="field-label">Titular de la tarjeta <span class="required">*</span></label>
+              <input id="tarjeta-titular" type="text" maxlength="80" autocomplete="off" placeholder="Ana Pérez" class="field-input">
+            </div>
+            <div class="field">
+              <label for="tarjeta-vencimiento" class="field-label">Vencimiento <span class="required">*</span></label>
+              <input id="tarjeta-vencimiento" type="text" inputmode="numeric" maxlength="5" pattern="(0[1-9]|1[0-2])/[0-9]{2}" autocomplete="off" placeholder="MM/AA" class="field-input">
+            </div>
+            <div class="field">
+              <label for="tarjeta-cvv" class="field-label">CVV <span class="required">*</span></label>
+              <input id="tarjeta-cvv" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{3,4}" autocomplete="off" placeholder="123" class="field-input">
+            </div>
+          </div>
+        </div>
+
+        <div id="pago-cbu" class="sheet hidden">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Datos del CBU</h2>
+              <p class="sheet__hint">Datos ficticios de desarrollo. Se guardan solo la entidad, el titular, el CUIL y los últimos 4 dígitos.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <div class="field field--full">
+              <label for="cbu-numero" class="field-label">CBU <span class="required">*</span></label>
+              <input id="cbu-numero" type="text" inputmode="numeric" maxlength="22" pattern="[0-9]{22}" autocomplete="off" placeholder="0000000000000000000000" class="field-input">
+            </div>
+            <div class="field">
+              <label for="cbu-entidad" class="field-label">Banco / Entidad <span class="required">*</span></label>
+              <input id="cbu-entidad" type="text" maxlength="80" autocomplete="off" placeholder="Banco Ejemplo" class="field-input">
+            </div>
+            <div class="field">
+              <label for="cbu-titular" class="field-label">Titular de la cuenta <span class="required">*</span></label>
+              <input id="cbu-titular" type="text" maxlength="80" autocomplete="off" placeholder="Ana Pérez" class="field-input">
+            </div>
+            <div class="field">
+              <label for="cbu-cuil" class="field-label">CUIL / CUIT <span class="required">*</span></label>
+              <input id="cbu-cuil" type="text" inputmode="numeric" maxlength="11" pattern="[0-9]{11}" autocomplete="off" placeholder="20123456789" class="field-input">
+            </div>
+          </div>
+        </div>
+
         <div class="sheet">
           <div class="sheet__head">
             <div>

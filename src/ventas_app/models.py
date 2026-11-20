@@ -40,6 +40,15 @@ class MedioPago(str, Enum):
     COBRADOR_DOMICILIO = "COBRADOR_DOMICILIO"
 
 
+class TarjetaMarca(str, Enum):
+    """Marcas de tarjeta admitidas en el alta."""
+
+    VISA = "VISA"
+    MASTERCARD = "MASTERCARD"
+    AMEX = "AMEX"
+    CABAL = "CABAL"
+
+
 class Parentesco(str, Enum):
     """Parentescos admitidos para los integrantes del grupo familiar."""
 
@@ -147,6 +156,14 @@ class Venta(Base):
         default=0,
         server_default=text("0"),
     )
+    pago_titular: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    pago_marca_entidad: Mapped[str | None] = mapped_column(
+        String(80),
+        nullable=True,
+    )
+    pago_ultimos_4: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    pago_vencimiento: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    pago_cuil: Mapped[str | None] = mapped_column(String(11), nullable=True)
     precio_total: Mapped[int] = mapped_column(Integer, nullable=False)
     estado: Mapped[str] = mapped_column(
         String(30),

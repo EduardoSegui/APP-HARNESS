@@ -65,6 +65,8 @@ _PARENTESCOS_VALIDOS = frozenset(
     }
 )
 
+_MARCAS_TARJETA = frozenset({"VISA", "MASTERCARD", "AMEX", "CABAL"})
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 _OPENAI_BASE_URL_DEFAULT = "https://api.openai.com/v1"
@@ -511,6 +513,54 @@ def validar_r4_codigo_postal(detalle: Mapping[str, Any]) -> list[str]:
     return []
 
 
+def _validar_datos_pago(
+    medio_pago: str,
+    detalle: Mapping[str, Any],
+    errores: list[str],
+) -> None:
+    """Valida los metadatos enmascarados de tarjeta o CBU."""
+    if medio_pago == "TARJETA_CREDITO":
+        titular = detalle.get("pago_titular")
+        marca = detalle.get("pago_marca_entidad")
+        ultimos_4 = detalle.get("pago_ultimos_4")
+        vencimiento = detalle.get("pago_vencimiento")
+        if not all(
+            isinstance(valor, str) and valor.strip()
+            for valor in (titular, marca, ultimos_4, vencimiento)
+        ):
+            errores.append(
+                "R5: Faltan los datos enmascarados de la tarjeta de crédito."
+            )
+            return
+        if marca not in _MARCAS_TARJETA:
+            errores.append(f"R5: La marca de tarjeta '{marca}' no es válida.")
+        if re.fullmatch(r"\d{4}", ultimos_4) is None:
+            errores.append(
+                "R5: Los últimos 4 dígitos de la tarjeta no son válidos."
+            )
+        if re.fullmatch(r"(0[1-9]|1[0-2])/\d{2}", vencimiento) is None:
+            errores.append(
+                "R5: El vencimiento de la tarjeta no tiene formato MM/AA."
+            )
+        return
+
+    if medio_pago == "CBU":
+        titular = detalle.get("pago_titular")
+        entidad = detalle.get("pago_marca_entidad")
+        ultimos_4 = detalle.get("pago_ultimos_4")
+        cuil = detalle.get("pago_cuil")
+        if not all(
+            isinstance(valor, str) and valor.strip()
+            for valor in (titular, entidad, ultimos_4, cuil)
+        ):
+            errores.append("R5: Faltan los datos enmascarados del CBU.")
+            return
+        if re.fullmatch(r"\d{4}", ultimos_4) is None:
+            errores.append("R5: Los últimos 4 dígitos del CBU no son válidos.")
+        if re.fullmatch(r"\d{11}", cuil) is None:
+            errores.append("R5: El CUIL del CBU debe tener 11 dígitos.")
+
+
 def validar_r5_plan_y_precio(detalle: Mapping[str, Any]) -> list[str]:
     """R5: el plan debe existir, estar activo y tener el precio total vigente."""
     errores: list[str] = []
@@ -583,6 +633,8 @@ def validar_r5_plan_y_precio(detalle: Mapping[str, Any]) -> list[str]:
             f"({descuento_persistido}%) no coincide con el medio de pago "
             f"'{medio_pago}' ({descuento_pct}%)."
         )
+
+    _validar_datos_pago(medio_pago, detalle, errores)
 
     descuento_monto = calcular_descuento_monto(
         subtotal_esperado,

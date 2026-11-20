@@ -58,6 +58,13 @@ def _ventas_demo(db) -> list[VentaIn]:
             codigo_postal="1425",
             plan_id=_plan_id(db, "Plan Integral"),
             medio_pago="TARJETA_CREDITO",
+            tarjeta={
+                "marca": "VISA",
+                "numero": "4111111111111111",
+                "titular": "Lucía Fernández",
+                "vencimiento": "12/99",
+                "cvv": "123",
+            },
             integrantes=[
                 {
                     "nombre": "Martín",
@@ -90,6 +97,12 @@ def _ventas_demo(db) -> list[VentaIn]:
             codigo_postal="5000",
             plan_id=_plan_id(db, "Plan Esencial"),
             medio_pago="CBU",
+            cbu={
+                "numero": "0170099220000067890123",
+                "entidad": "Banco Ejemplo",
+                "titular": "Carlos Gómez",
+                "cuil": "20251234567",
+            },
             integrantes=[],
         ),
         VentaIn(

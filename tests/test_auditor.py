@@ -99,6 +99,29 @@ def _obtener_plan_id(nombre: str) -> int:
     return plan_id
 
 
+TARJETA_VALIDA = {
+    "marca": "VISA",
+    "numero": "4111111111111111",
+    "titular": "Ana Pérez",
+    "vencimiento": "12/99",
+    "cvv": "123",
+}
+CBU_VALIDO = {
+    "numero": "0170099220000067890123",
+    "entidad": "Banco Ejemplo",
+    "titular": "Ana Pérez",
+    "cuil": "20123456789",
+}
+
+
+def _instrumento_para(medio_pago: str) -> dict[str, Any]:
+    if medio_pago == "TARJETA_CREDITO":
+        return {"tarjeta": dict(TARJETA_VALIDA)}
+    if medio_pago == "CBU":
+        return {"cbu": dict(CBU_VALIDO)}
+    return {}
+
+
 def _crear_venta(
     client: TestClient,
     *,
@@ -117,26 +140,25 @@ def _crear_venta(
         }
         for indice in range(1, cantidad_adherentes + 1)
     ]
-    respuesta = client.post(
-        "/api/ventas",
-        json={
-            "nombre_titular": "Ana",
-            "apellido_titular": "Pérez",
-            "dni_titular": "30111222",
-            "fecha_nacimiento_titular": fecha_titular,
-            "email": "ana.perez@example.com",
-            "telefono": "+54 11 5555-5555",
-            "calle": "Av. Corrientes",
-            "altura": "1234",
-            "piso_depto": "2 B",
-            "localidad": "Ciudad Autónoma de Buenos Aires",
-            "provincia": "Ciudad Autónoma de Buenos Aires",
-            "codigo_postal": "1043",
-            "plan_id": _obtener_plan_id(plan),
-            "medio_pago": medio_pago,
-            "integrantes": integrantes,
-        },
-    )
+    payload = {
+        "nombre_titular": "Ana",
+        "apellido_titular": "Pérez",
+        "dni_titular": "30111222",
+        "fecha_nacimiento_titular": fecha_titular,
+        "email": "ana.perez@example.com",
+        "telefono": "+54 11 5555-5555",
+        "calle": "Av. Corrientes",
+        "altura": "1234",
+        "piso_depto": "2 B",
+        "localidad": "Ciudad Autónoma de Buenos Aires",
+        "provincia": "Ciudad Autónoma de Buenos Aires",
+        "codigo_postal": "1043",
+        "plan_id": _obtener_plan_id(plan),
+        "medio_pago": medio_pago,
+        "integrantes": integrantes,
+    }
+    payload.update(_instrumento_para(medio_pago))
+    respuesta = client.post("/api/ventas", json=payload)
     assert respuesta.status_code == 201, respuesta.text
     return respuesta.json()
 
@@ -405,6 +427,10 @@ def test_r5_con_descuento_tarjeta_credito_valido() -> None:
     # 78_000 + 52_000 = 130_000 -> 30% desc = 39_000 -> 91_000
     detalle["medio_pago"] = "TARJETA_CREDITO"
     detalle["descuento_porcentaje"] = 30
+    detalle["pago_titular"] = "Ana Pérez"
+    detalle["pago_marca_entidad"] = "VISA"
+    detalle["pago_ultimos_4"] = "1111"
+    detalle["pago_vencimiento"] = "12/99"
     detalle["precio_total"] = 91_000
 
     assert aplicar_reglas(detalle, HOY) == []
@@ -414,6 +440,10 @@ def test_r5_con_descuento_tarjeta_credito_invalido() -> None:
     detalle = _detalle_valido()
     detalle["medio_pago"] = "TARJETA_CREDITO"
     detalle["descuento_porcentaje"] = 30
+    detalle["pago_titular"] = "Ana Pérez"
+    detalle["pago_marca_entidad"] = "VISA"
+    detalle["pago_ultimos_4"] = "1111"
+    detalle["pago_vencimiento"] = "12/99"
     detalle["precio_total"] = 130_000  # No aplicó el descuento
 
     errores = aplicar_reglas(detalle, HOY)
@@ -429,6 +459,10 @@ def test_r5_con_descuento_cbu_valido() -> None:
     # 78_000 + 52_000 = 130_000 -> 20% desc = 26_000 -> 104_000
     detalle["medio_pago"] = "CBU"
     detalle["descuento_porcentaje"] = 20
+    detalle["pago_titular"] = "Ana Pérez"
+    detalle["pago_marca_entidad"] = "Banco Ejemplo"
+    detalle["pago_ultimos_4"] = "0123"
+    detalle["pago_cuil"] = "20123456789"
     detalle["precio_total"] = 104_000
 
     assert aplicar_reglas(detalle, HOY) == []
@@ -448,6 +482,32 @@ def test_r5_sin_medio_pago_es_observado() -> None:
     del detalle["medio_pago"]
 
     assert aplicar_reglas(detalle, HOY) == ["R5: Falta el medio de pago."]
+
+
+def test_r5_tarjeta_sin_datos_enmascarados_es_observada() -> None:
+    detalle = _detalle_valido()
+    detalle["medio_pago"] = "TARJETA_CREDITO"
+    detalle["descuento_porcentaje"] = 30
+    detalle["precio_total"] = 91_000
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R5: Faltan los datos enmascarados de la tarjeta de crédito."
+    ]
+
+
+def test_r5_cbu_con_cuil_invalido_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["medio_pago"] = "CBU"
+    detalle["descuento_porcentaje"] = 20
+    detalle["pago_titular"] = "Ana Pérez"
+    detalle["pago_marca_entidad"] = "Banco Ejemplo"
+    detalle["pago_ultimos_4"] = "0123"
+    detalle["pago_cuil"] = "123"
+    detalle["precio_total"] = 104_000
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R5: El CUIL del CBU debe tener 11 dígitos."
+    ]
 
 
 def test_r5_subtotal_base_adulterado_es_observado() -> None:

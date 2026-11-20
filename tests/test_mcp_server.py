@@ -31,6 +31,29 @@ def _obtener_plan_id(nombre: str) -> int:
     return plan_id
 
 
+TARJETA_VALIDA = {
+    "marca": "VISA",
+    "numero": "4111111111111111",
+    "titular": "Ana Pérez",
+    "vencimiento": "12/99",
+    "cvv": "123",
+}
+CBU_VALIDO = {
+    "numero": "0170099220000067890123",
+    "entidad": "Banco Ejemplo",
+    "titular": "Ana Pérez",
+    "cuil": "20123456789",
+}
+
+
+def _instrumento_para(medio_pago: str) -> dict[str, Any]:
+    if medio_pago == "TARJETA_CREDITO":
+        return {"tarjeta": dict(TARJETA_VALIDA)}
+    if medio_pago == "CBU":
+        return {"cbu": dict(CBU_VALIDO)}
+    return {}
+
+
 def _crear_venta(
     client: TestClient,
     *,
@@ -48,26 +71,26 @@ def _crear_venta(
         }
         for indice in range(1, cantidad_adherentes + 1)
     ]
-    respuesta = client.post(
-        "/api/ventas",
-        json={
-            "nombre_titular": "Ana",
-            "apellido_titular": "Pérez",
-            "dni_titular": "30111222",
-            "fecha_nacimiento_titular": "1990-05-20",
-            "email": "ana.perez@example.com",
-            "telefono": "+54 11 5555-5555",
-            "calle": "Av. Corrientes",
-            "altura": "1234",
-            "piso_depto": "2 B",
-            "localidad": "Ciudad Autónoma de Buenos Aires",
-            "provincia": "Ciudad Autónoma de Buenos Aires",
-            "codigo_postal": "1043",
-            "plan_id": _obtener_plan_id(plan),
-            "medio_pago": medio_pago,
-            "integrantes": integrantes,
-        },
-    )
+    payload = {
+        "nombre_titular": "Ana",
+        "apellido_titular": "Pérez",
+        "dni_titular": "30111222",
+        "fecha_nacimiento_titular": "1990-05-20",
+        "email": "ana.perez@example.com",
+        "telefono": "+54 11 5555-5555",
+        "calle": "Av. Corrientes",
+        "altura": "1234",
+        "piso_depto": "2 B",
+        "localidad": "Ciudad Autónoma de Buenos Aires",
+        "provincia": "Ciudad Autónoma de Buenos Aires",
+        "codigo_postal": "1043",
+        "plan_id": _obtener_plan_id(plan),
+        "medio_pago": medio_pago,
+        "integrantes": integrantes,
+    }
+    payload.update(_instrumento_para(medio_pago))
+
+    respuesta = client.post("/api/ventas", json=payload)
 
     assert respuesta.status_code == 201, respuesta.text
     return respuesta.json()
@@ -213,7 +236,13 @@ def test_obtener_detalle_venta_incluye_desglose_de_descuento(
     assert detalle["medio_pago"] == "TARJETA_CREDITO"
     assert detalle["subtotal_base"] == 130_000
     assert detalle["descuento_porcentaje"] == 30
+    assert detalle["pago_titular"] == "Ana Pérez"
+    assert detalle["pago_marca_entidad"] == "VISA"
+    assert detalle["pago_ultimos_4"] == "1111"
+    assert detalle["pago_vencimiento"] == "12/99"
     assert detalle["precio_total"] == 91_000
+    assert "numero" not in detalle
+    assert "cvv" not in detalle
 
 
 def test_obtener_detalle_venta_inexistente_es_error() -> None:

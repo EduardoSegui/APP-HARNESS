@@ -9,6 +9,11 @@
   const ALTURA_REGEX = /^[0-9A-Za-z/ .-]+$/;
   const DNI_REGEX = /^\d{7,8}$/;
   const CP_REGEX = /^\d{4}$/;
+  const TARJETA_REGEX = /^\d{16}$/;
+  const VENCIMIENTO_REGEX = /^(0[1-9]|1[0-2])\/\d{2}$/;
+  const CVV_REGEX = /^\d{3,4}$/;
+  const CBU_REGEX = /^\d{22}$/;
+  const CUIL_REGEX = /^\d{11}$/;
   const formatoMoneda = new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
@@ -264,6 +269,7 @@
             otro === radio,
           );
         });
+        actualizarFormularioPago();
         guardarEstado();
         actualizarCotizacion();
       });
@@ -272,6 +278,109 @@
     if (!radios.some((radio) => radio.checked)) {
       estado.medio_pago = null;
       guardarEstado();
+    }
+
+    actualizarFormularioPago();
+  }
+
+  function limpiarFormularioPago(contenedor) {
+    contenedor?.querySelectorAll("input, select").forEach((campo) => {
+      campo.value = "";
+    });
+  }
+
+  function actualizarFormularioPago() {
+    const formularioTarjeta = document.querySelector("#pago-tarjeta");
+    const formularioCbu = document.querySelector("#pago-cbu");
+    const esTarjeta = estado.medio_pago === "TARJETA_CREDITO";
+    const esCbu = estado.medio_pago === "CBU";
+
+    formularioTarjeta?.classList.toggle("hidden", !esTarjeta);
+    formularioCbu?.classList.toggle("hidden", !esCbu);
+
+    if (!esTarjeta) {
+      limpiarFormularioPago(formularioTarjeta);
+    }
+    if (!esCbu) {
+      limpiarFormularioPago(formularioCbu);
+    }
+  }
+
+  function datosTarjeta() {
+    return {
+      marca: document.querySelector("#tarjeta-marca")?.value ?? "",
+      numero: texto(document.querySelector("#tarjeta-numero")?.value).trim(),
+      titular: texto(document.querySelector("#tarjeta-titular")?.value).trim(),
+      vencimiento: texto(document.querySelector("#tarjeta-vencimiento")?.value).trim(),
+      cvv: texto(document.querySelector("#tarjeta-cvv")?.value).trim(),
+    };
+  }
+
+  function datosCbu() {
+    return {
+      numero: texto(document.querySelector("#cbu-numero")?.value).trim(),
+      entidad: texto(document.querySelector("#cbu-entidad")?.value).trim(),
+      titular: texto(document.querySelector("#cbu-titular")?.value).trim(),
+      cuil: texto(document.querySelector("#cbu-cuil")?.value).trim(),
+    };
+  }
+
+  function vencimientoVencido(valor) {
+    const coincidencia = VENCIMIENTO_REGEX.exec(valor);
+    if (!coincidencia) {
+      return false;
+    }
+    const hoy = new Date();
+    const anio = 2000 + Number(coincidencia[2]);
+    const mes = Number(coincidencia[1]);
+    return anio < hoy.getFullYear() || (anio === hoy.getFullYear() && mes < hoy.getMonth() + 1);
+  }
+
+  function validarInstrumentoPago(errores) {
+    if (estado.medio_pago === "TARJETA_CREDITO") {
+      const marca = document.querySelector("#tarjeta-marca");
+      const numero = document.querySelector("#tarjeta-numero");
+      const titular = document.querySelector("#tarjeta-titular");
+      const vencimiento = document.querySelector("#tarjeta-vencimiento");
+      const cvv = document.querySelector("#tarjeta-cvv");
+
+      if (!marca?.value) {
+        registrarError(marca, "Seleccioná la marca de la tarjeta.", errores);
+      }
+      if (!TARJETA_REGEX.test(texto(numero?.value).trim())) {
+        registrarError(numero, "El número de tarjeta debe tener 16 dígitos.", errores);
+      }
+      if (texto(titular?.value).trim().length < 2) {
+        registrarError(titular, "Ingresá el titular de la tarjeta.", errores);
+      }
+      if (!VENCIMIENTO_REGEX.test(texto(vencimiento?.value).trim())) {
+        registrarError(vencimiento, "El vencimiento debe tener formato MM/AA.", errores);
+      } else if (vencimientoVencido(texto(vencimiento?.value).trim())) {
+        registrarError(vencimiento, "La tarjeta está vencida.", errores);
+      }
+      if (!CVV_REGEX.test(texto(cvv?.value).trim())) {
+        registrarError(cvv, "El CVV debe tener 3 o 4 dígitos.", errores);
+      }
+    }
+
+    if (estado.medio_pago === "CBU") {
+      const numero = document.querySelector("#cbu-numero");
+      const entidad = document.querySelector("#cbu-entidad");
+      const titular = document.querySelector("#cbu-titular");
+      const cuil = document.querySelector("#cbu-cuil");
+
+      if (!CBU_REGEX.test(texto(numero?.value).trim())) {
+        registrarError(numero, "El CBU debe tener 22 dígitos.", errores);
+      }
+      if (texto(entidad?.value).trim().length < 2) {
+        registrarError(entidad, "Ingresá el banco o entidad.", errores);
+      }
+      if (texto(titular?.value).trim().length < 2) {
+        registrarError(titular, "Ingresá el titular de la cuenta.", errores);
+      }
+      if (!CUIL_REGEX.test(texto(cuil?.value).trim())) {
+        registrarError(cuil, "El CUIL/CUIT debe tener 11 dígitos.", errores);
+      }
     }
   }
 
@@ -523,6 +632,8 @@
       }
       if (!document.querySelector('input[name="medio_pago"]:checked')) {
         registrarError(null, "Seleccioná un medio de pago para confirmar la venta.", errores);
+      } else {
+        validarInstrumentoPago(errores);
       }
     }
 
@@ -582,8 +693,7 @@
   function construirPayload() {
     const titular = estado.titular;
     const domicilio = estado.domicilio;
-
-    return {
+    const payload = {
       nombre_titular: texto(titular.nombre).trim(),
       apellido_titular: texto(titular.apellido).trim(),
       dni_titular: texto(titular.dni).trim(),
@@ -606,6 +716,14 @@
         parentesco: texto(integrante.parentesco),
       })),
     };
+
+    if (estado.medio_pago === "TARJETA_CREDITO") {
+      payload.tarjeta = datosTarjeta();
+    } else if (estado.medio_pago === "CBU") {
+      payload.cbu = datosCbu();
+    }
+
+    return payload;
   }
 
   function mensajeDeError(estadoHttp, datos) {
@@ -659,6 +777,21 @@
     const medioPagoEl = document.querySelector("#comprobante-medio-pago");
     if (medioPagoEl) {
       medioPagoEl.textContent = etiquetasMedio[venta.medio_pago] || venta.medio_pago || "—";
+    }
+
+    const instrumentoEl = document.querySelector("#comprobante-instrumento");
+    if (instrumentoEl) {
+      if (venta.medio_pago === "TARJETA_CREDITO" && venta.pago_ultimos_4) {
+        const vencimiento = venta.pago_vencimiento
+          ? ` · Vto ${venta.pago_vencimiento}`
+          : "";
+        instrumentoEl.textContent = `${venta.pago_marca_entidad} •••• ${venta.pago_ultimos_4}${vencimiento}`;
+      } else if (venta.medio_pago === "CBU" && venta.pago_ultimos_4) {
+        const cuil = venta.pago_cuil ? ` · CUIL ${venta.pago_cuil}` : "";
+        instrumentoEl.textContent = `${venta.pago_marca_entidad} · CBU •••• ${venta.pago_ultimos_4}${cuil}`;
+      } else {
+        instrumentoEl.textContent = "—";
+      }
     }
 
     const subtotalBaseEl = document.querySelector("#comprobante-subtotal-base");

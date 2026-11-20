@@ -20,11 +20,35 @@ def obtener_plan_id(nombre: str) -> int:
     return plan_id
 
 
+TARJETA_VALIDA = {
+    "marca": "VISA",
+    "numero": "4111111111111111",
+    "titular": "Ana Pérez",
+    "vencimiento": "12/99",
+    "cvv": "123",
+}
+CBU_VALIDO = {
+    "numero": "0170099220000067890123",
+    "entidad": "Banco Ejemplo",
+    "titular": "Ana Pérez",
+    "cuil": "20123456789",
+}
+
+
+def instrumento_para(medio_pago: str) -> dict[str, Any]:
+    if medio_pago == "TARJETA_CREDITO":
+        return {"tarjeta": dict(TARJETA_VALIDA)}
+    if medio_pago == "CBU":
+        return {"cbu": dict(CBU_VALIDO)}
+    return {}
+
+
 def payload_venta(
     plan_id: int,
     cantidad_adherentes: int = 0,
     **overrides: Any,
 ) -> dict[str, Any]:
+    medio_pago = overrides.get("medio_pago", "PAGO_FACIL")
     integrantes = [
         {
             "nombre": f"Adherente {indice}",
@@ -49,9 +73,10 @@ def payload_venta(
         "provincia": "Ciudad Autónoma de Buenos Aires",
         "codigo_postal": "1043",
         "plan_id": plan_id,
-        "medio_pago": "PAGO_FACIL",
+        "medio_pago": medio_pago,
         "integrantes": integrantes,
     }
+    datos.update(instrumento_para(str(medio_pago)))
     datos.update(overrides)
     return datos
 
@@ -201,6 +226,7 @@ def test_precio_total_usa_los_precios_vigentes_de_la_base(
         ("precio_total", 1),
         ("estado", "APROBADA"),
         ("observaciones", "dato impuesto por el cliente"),
+        ("pago_ultimos_4", "9999"),
     ],
 )
 def test_cliente_no_puede_imponer_campos_del_servidor(
@@ -281,6 +307,14 @@ def test_crear_venta_con_descuento_tarjeta_credito(client: TestClient) -> None:
     assert datos["subtotal_base"] == 45_000
     assert datos["descuento_porcentaje"] == 30
     assert datos["precio_total"] == 31_500
+    assert datos["pago_titular"] == "Ana Pérez"
+    assert datos["pago_marca_entidad"] == "VISA"
+    assert datos["pago_ultimos_4"] == "1111"
+    assert datos["pago_vencimiento"] == "12/99"
+    assert datos["pago_cuil"] is None
+    assert "numero" not in datos
+    assert "cvv" not in datos
+    assert "tarjeta" not in datos
 
 
 def test_crear_venta_con_descuento_cbu(client: TestClient) -> None:
@@ -295,6 +329,13 @@ def test_crear_venta_con_descuento_cbu(client: TestClient) -> None:
     assert datos["subtotal_base"] == 130_000
     assert datos["descuento_porcentaje"] == 20
     assert datos["precio_total"] == 104_000
+    assert datos["pago_titular"] == "Ana Pérez"
+    assert datos["pago_marca_entidad"] == "Banco Ejemplo"
+    assert datos["pago_ultimos_4"] == "0123"
+    assert datos["pago_vencimiento"] is None
+    assert datos["pago_cuil"] == "20123456789"
+    assert "numero" not in datos
+    assert "cbu" not in datos
 
 
 def test_crear_venta_con_medio_pago_invalido_devuelve_422(client: TestClient) -> None:
@@ -320,3 +361,40 @@ def test_crear_venta_sin_medio_pago_devuelve_422(client: TestClient) -> None:
     with SessionLocal() as db:
         assert db.scalar(select(func.count()).select_from(Venta)) == 0
         assert db.scalar(select(func.count()).select_from(Integrante)) == 0
+
+
+def test_crear_venta_con_tarjeta_sin_datos_devuelve_422(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO")
+    payload.pop("tarjeta")
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "tarjeta" in respuesta.text
+
+
+def test_crear_venta_con_cbu_invalido_devuelve_422(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0, medio_pago="CBU")
+    payload["cbu"]["numero"] = "123"
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "cbu" in respuesta.text
+
+
+def test_crear_venta_rechaza_instrumento_incoherente(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO")
+    payload["cbu"] = dict(CBU_VALIDO)
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "CBU" in respuesta.text

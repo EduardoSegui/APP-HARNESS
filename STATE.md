@@ -2,9 +2,9 @@
 
 > Generado por `uv run python scripts/contexto.py estado`. No editar a mano.
 
-- **Plan:** 13/19 features verificadas (`features.json`).
-- **Próximo paso:** F14 — Instrumentos de pago: tarjeta y CBU enmascarados — packet: `features/F14.md`.
-- **Última sesión:** Sesión 12 — F13: medios de pago y descuentos en cotización (2026-11-20).
-- **Última entrada:** `CHECKPOINT.md#sesión-12`.
-- **Tests:** 252 passed.
+- **Plan:** 14/19 features verificadas (`features.json`).
+- **Próximo paso:** F15 — Ver, reabrir y editar ventas por etapas — packet: `features/F15.md`.
+- **Última sesión:** Sesión 13 — F14: instrumentos de pago enmascarados (2026-11-20).
+- **Última entrada:** `CHECKPOINT.md#sesión-13`.
+- **Tests:** 274 passed.
 - **Harness:** OK.

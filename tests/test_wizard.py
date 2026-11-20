@@ -43,9 +43,16 @@ def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
     assert "30% de descuento" in html
     assert "20% de descuento" in html
     assert 'id="comprobante-medio-pago"' in html
+    assert 'id="comprobante-instrumento"' in html
     assert 'id="comprobante-subtotal-base"' in html
     assert 'id="comprobante-fila-descuento"' in html
     assert 'id="comprobante-descuento"' in html
+    assert 'id="pago-tarjeta"' in html
+    assert 'id="pago-cbu"' in html
+    assert 'id="tarjeta-numero"' in html
+    assert 'id="tarjeta-cvv"' in html
+    assert 'id="cbu-numero"' in html
+    assert 'id="cbu-cuil"' in html
 
     for campo in (
         "titular.nombre",
@@ -145,6 +152,12 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
         "descuentoPct",
         "comprobante-descuento",
         "medio_pago: estado.medio_pago",
+        "TARJETA_REGEX",
+        "validarInstrumentoPago",
+        "datosTarjeta",
+        "datosCbu",
+        "payload.tarjeta",
+        "comprobante-instrumento",
     ):
         assert fragmento in js
 

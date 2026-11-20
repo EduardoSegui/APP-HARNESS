@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from ventas_app.models import EstadoVenta, MedioPago, Parentesco
+from ventas_app.models import EstadoVenta, MedioPago, Parentesco, TarjetaMarca
 
 _EMAIL_REGEX = (
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
@@ -76,6 +76,29 @@ PisoDepto = Annotated[
     str,
     StringConstraints(strip_whitespace=True, max_length=30),
 ]
+NumeroTarjeta = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, pattern=r"^\d{16}$"),
+]
+VencimientoTarjeta = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        pattern=r"^(0[1-9]|1[0-2])/\d{2}$",
+    ),
+]
+Cvv = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, pattern=r"^\d{3,4}$"),
+]
+NumeroCbu = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, pattern=r"^\d{22}$"),
+]
+Cuil = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, pattern=r"^\d{11}$"),
+]
 
 
 def _validar_fecha_no_futura(valor: date) -> date:
@@ -107,6 +130,38 @@ class IntegranteIn(BaseModel):
         return _validar_fecha_no_futura(valor)
 
 
+class TarjetaIn(BaseModel):
+    """Datos de tarjeta para validar; el CVV no se persiste."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    marca: TarjetaMarca
+    numero: NumeroTarjeta
+    titular: Nombre
+    vencimiento: VencimientoTarjeta
+    cvv: Cvv
+
+    @field_validator("vencimiento")
+    @classmethod
+    def validar_vencimiento(cls, valor: str) -> str:
+        mes, anio = valor.split("/")
+        hoy = date.today()
+        if (2000 + int(anio), int(mes)) < (hoy.year, hoy.month):
+            raise ValueError("La tarjeta está vencida.")
+        return valor
+
+
+class CbuIn(BaseModel):
+    """Datos de CBU para validar y enmascarar."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    numero: NumeroCbu
+    entidad: Nombre
+    titular: Nombre
+    cuil: Cuil
+
+
 class VentaIn(BaseModel):
     """Payload de creación de una venta completa."""
 
@@ -128,6 +183,8 @@ class VentaIn(BaseModel):
 
     plan_id: int = Field(gt=0)
     medio_pago: MedioPago
+    tarjeta: TarjetaIn | None = None
+    cbu: CbuIn | None = None
     integrantes: list[IntegranteIn] = Field(default_factory=list)
 
     @field_validator("fecha_nacimiento_titular")
@@ -155,6 +212,29 @@ class VentaIn(BaseModel):
             raise ValueError(
                 "Los DNIs del grupo familiar deben ser únicos. "
                 f"Duplicados: {', '.join(duplicados)}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validar_instrumento_pago(self) -> VentaIn:
+        if self.medio_pago is MedioPago.TARJETA_CREDITO:
+            if self.tarjeta is None:
+                raise ValueError(
+                    "Ingresá los datos de la tarjeta para el medio de pago "
+                    "TARJETA_CREDITO."
+                )
+            if self.cbu is not None:
+                raise ValueError("No envíes datos de CBU con tarjeta de crédito.")
+        elif self.medio_pago is MedioPago.CBU:
+            if self.cbu is None:
+                raise ValueError(
+                    "Ingresá los datos del CBU para el medio de pago CBU."
+                )
+            if self.tarjeta is not None:
+                raise ValueError("No envíes datos de tarjeta con CBU.")
+        elif self.tarjeta is not None or self.cbu is not None:
+            raise ValueError(
+                "El medio de pago seleccionado no admite datos de tarjeta ni CBU."
             )
         return self
 
@@ -228,6 +308,11 @@ class VentaOut(BaseModel):
     medio_pago: MedioPago
     subtotal_base: int
     descuento_porcentaje: int
+    pago_titular: str | None
+    pago_marca_entidad: str | None
+    pago_ultimos_4: str | None
+    pago_vencimiento: str | None
+    pago_cuil: str | None
     precio_total: int
     estado: EstadoVenta
     observaciones: str | None

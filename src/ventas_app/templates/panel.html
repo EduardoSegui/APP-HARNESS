@@ -151,6 +151,9 @@
               {% else %}
               <p class="ledger__name">Pago Fácil / Oficinas</p>
               {% endif %}
+              {% if venta.pago_ultimos_4 %}
+              <p class="ledger__meta">{{ venta.pago_marca_entidad }} •••• {{ venta.pago_ultimos_4 }}{% if venta.pago_vencimiento %} · {{ venta.pago_vencimiento }}{% endif %}</p>
+              {% endif %}
             </td>
             <td data-label="Total" class="ledger__amount">
               {{ venta.precio_total | pesos }}

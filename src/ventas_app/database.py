@@ -46,11 +46,11 @@ class Base(DeclarativeBase):
 
 
 def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
-    """Agrega las columnas de F13 a una base SQLite creada con F12 o antes.
+    """Agrega las columnas de F13/F14 a una base SQLite creada con F12 o antes.
 
     ``create_all`` no modifica tablas existentes. Esta migración es idempotente
-    y conserva las ventas históricas: las filas previas quedan sin descuento y
-    con el total anterior como subtotal base.
+    y conserva las ventas históricas: las filas previas quedan sin datos de
+    pago, sin descuento y con el total anterior como subtotal base.
     """
     if engine_objetivo.dialect.name != "sqlite":
         return
@@ -77,6 +77,26 @@ def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
             conexion.exec_driver_sql(
                 "ALTER TABLE ventas ADD COLUMN descuento_porcentaje "
                 "INTEGER NOT NULL DEFAULT 0"
+            )
+        if "pago_titular" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN pago_titular VARCHAR(80)"
+            )
+        if "pago_marca_entidad" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN pago_marca_entidad VARCHAR(80)"
+            )
+        if "pago_ultimos_4" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN pago_ultimos_4 VARCHAR(4)"
+            )
+        if "pago_vencimiento" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN pago_vencimiento VARCHAR(5)"
+            )
+        if "pago_cuil" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN pago_cuil VARCHAR(11)"
             )
 
         if "precio_total" in columnas:

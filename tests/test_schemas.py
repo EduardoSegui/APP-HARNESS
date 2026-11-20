@@ -12,8 +12,31 @@ from sqlalchemy.orm import Session
 from ventas_app.models import EstadoVenta, Integrante, MedioPago, Parentesco, Plan, Venta
 from ventas_app.schemas import IntegranteIn, PlanOut, VentaIn, VentaOut
 
+TARJETA_VALIDA = {
+    "marca": "VISA",
+    "numero": "4111111111111111",
+    "titular": "Ana Pérez",
+    "vencimiento": "12/99",
+    "cvv": "123",
+}
+CBU_VALIDO = {
+    "numero": "0170099220000067890123",
+    "entidad": "Banco Ejemplo",
+    "titular": "Ana Pérez",
+    "cuil": "20123456789",
+}
+
+
+def instrumento_para(medio_pago: str) -> dict[str, Any]:
+    if medio_pago == "TARJETA_CREDITO":
+        return {"tarjeta": dict(TARJETA_VALIDA)}
+    if medio_pago == "CBU":
+        return {"cbu": dict(CBU_VALIDO)}
+    return {}
+
 
 def payload_valido(**overrides: Any) -> dict[str, Any]:
+    medio_pago = overrides.get("medio_pago", "PAGO_FACIL")
     datos: dict[str, Any] = {
         "nombre_titular": "Ana",
         "apellido_titular": "Pérez",
@@ -28,7 +51,7 @@ def payload_valido(**overrides: Any) -> dict[str, Any]:
         "provincia": "Ciudad Autónoma de Buenos Aires",
         "codigo_postal": "1043",
         "plan_id": 1,
-        "medio_pago": "PAGO_FACIL",
+        "medio_pago": medio_pago,
         "integrantes": [
             {
                 "nombre": "Luis",
@@ -39,6 +62,7 @@ def payload_valido(**overrides: Any) -> dict[str, Any]:
             }
         ],
     }
+    datos.update(instrumento_para(str(medio_pago)))
     datos.update(overrides)
     return datos
 
@@ -234,6 +258,11 @@ def test_venta_out_desde_orm_con_plan_e_integrantes(db: Session) -> None:
     assert salida.medio_pago is MedioPago.PAGO_FACIL
     assert salida.subtotal_base == 0
     assert salida.descuento_porcentaje == 0
+    assert salida.pago_titular is None
+    assert salida.pago_marca_entidad is None
+    assert salida.pago_ultimos_4 is None
+    assert salida.pago_vencimiento is None
+    assert salida.pago_cuil is None
     assert salida.plan.nombre == "Plan Superior Test"
     assert salida.integrantes[0].parentesco is Parentesco.HIJO_A
     assert salida.observaciones is None
@@ -263,3 +292,80 @@ def test_venta_in_exige_medio_pago() -> None:
         error["loc"] == ("medio_pago",) and error["type"] == "missing"
         for error in excinfo.value.errors()
     )
+
+
+def test_venta_in_exige_tarjeta_y_cbu_segun_medio() -> None:
+    with pytest.raises(ValidationError, match="datos de la tarjeta"):
+        VentaIn.model_validate(
+            payload_valido(medio_pago="TARJETA_CREDITO", tarjeta=None)
+        )
+
+    with pytest.raises(ValidationError, match="datos del CBU"):
+        VentaIn.model_validate(payload_valido(medio_pago="CBU", cbu=None))
+
+
+def test_venta_in_rechaza_instrumento_incoherente() -> None:
+    with pytest.raises(ValidationError, match="No envíes datos de CBU"):
+        VentaIn.model_validate(
+            payload_valido(
+                medio_pago="TARJETA_CREDITO",
+                cbu=dict(CBU_VALIDO),
+            )
+        )
+
+    with pytest.raises(ValidationError, match="No envíes datos de tarjeta"):
+        VentaIn.model_validate(
+            payload_valido(
+                medio_pago="CBU",
+                tarjeta=dict(TARJETA_VALIDA),
+            )
+        )
+
+    with pytest.raises(ValidationError, match="no admite datos"):
+        VentaIn.model_validate(
+            payload_valido(
+                medio_pago="PAGO_FACIL",
+                tarjeta=dict(TARJETA_VALIDA),
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("numero", "4111-1111-1111-1111"),
+        ("numero", "411111111111111"),
+        ("titular", " "),
+        ("vencimiento", "13/30"),
+        ("vencimiento", "10/20"),
+        ("cvv", "12"),
+        ("cvv", "12345"),
+        ("marca", "DINERS"),
+    ],
+)
+def test_venta_in_rechaza_tarjeta_invalida(campo: str, valor: object) -> None:
+    tarjeta = dict(TARJETA_VALIDA)
+    tarjeta[campo] = valor
+
+    with pytest.raises(ValidationError):
+        VentaIn.model_validate(
+            payload_valido(medio_pago="TARJETA_CREDITO", tarjeta=tarjeta)
+        )
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("numero", "123"),
+        ("numero", "017009922000006789012"),
+        ("entidad", " "),
+        ("titular", " "),
+        ("cuil", "2012345678"),
+    ],
+)
+def test_venta_in_rechaza_cbu_invalido(campo: str, valor: object) -> None:
+    cbu = dict(CBU_VALIDO)
+    cbu[campo] = valor
+
+    with pytest.raises(ValidationError):
+        VentaIn.model_validate(payload_valido(medio_pago="CBU", cbu=cbu))
