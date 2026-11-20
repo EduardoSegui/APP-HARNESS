@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Nueva venta | Ventas Obra Social{% endblock %}
+{% block title %}{% if modo_edicion %}Editar legajo{% else %}Nueva venta{% endif %} | Ventas Obra Social{% endblock %}
 
 {% macro campo_texto(id, etiqueta, estado, tipo="text", requerido=true, placeholder="", autocomplete="off", inputmode="", maxlength="", patron="") -%}
 <div class="field">
@@ -24,15 +24,25 @@
 
 {% block content %}
 <main class="app-main">
+  {% if modo_edicion %}
+  <script id="wizard-edicion-data" type="application/json">{{ venta_data | tojson }}</script>
+  {% endif %}
   <div id="wizard-page-head" class="page-head">
     <div class="page-head__main">
-      <p class="page-context">Nueva venta</p>
-      <h1 class="page-title">Alta de obra social</h1>
+      <p class="page-context">{% if modo_edicion %}Editar legajo #{{ venta_data.id }}{% else %}Nueva venta{% endif %}</p>
+      <h1 class="page-title">{% if modo_edicion %}Edición de obra social{% else %}Alta de obra social{% endif %}</h1>
       <p class="page-sub">
+        {% if modo_edicion %}
+        Revisá y corregí el legajo. Al guardar, la venta vuelve a Pendiente y se limpian las observaciones.
+        {% else %}
         Armá el legajo en tres etapas. Los datos se guardan recién al confirmar la venta.
+        {% endif %}
       </p>
     </div>
   </div>
+  {% if modo_edicion %}
+  <p class="notice">Estás editando una venta existente. Podés retroceder y avanzar entre las tres etapas antes de guardar.</p>
+  {% endif %}
 
   <div class="wizard-layout">
     <div id="progreso" class="wizard-progress">
@@ -347,6 +357,7 @@
             <div>
               <h2 class="sheet__title">Datos de la tarjeta</h2>
               <p class="sheet__hint">Datos ficticios de desarrollo. No se cobra ni se contacta al banco; el CVV no se guarda.</p>
+              <p id="pago-tarjeta-actual" class="notice hidden"></p>
             </div>
           </div>
 
@@ -385,6 +396,7 @@
             <div>
               <h2 class="sheet__title">Datos del CBU</h2>
               <p class="sheet__hint">Datos ficticios de desarrollo. Se guardan solo la entidad, el titular, el CUIL y los últimos 4 dígitos.</p>
+              <p id="pago-cbu-actual" class="notice hidden"></p>
             </div>
           </div>
 
@@ -456,7 +468,7 @@
             disabled
             class="btn btn--primary"
           >
-            Confirmar venta
+            {% if modo_edicion %}Guardar cambios{% else %}Confirmar venta{% endif %}
           </button>
         </div>
       </section>

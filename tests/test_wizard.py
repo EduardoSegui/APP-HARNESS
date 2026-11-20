@@ -139,7 +139,7 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
 
     for fragmento in (
         "sessionStorage",
-        'fetch("/api/ventas"',
+        "fetch(url",
         "agregar-integrante",
         "template-integrante",
         "confirmarVenta",
@@ -158,6 +158,10 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
         "datosCbu",
         "payload.tarjeta",
         "comprobante-instrumento",
+        "wizard-edicion-data",
+        "modoEdicion",
+        "api/ventas/${edicion.id}",
+        "PUT",
     ):
         assert fragmento in js
 

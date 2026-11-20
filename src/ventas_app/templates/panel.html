@@ -125,6 +125,7 @@
             <th scope="col" class="ledger__th--right">Total</th>
             <th scope="col">Estado</th>
             <th scope="col">Observaciones</th>
+            <th scope="col">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -178,6 +179,13 @@
               <span class="observation--pending">Pendiente de auditoría</span>
               {% else %}
               <span class="observation--muted">—</span>
+              {% endif %}
+            </td>
+            <td data-label="Acciones" data-acciones>
+              {% if venta.estado == "APROBADA" %}
+              <a href="{{ url_for('detalle_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Ver legajo</a>
+              {% else %}
+              <a href="{{ url_for('editar_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Editar legajo</a>
               {% endif %}
             </td>
           </tr>

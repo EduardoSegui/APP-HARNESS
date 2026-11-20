@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ventas_app.models import EstadoVenta, Integrante, MedioPago, Plan, Venta
-from ventas_app.schemas import VentaIn
+from ventas_app.schemas import VentaIn, VentaUpdateIn
 from ventas_app.services.pricing import calcular_cotizacion
 
 
@@ -26,28 +26,21 @@ class VentaNoEncontradaError(LookupError):
         super().__init__(f"La venta {venta_id} no existe.")
 
 
-def _datos_pago_enmascarados(datos: VentaIn) -> dict[str, str | None]:
-    """Deriva solo metadatos seguros; nunca devuelve PAN, CBU completo ni CVV."""
-    if datos.medio_pago is MedioPago.TARJETA_CREDITO:
-        assert datos.tarjeta is not None
-        return {
-            "pago_titular": datos.tarjeta.titular,
-            "pago_marca_entidad": datos.tarjeta.marca.value,
-            "pago_ultimos_4": datos.tarjeta.numero[-4:],
-            "pago_vencimiento": datos.tarjeta.vencimiento,
-            "pago_cuil": None,
-        }
+class VentaNoEditableError(ValueError):
+    """La venta está aprobada y no admite edición."""
 
-    if datos.medio_pago is MedioPago.CBU:
-        assert datos.cbu is not None
-        return {
-            "pago_titular": datos.cbu.titular,
-            "pago_marca_entidad": datos.cbu.entidad,
-            "pago_ultimos_4": datos.cbu.numero[-4:],
-            "pago_vencimiento": None,
-            "pago_cuil": datos.cbu.cuil,
-        }
+    def __init__(self, venta_id: int) -> None:
+        self.venta_id = venta_id
+        super().__init__(
+            f"La venta {venta_id} está aprobada y no puede editarse."
+        )
 
+
+class DatosPagoInvalidosError(ValueError):
+    """Faltan o son inválidos los datos del instrumento de pago."""
+
+
+def _pago_vacio() -> dict[str, str | None]:
     return {
         "pago_titular": None,
         "pago_marca_entidad": None,
@@ -57,7 +50,82 @@ def _datos_pago_enmascarados(datos: VentaIn) -> dict[str, str | None]:
     }
 
 
-def _construir_integrantes(datos: VentaIn) -> list[Integrante]:
+def _datos_pago_enmascarados(
+    datos: VentaIn | VentaUpdateIn,
+) -> dict[str, str | None]:
+    """Deriva solo metadatos seguros; nunca devuelve PAN, CBU completo ni CVV."""
+    if datos.medio_pago is MedioPago.TARJETA_CREDITO:
+        if datos.tarjeta is None:
+            raise DatosPagoInvalidosError(
+                "Ingresá los datos de la tarjeta para el medio de pago."
+            )
+        return {
+            "pago_titular": datos.tarjeta.titular,
+            "pago_marca_entidad": datos.tarjeta.marca.value,
+            "pago_ultimos_4": datos.tarjeta.numero[-4:],
+            "pago_vencimiento": datos.tarjeta.vencimiento,
+            "pago_cuil": None,
+        }
+
+    if datos.medio_pago is MedioPago.CBU:
+        if datos.cbu is None:
+            raise DatosPagoInvalidosError(
+                "Ingresá los datos del CBU para el medio de pago."
+            )
+        return {
+            "pago_titular": datos.cbu.titular,
+            "pago_marca_entidad": datos.cbu.entidad,
+            "pago_ultimos_4": datos.cbu.numero[-4:],
+            "pago_vencimiento": None,
+            "pago_cuil": datos.cbu.cuil,
+        }
+
+    return _pago_vacio()
+
+
+def _pago_desde_venta(venta: Venta) -> dict[str, str | None]:
+    return {
+        "pago_titular": venta.pago_titular,
+        "pago_marca_entidad": venta.pago_marca_entidad,
+        "pago_ultimos_4": venta.pago_ultimos_4,
+        "pago_vencimiento": venta.pago_vencimiento,
+        "pago_cuil": venta.pago_cuil,
+    }
+
+
+def _resolver_pago_actualizacion(
+    datos: VentaUpdateIn,
+    venta: Venta,
+) -> dict[str, str | None]:
+    if datos.medio_pago is MedioPago.TARJETA_CREDITO:
+        if datos.tarjeta is not None:
+            return _datos_pago_enmascarados(datos)
+        if (
+            venta.medio_pago == MedioPago.TARJETA_CREDITO.value
+            and venta.pago_ultimos_4
+        ):
+            return _pago_desde_venta(venta)
+        raise DatosPagoInvalidosError(
+            "Ingresá los datos de la tarjeta: la venta no tiene un instrumento "
+            "enmascarado para conservar."
+        )
+
+    if datos.medio_pago is MedioPago.CBU:
+        if datos.cbu is not None:
+            return _datos_pago_enmascarados(datos)
+        if venta.medio_pago == MedioPago.CBU.value and venta.pago_ultimos_4:
+            return _pago_desde_venta(venta)
+        raise DatosPagoInvalidosError(
+            "Ingresá los datos del CBU: la venta no tiene un instrumento "
+            "enmascarado para conservar."
+        )
+
+    return _pago_vacio()
+
+
+def _construir_integrantes(
+    datos: VentaIn | VentaUpdateIn,
+) -> list[Integrante]:
     return [
         Integrante(
             nombre=integrante.nombre,
@@ -111,6 +179,62 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
         db.rollback()
         raise
 
+    return venta
+
+
+def actualizar_venta(
+    db: Session,
+    venta_id: int,
+    datos: VentaUpdateIn,
+) -> Venta:
+    """Reemplaza un legajo editable y lo devuelve a pendiente de auditoría."""
+    venta = obtener_venta(db, venta_id)
+    if venta.estado == EstadoVenta.APROBADA.value:
+        raise VentaNoEditableError(venta_id)
+
+    plan = db.get(Plan, datos.plan_id)
+    if plan is None or not plan.activo:
+        raise PlanNoDisponibleError(datos.plan_id)
+
+    datos_pago = _resolver_pago_actualizacion(datos, venta)
+    cotizacion = calcular_cotizacion(
+        plan,
+        len(datos.integrantes),
+        datos.medio_pago,
+    )
+
+    venta.nombre_titular = datos.nombre_titular
+    venta.apellido_titular = datos.apellido_titular
+    venta.dni_titular = datos.dni_titular
+    venta.fecha_nacimiento_titular = datos.fecha_nacimiento_titular
+    venta.email = datos.email
+    venta.telefono = datos.telefono
+    venta.calle = datos.calle
+    venta.altura = datos.altura
+    venta.piso_depto = datos.piso_depto
+    venta.localidad = datos.localidad
+    venta.provincia = datos.provincia
+    venta.codigo_postal = datos.codigo_postal
+    venta.plan = plan
+    venta.medio_pago = cotizacion.medio_pago.value
+    venta.subtotal_base = cotizacion.subtotal_base
+    venta.descuento_porcentaje = cotizacion.descuento_porcentaje
+    for campo, valor in datos_pago.items():
+        setattr(venta, campo, valor)
+    venta.precio_total = cotizacion.precio_total
+    venta.estado = EstadoVenta.PENDIENTE_VERIFICACION.value
+    venta.observaciones = None
+
+    try:
+        venta.integrantes.clear()
+        db.flush()
+        venta.integrantes.extend(_construir_integrantes(datos))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(venta)
     return venta
 
 

@@ -93,7 +93,7 @@
       "titulo": "Ver, reabrir y editar ventas por etapas",
       "descripcion": "Edición integral de ventas pendientes y observadas desde el wizard, con retroceso entre etapas, recálculo, reauditoría y bloqueo de ventas aprobadas.",
       "packet": "features/F15.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F16",

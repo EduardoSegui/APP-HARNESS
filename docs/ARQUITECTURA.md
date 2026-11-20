@@ -95,9 +95,10 @@ src/ventas_app/
 │   └── web.py                   # F04/F05: /, /ventas
 ├── templates/
 │   ├── base.html                # F04
-│   ├── wizard.html              # F04
+│   ├── wizard.html              # F04/F15: alta y edición
 │   ├── comprobante.html         # F04
-│   └── panel.html               # F05/F08: panel y auditoría en vivo
+│   ├── panel.html               # F05/F08/F15: panel, auditoría y acciones
+│   └── legajo.html              # F15: ficha de lectura
 ├── static/
 │   ├── js/wizard.js             # F04: estado, adherentes, fetch
 │   └── js/auditoria.js          # F08: auditoría en vivo y traza MCP
@@ -383,7 +384,7 @@ El payload del cliente incluye `medio_pago`, `tarjeta`/`cbu` cuando corresponde,
 | `GET` | `/api/exportar/cobranzas` | F19 | CSV/JSON del lote de cobranzas. |
 | `GET` | `/` | F04 | HTML wizard. |
 | `GET` | `/ventas` | F05/F08/F18 | HTML panel con auditoría, búsqueda y filtros. |
-| `GET` | `/ventas/{id}` | F18 | Ficha de legajo y línea de tiempo. |
+| `GET` | `/ventas/{id}` | F15/F18 | Ficha de legajo en lectura; F18 agrega línea de tiempo. |
 | `GET` | `/ventas/{id}/editar` | F15 | Wizard en modo edición. |
 | `GET` | `/ventas/{id}/credencial` | F18 | Credencial provisoria de aprobada. |
 | `GET` | `/dashboard` | F19 | Tablero ejecutivo. |

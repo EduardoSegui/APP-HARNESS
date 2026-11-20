@@ -343,8 +343,8 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
   - Al finalizar, despliega un panel colapsable con el resumen numérico, el resumen narrativo del LLM o su advertencia, y la traza ordenada de herramientas MCP.
   - Actualiza en pantalla el estado y las observaciones de las ventas procesadas.
 - Estado vacío explícito cuando no hay ventas.
-- F15 agrega la acción **Ver / Editar legajo** para ventas pendientes u observadas; las aprobadas se abren en modo solo lectura.
-- F18 agrega buscador por DNI/nombre/apellido, filtros por estado, plan, medio de pago y régimen, ficha de legajo con línea de tiempo y credencial provisoria para aprobadas.
+- F15 agrega la acción **Editar legajo** para ventas pendientes u observadas y **Ver legajo** en modo lectura para aprobadas.
+- F18 enriquece la ficha con buscador, filtros, línea de tiempo y credencial provisoria.
 - F19 agrega un tablero ejecutivo en `/dashboard` con KPIs y exportaciones CSV/JSON de padrón y cobranzas.
 - La paginación se incorpora junto con los filtros para mantener el panel operativo.
 

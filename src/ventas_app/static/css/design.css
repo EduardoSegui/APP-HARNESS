@@ -211,6 +211,12 @@ a {
   min-width: 0;
 }
 
+.page-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .page-context {
   margin: 0 0 6px;
   color: var(--verde);

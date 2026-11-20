@@ -398,3 +398,263 @@ def test_crear_venta_rechaza_instrumento_incoherente(
 
     assert respuesta.status_code == 422
     assert "CBU" in respuesta.text
+
+
+def _cambiar_estado(
+    venta_id: int,
+    estado: str,
+    observaciones: str | None = None,
+) -> None:
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        venta.estado = estado
+        venta.observaciones = observaciones
+        db.commit()
+
+
+def test_actualizar_venta_reemplaza_integrantes_y_recalcula(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 1))
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_id, 2, medio_pago="TARJETA_CREDITO")
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["id"] == venta_id
+    assert datos["estado"] == "PENDIENTE_VERIFICACION"
+    assert datos["observaciones"] is None
+    assert datos["subtotal_base"] == 182_000
+    assert datos["descuento_porcentaje"] == 30
+    assert datos["precio_total"] == 127_400
+    assert len(datos["integrantes"]) == 2
+    assert datos["pago_ultimos_4"] == "1111"
+
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        assert len(venta.integrantes) == 2
+        assert {integrante.dni for integrante in venta.integrantes} == {
+            "40111001",
+            "40111002",
+        }
+
+
+def test_actualizar_venta_conserva_instrumento_si_no_cambia(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post(
+        "/api/ventas",
+        json=payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO"),
+    )
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO")
+    payload.pop("tarjeta")
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["pago_marca_entidad"] == "VISA"
+    assert datos["pago_ultimos_4"] == "1111"
+    assert datos["pago_vencimiento"] == "12/99"
+
+
+def test_actualizar_venta_permite_cambiar_de_plan_y_conserva_pago(
+    client: TestClient,
+) -> None:
+    plan_esencial = obtener_plan_id("Plan Esencial")
+    plan_integral = obtener_plan_id("Plan Integral")
+    creada = client.post(
+        "/api/ventas",
+        json=payload_venta(plan_esencial, 0, medio_pago="TARJETA_CREDITO"),
+    )
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_integral, 0, medio_pago="TARJETA_CREDITO")
+    payload.pop("tarjeta")
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["plan"]["nombre"] == "Plan Integral"
+    assert datos["subtotal_base"] == 78_000
+    assert datos["precio_total"] == 54_600
+    assert datos["pago_ultimos_4"] == "1111"
+
+
+def test_actualizar_venta_cambia_tarjeta_a_cbu(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    creada = client.post(
+        "/api/ventas",
+        json=payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO"),
+    )
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_id, 0, medio_pago="CBU")
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["medio_pago"] == "CBU"
+    assert datos["descuento_porcentaje"] == 20
+    assert datos["pago_marca_entidad"] == "Banco Ejemplo"
+    assert datos["pago_ultimos_4"] == "0123"
+    assert datos["pago_vencimiento"] is None
+    assert datos["pago_cuil"] == "20123456789"
+
+
+def test_actualizar_venta_a_pago_facil_limpia_instrumento(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post(
+        "/api/ventas",
+        json=payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO"),
+    )
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    respuesta = client.put(
+        f"/api/ventas/{venta_id}",
+        json=payload_venta(plan_id, 0, medio_pago="PAGO_FACIL"),
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["medio_pago"] == "PAGO_FACIL"
+    assert datos["descuento_porcentaje"] == 0
+    assert datos["precio_total"] == 45_000
+    assert datos["pago_titular"] is None
+    assert datos["pago_marca_entidad"] is None
+    assert datos["pago_ultimos_4"] is None
+
+
+def test_actualizar_venta_observada_vuelve_a_pendiente(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 0))
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+    _cambiar_estado(venta_id, "OBSERVADA", "R3: Falta el email del titular.")
+
+    respuesta = client.put(
+        f"/api/ventas/{venta_id}",
+        json=payload_venta(plan_id, 0),
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["estado"] == "PENDIENTE_VERIFICACION"
+    assert datos["observaciones"] is None
+
+
+def test_actualizar_venta_aprobada_devuelve_409(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 0))
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+    _cambiar_estado(venta_id, "APROBADA")
+
+    respuesta = client.put(
+        f"/api/ventas/{venta_id}",
+        json=payload_venta(plan_id, 1),
+    )
+
+    assert respuesta.status_code == 409
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        assert venta.estado == "APROBADA"
+        assert len(venta.integrantes) == 0
+
+
+def test_actualizar_venta_inexistente_devuelve_404(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+
+    respuesta = client.put(
+        "/api/ventas/999999",
+        json=payload_venta(plan_id, 0),
+    )
+
+    assert respuesta.status_code == 404
+
+
+def test_actualizar_venta_con_payload_invalido_no_cambia(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 0))
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_id, 1)
+    payload["integrantes"][0]["dni"] = payload["dni_titular"]
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 422
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        assert len(venta.integrantes) == 0
+        assert venta.precio_total == 45_000
+        assert venta.estado == "PENDIENTE_VERIFICACION"
+
+
+def test_actualizar_venta_exige_instrumento_si_cambia_a_tarjeta(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 0))
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    payload = payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO")
+    payload.pop("tarjeta")
+    respuesta = client.put(f"/api/ventas/{venta_id}", json=payload)
+
+    assert respuesta.status_code == 422
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        assert venta.medio_pago == "PAGO_FACIL"
+        assert venta.precio_total == 45_000
+
+
+def test_error_de_commit_en_actualizacion_no_deja_cambios(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 1))
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    def commit_falla(_self: object) -> None:
+        raise RuntimeError("fallo simulado de commit")
+
+    monkeypatch.setattr("sqlalchemy.orm.Session.commit", commit_falla)
+
+    with pytest.raises(RuntimeError, match="fallo simulado de commit"):
+        client.put(
+            f"/api/ventas/{venta_id}",
+            json=payload_venta(plan_id, 2, medio_pago="CBU"),
+        )
+
+    monkeypatch.undo()
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        assert venta.medio_pago == "PAGO_FACIL"
+        assert venta.precio_total == 130_000
+        assert len(venta.integrantes) == 1

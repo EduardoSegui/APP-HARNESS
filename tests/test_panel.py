@@ -86,6 +86,14 @@ def _crear_venta(
     return respuesta.json()
 
 
+def _cambiar_estado(venta_id: int, estado: str) -> None:
+    with SessionLocal() as db:
+        venta = db.get(Venta, venta_id)
+        assert venta is not None
+        venta.estado = estado
+        db.commit()
+
+
 def test_panel_sin_ventas_muestra_estado_vacio(client: TestClient) -> None:
     respuesta = client.get("/ventas")
 
@@ -142,6 +150,80 @@ def test_panel_muestra_medio_de_pago_y_total_bonificado(
     assert "30% desc." in html
     assert "VISA •••• 1111 · 12/99" in html
     assert "$91.000" in html
+
+
+def test_panel_muestra_acciones_de_edicion_y_lectura(
+    client: TestClient,
+) -> None:
+    venta = _crear_venta(client)
+    html_pendiente = client.get("/ventas").text
+
+    assert "Acciones" in html_pendiente
+    assert "Editar legajo" in html_pendiente
+    assert f"/ventas/{venta['id']}/editar" in html_pendiente
+
+    _cambiar_estado(venta["id"], "APROBADA")
+    html_aprobada = client.get("/ventas").text
+
+    assert "Ver legajo" in html_aprobada
+    assert f"/ventas/{venta['id']}" in html_aprobada
+    assert "Editar legajo" not in html_aprobada
+
+
+def test_editar_venta_precarga_el_wizard(client: TestClient) -> None:
+    venta = _crear_venta(client, plan="Plan Integral", cantidad_adherentes=1)
+
+    respuesta = client.get(f"/ventas/{venta['id']}/editar")
+
+    assert respuesta.status_code == 200
+    html = respuesta.text
+    assert 'id="wizard-edicion-data"' in html
+    assert "Editar legajo #" in html
+    assert "Guardar cambios" in html
+    assert "Ana" in html
+    assert "PAGO_FACIL" in html
+
+
+def test_editar_venta_aprobada_redirige_al_legajo(client: TestClient) -> None:
+    venta = _crear_venta(client)
+    _cambiar_estado(venta["id"], "APROBADA")
+
+    respuesta = client.get(
+        f"/ventas/{venta['id']}/editar",
+        follow_redirects=False,
+    )
+
+    assert respuesta.status_code == 303
+    assert respuesta.headers["location"] == f"/ventas/{venta['id']}"
+
+
+def test_detalle_venta_muestra_lectura_y_enmascaramiento(
+    client: TestClient,
+) -> None:
+    venta = _crear_venta(
+        client,
+        plan="Plan Integral",
+        cantidad_adherentes=1,
+        medio_pago="TARJETA_CREDITO",
+    )
+    url = f"/ventas/{venta['id']}"
+
+    respuesta = client.get(url)
+    assert respuesta.status_code == 200
+    assert "Legajo #" in respuesta.text
+    assert "VISA •••• 1111" in respuesta.text
+    assert "Editar legajo" in respuesta.text
+
+    _cambiar_estado(venta["id"], "APROBADA")
+    aprobada = client.get(url)
+    assert aprobada.status_code == 200
+    assert "Aprobada" in aprobada.text
+    assert "Editar legajo" not in aprobada.text
+
+
+def test_rutas_de_venta_inexistente_devuelven_404(client: TestClient) -> None:
+    assert client.get("/ventas/999999").status_code == 404
+    assert client.get("/ventas/999999/editar").status_code == 404
 
 
 def test_panel_ordena_ventas_de_mas_reciente_a_mas_antigua(client: TestClient) -> None:

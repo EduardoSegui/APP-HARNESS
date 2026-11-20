@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Legajo #{{ venta.id }} | Ventas Obra Social{% endblock %}
+
+{% block content %}
+<main class="app-main">
+  <div class="page-head">
+    <div class="page-head__main">
+      <p class="page-context">Legajo #{{ venta.id }}</p>
+      <h1 class="page-title">{{ venta.nombre_titular }} {{ venta.apellido_titular }}</h1>
+      <p class="page-sub">Ficha de la venta y su grupo familiar.</p>
+    </div>
+    <div class="page-head__actions">
+      <a href="/ventas" class="btn btn--secondary">Volver al panel</a>
+      {% if venta.estado != "APROBADA" %}
+      <a href="{{ url_for('editar_venta', venta_id=venta.id) }}" class="btn btn--primary">Editar legajo</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="sheet">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Estado y cotización</h2>
+        <p class="sheet__hint">La venta aprobada queda en modo lectura.</p>
+      </div>
+      {% if venta.estado == "PENDIENTE_VERIFICACION" %}
+      <span class="stamp" data-estado="{{ venta.estado }}">Pendiente</span>
+      {% elif venta.estado == "APROBADA" %}
+      <span class="stamp" data-estado="{{ venta.estado }}">Aprobada</span>
+      {% else %}
+      <span class="stamp" data-estado="{{ venta.estado }}">Observada</span>
+      {% endif %}
+    </div>
+
+    <div class="credential">
+      <div class="credential__rows">
+        <div class="credential__row">
+          <span class="credential__label">Plan</span>
+          <span class="credential__value">{{ venta.plan.nombre }}</span>
+        </div>
+        <div class="credential__row">
+          <span class="credential__label">Medio de pago</span>
+          <span class="credential__value">
+            {% if venta.medio_pago == "TARJETA_CREDITO" %}Tarjeta de crédito
+            {% elif venta.medio_pago == "CBU" %}CBU / Débito automático
+            {% elif venta.medio_pago == "COBRADOR_DOMICILIO" %}Cobrador a domicilio
+            {% else %}Pago Fácil / Oficinas{% endif %}
+          </span>
+        </div>
+        {% if venta.pago_ultimos_4 %}
+        <div class="credential__row">
+          <span class="credential__label">Instrumento</span>
+          <span class="credential__value">
+            {{ venta.pago_marca_entidad }} •••• {{ venta.pago_ultimos_4 }}
+            {% if venta.pago_vencimiento %} · Vto {{ venta.pago_vencimiento }}{% endif %}
+            {% if venta.pago_cuil %} · CUIL {{ venta.pago_cuil }}{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        <div class="credential__row">
+          <span class="credential__label">Subtotal de lista</span>
+          <span class="credential__value">{{ venta.subtotal_base | pesos }}</span>
+        </div>
+        <div class="credential__row">
+          <span class="credential__label">Descuento ({{ venta.descuento_porcentaje }}%)</span>
+          <span class="credential__value">{{ (venta.subtotal_base - venta.precio_total) | pesos }}</span>
+        </div>
+      </div>
+      <div class="credential__total">
+        <span class="credential__total-label">Total a pagar</span>
+        <span class="credential__total-value">{{ venta.precio_total | pesos }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Titular y domicilio</h2>
+      </div>
+    </div>
+    <div class="credential">
+      <div class="credential__rows">
+        <div class="credential__row"><span class="credential__label">DNI</span><span class="credential__value">{{ venta.dni_titular }}</span></div>
+        <div class="credential__row"><span class="credential__label">Email</span><span class="credential__value">{{ venta.email }}</span></div>
+        <div class="credential__row"><span class="credential__label">Teléfono</span><span class="credential__value">{{ venta.telefono }}</span></div>
+        <div class="credential__row"><span class="credential__label">Domicilio</span><span class="credential__value">{{ venta.calle }} {{ venta.altura }}{% if venta.piso_depto %}, {{ venta.piso_depto }}{% endif %}</span></div>
+        <div class="credential__row"><span class="credential__label">Localidad</span><span class="credential__value">{{ venta.localidad }}, {{ venta.provincia }} ({{ venta.codigo_postal }})</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Grupo familiar</h2>
+        <p class="sheet__hint">{{ venta.integrantes | length }} adherente{% if venta.integrantes | length != 1 %}s{% endif %}.</p>
+      </div>
+    </div>
+    {% if venta.integrantes %}
+    <div class="adherent-list">
+      {% for integrante in venta.integrantes %}
+      <article class="adherent-card">
+        <div class="adherent-card__head">
+          <h3 class="adherent-card__title">{{ integrante.nombre }} {{ integrante.apellido }}</h3>
+        </div>
+        <div class="credential">
+          <div class="credential__rows">
+            <div class="credential__row"><span class="credential__label">DNI</span><span class="credential__value">{{ integrante.dni }}</span></div>
+            <div class="credential__row"><span class="credential__label">Nacimiento</span><span class="credential__value">{{ integrante.fecha_nacimiento }}</span></div>
+            <div class="credential__row"><span class="credential__label">Parentesco</span><span class="credential__value">{{ integrante.parentesco }}</span></div>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-inline">La venta no tiene adherentes.</p>
+    {% endif %}
+  </section>
+
+  {% if venta.observaciones %}
+  <section class="sheet">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Observaciones de auditoría</h2>
+      </div>
+    </div>
+    <p class="notice notice--warning whitespace-pre-line">{{ venta.observaciones }}</p>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

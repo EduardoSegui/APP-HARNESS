@@ -11,10 +11,13 @@ from sqlalchemy.orm import Session
 from ventas_app.auditor import ejecutar_auditoria
 from ventas_app.database import get_db
 from ventas_app.models import Venta
-from ventas_app.schemas import AuditoriaOut, VentaIn, VentaOut
+from ventas_app.schemas import AuditoriaOut, VentaIn, VentaOut, VentaUpdateIn
 from ventas_app.services.ventas import (
+    DatosPagoInvalidosError,
     PlanNoDisponibleError,
+    VentaNoEditableError,
     VentaNoEncontradaError,
+    actualizar_venta,
     crear_venta,
     obtener_venta,
 )
@@ -67,5 +70,36 @@ def obtener_venta_endpoint(venta_id: int, db: SessionDep) -> Venta:
     except VentaNoEncontradaError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@router.put("/ventas/{venta_id}", response_model=VentaOut)
+def actualizar_venta_endpoint(
+    venta_id: int,
+    payload: VentaUpdateIn,
+    db: SessionDep,
+) -> Venta:
+    """Edita un legajo pendiente u observado y lo devuelve a auditoría."""
+    try:
+        return actualizar_venta(db, venta_id, payload)
+    except VentaNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except VentaNoEditableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except PlanNoDisponibleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except DatosPagoInvalidosError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc

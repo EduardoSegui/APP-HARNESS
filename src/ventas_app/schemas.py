@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 from pydantic import (
     BaseModel,
@@ -162,8 +162,8 @@ class CbuIn(BaseModel):
     cuil: Cuil
 
 
-class VentaIn(BaseModel):
-    """Payload de creación de una venta completa."""
+class _VentaDatosIn(BaseModel):
+    """Campos comunes para crear o actualizar un legajo."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -205,7 +205,7 @@ class VentaIn(BaseModel):
         return valor
 
     @model_validator(mode="after")
-    def validar_dnis_unicos(self) -> VentaIn:
+    def validar_dnis_unicos(self) -> Self:
         dnis = [self.dni_titular, *(integrante.dni for integrante in self.integrantes)]
         duplicados = sorted({dni for dni in dnis if dnis.count(dni) > 1})
         if duplicados:
@@ -215,8 +215,12 @@ class VentaIn(BaseModel):
             )
         return self
 
+
+class VentaIn(_VentaDatosIn):
+    """Payload de creación de una venta completa."""
+
     @model_validator(mode="after")
-    def validar_instrumento_pago(self) -> VentaIn:
+    def validar_instrumento_pago(self) -> Self:
         if self.medio_pago is MedioPago.TARJETA_CREDITO:
             if self.tarjeta is None:
                 raise ValueError(
@@ -236,6 +240,20 @@ class VentaIn(BaseModel):
             raise ValueError(
                 "El medio de pago seleccionado no admite datos de tarjeta ni CBU."
             )
+        return self
+
+
+class VentaUpdateIn(_VentaDatosIn):
+    """Payload de edición; el instrumento puede omitirse para conservarlo."""
+
+    @model_validator(mode="after")
+    def validar_instrumento_opcional(self) -> Self:
+        if self.tarjeta is not None and self.cbu is not None:
+            raise ValueError("No envíes datos de tarjeta y CBU al mismo tiempo.")
+        if self.tarjeta is not None and self.medio_pago is not MedioPago.TARJETA_CREDITO:
+            raise ValueError("Solo podés enviar tarjeta con el medio TARJETA_CREDITO.")
+        if self.cbu is not None and self.medio_pago is not MedioPago.CBU:
+            raise ValueError("Solo podés enviar CBU con el medio CBU.")
         return self
 
 

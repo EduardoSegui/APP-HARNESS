@@ -10,7 +10,13 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ventas_app.models import EstadoVenta, Integrante, MedioPago, Parentesco, Plan, Venta
-from ventas_app.schemas import IntegranteIn, PlanOut, VentaIn, VentaOut
+from ventas_app.schemas import (
+    IntegranteIn,
+    PlanOut,
+    VentaIn,
+    VentaOut,
+    VentaUpdateIn,
+)
 
 TARJETA_VALIDA = {
     "marca": "VISA",
@@ -369,3 +375,37 @@ def test_venta_in_rechaza_cbu_invalido(campo: str, valor: object) -> None:
 
     with pytest.raises(ValidationError):
         VentaIn.model_validate(payload_valido(medio_pago="CBU", cbu=cbu))
+
+
+def test_venta_update_permite_omitir_instrumento_para_conservarlo() -> None:
+    tarjeta = payload_valido(medio_pago="TARJETA_CREDITO", tarjeta=None)
+    assert VentaUpdateIn.model_validate(tarjeta).tarjeta is None
+
+    cbu = payload_valido(medio_pago="CBU", cbu=None)
+    assert VentaUpdateIn.model_validate(cbu).cbu is None
+
+
+def test_venta_update_rechaza_instrumento_incoherente() -> None:
+    with pytest.raises(ValidationError, match="Solo podés enviar tarjeta"):
+        VentaUpdateIn.model_validate(
+            payload_valido(
+                medio_pago="PAGO_FACIL",
+                tarjeta=dict(TARJETA_VALIDA),
+            )
+        )
+
+    with pytest.raises(ValidationError, match="Solo podés enviar CBU"):
+        VentaUpdateIn.model_validate(
+            payload_valido(
+                medio_pago="PAGO_FACIL",
+                cbu=dict(CBU_VALIDO),
+            )
+        )
+
+    with pytest.raises(ValidationError, match="tarjeta y CBU"):
+        VentaUpdateIn.model_validate(
+            payload_valido(
+                medio_pago="TARJETA_CREDITO",
+                cbu=dict(CBU_VALIDO),
+            )
+        )

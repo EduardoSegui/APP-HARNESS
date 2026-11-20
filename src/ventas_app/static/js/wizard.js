@@ -44,6 +44,8 @@
   const legajoPlan = document.querySelector("#legajo-plan");
   const legajoMedioPago = document.querySelector("#legajo-medio-pago");
   const comprobanteEstado = document.querySelector("#comprobante-estado");
+  const edicion = cargarEdicion();
+  const modoEdicion = Boolean(edicion);
 
   const estadoInicial = {
     paso: 1,
@@ -77,7 +79,49 @@
     return `tmp-${secuenciaIntegrante}`;
   }
 
-  let estado = cargarEstado();
+  let estado = modoEdicion ? estadoDesdeVenta(edicion) : cargarEstado();
+
+  function cargarEdicion() {
+    const nodo = document.querySelector("#wizard-edicion-data");
+    if (!nodo) {
+      return null;
+    }
+    try {
+      const datos = JSON.parse(nodo.textContent);
+      return Number.isInteger(datos?.id) ? datos : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function estadoDesdeVenta(venta) {
+    const base = clonar(estadoInicial);
+    return {
+      ...base,
+      paso: 1,
+      titular: {
+        nombre: texto(venta.nombre_titular),
+        apellido: texto(venta.apellido_titular),
+        dni: texto(venta.dni_titular),
+        fecha_nacimiento: texto(venta.fecha_nacimiento_titular),
+        email: texto(venta.email),
+        telefono: texto(venta.telefono),
+      },
+      domicilio: {
+        calle: texto(venta.calle),
+        altura: texto(venta.altura),
+        piso_depto: texto(venta.piso_depto),
+        localidad: texto(venta.localidad),
+        provincia: texto(venta.provincia),
+        codigo_postal: texto(venta.codigo_postal),
+      },
+      plan_id: Number.isInteger(Number(venta.plan_id)) ? Number(venta.plan_id) : null,
+      medio_pago: texto(venta.medio_pago) || null,
+      integrantes: Array.isArray(venta.integrantes)
+        ? venta.integrantes.map(normalizarIntegrante)
+        : [],
+    };
+  }
 
   function normalizarIntegrante(dato) {
     return {
@@ -126,6 +170,9 @@
   }
 
   function guardarEstado() {
+    if (modoEdicion) {
+      return;
+    }
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
     } catch (_error) {
@@ -304,6 +351,44 @@
     if (!esCbu) {
       limpiarFormularioPago(formularioCbu);
     }
+
+    actualizarInstrumentoActual();
+  }
+
+  function hayInstrumentoActual(medio) {
+    return Boolean(
+      modoEdicion
+        && edicion?.medio_pago === medio
+        && edicion?.pago_ultimos_4,
+    );
+  }
+
+  function actualizarInstrumentoActual() {
+    const tarjetaActual = document.querySelector("#pago-tarjeta-actual");
+    const cbuActual = document.querySelector("#pago-cbu-actual");
+
+    if (tarjetaActual) {
+      if (hayInstrumentoActual("TARJETA_CREDITO")) {
+        const vencimiento = edicion.pago_vencimiento
+          ? ` · Vto ${edicion.pago_vencimiento}`
+          : "";
+        tarjetaActual.textContent =
+          `Instrumento actual: ${edicion.pago_marca_entidad} •••• ${edicion.pago_ultimos_4}${vencimiento}. Dejá los campos vacíos para conservarlo.`;
+        tarjetaActual.classList.remove("hidden");
+      } else {
+        tarjetaActual.classList.add("hidden");
+      }
+    }
+
+    if (cbuActual) {
+      if (hayInstrumentoActual("CBU")) {
+        cbuActual.textContent =
+          `Instrumento actual: ${edicion.pago_marca_entidad} · CBU •••• ${edicion.pago_ultimos_4} · CUIL ${edicion.pago_cuil}. Dejá los campos vacíos para conservarlo.`;
+        cbuActual.classList.remove("hidden");
+      } else {
+        cbuActual.classList.add("hidden");
+      }
+    }
   }
 
   function datosTarjeta() {
@@ -325,6 +410,11 @@
     };
   }
 
+  function formularioPagoVacio(tipo) {
+    const datos = tipo === "TARJETA_CREDITO" ? datosTarjeta() : datosCbu();
+    return Object.values(datos).every((valor) => !texto(valor).trim());
+  }
+
   function vencimientoVencido(valor) {
     const coincidencia = VENCIMIENTO_REGEX.exec(valor);
     if (!coincidencia) {
@@ -338,6 +428,12 @@
 
   function validarInstrumentoPago(errores) {
     if (estado.medio_pago === "TARJETA_CREDITO") {
+      if (
+        hayInstrumentoActual("TARJETA_CREDITO")
+        && formularioPagoVacio("TARJETA_CREDITO")
+      ) {
+        return;
+      }
       const marca = document.querySelector("#tarjeta-marca");
       const numero = document.querySelector("#tarjeta-numero");
       const titular = document.querySelector("#tarjeta-titular");
@@ -364,6 +460,12 @@
     }
 
     if (estado.medio_pago === "CBU") {
+      if (
+        hayInstrumentoActual("CBU")
+        && formularioPagoVacio("CBU")
+      ) {
+        return;
+      }
       const numero = document.querySelector("#cbu-numero");
       const entidad = document.querySelector("#cbu-entidad");
       const titular = document.querySelector("#cbu-titular");
@@ -718,9 +820,16 @@
     };
 
     if (estado.medio_pago === "TARJETA_CREDITO") {
-      payload.tarjeta = datosTarjeta();
+      if (
+        !hayInstrumentoActual("TARJETA_CREDITO")
+        || !formularioPagoVacio("TARJETA_CREDITO")
+      ) {
+        payload.tarjeta = datosTarjeta();
+      }
     } else if (estado.medio_pago === "CBU") {
-      payload.cbu = datosCbu();
+      if (!hayInstrumentoActual("CBU") || !formularioPagoVacio("CBU")) {
+        payload.cbu = datosCbu();
+      }
     }
 
     return payload;
@@ -853,8 +962,10 @@
     btnConfirmar.textContent = "Guardando...";
 
     try {
-      const respuesta = await fetch("/api/ventas", {
-        method: "POST",
+      const url = modoEdicion ? `/api/ventas/${edicion.id}` : "/api/ventas";
+      const method = modoEdicion ? "PUT" : "POST";
+      const respuesta = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -894,12 +1005,23 @@
   btnConfirmar.addEventListener("click", confirmarVenta);
   document.querySelector("#btn-nueva-venta").addEventListener("click", () => {
     sessionStorage.removeItem(STORAGE_KEY);
+    if (modoEdicion) {
+      window.location.href = "/ventas";
+      return;
+    }
     window.location.reload();
   });
 
   formWizard.addEventListener("submit", (evento) => {
     evento.preventDefault();
   });
+
+  if (modoEdicion) {
+    const btnNuevaVenta = document.querySelector("#btn-nueva-venta");
+    if (btnNuevaVenta) {
+      btnNuevaVenta.textContent = "Volver al panel";
+    }
+  }
 
   inicializarCampos();
   renderizarIntegrantes();
