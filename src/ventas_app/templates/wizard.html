@@ -162,27 +162,48 @@
             </div>
           </div>
 
-          <div class="field-grid">
-            <label class="field field--full">
-              <span class="field-label"><input id="ddjj-preexistencias" type="checkbox" class="mr-2"> ¿Alguien del grupo familiar tiene una enfermedad preexistente?</span>
-            </label>
-            <label class="field field--full">
-              <span class="field-label"><input id="ddjj-internaciones" type="checkbox" class="mr-2"> ¿Hubo internaciones en los últimos 12 meses?</span>
-            </label>
-            <label class="field field--full">
-              <span class="field-label"><input id="ddjj-embarazo" type="checkbox" class="mr-2"> ¿Hay un embarazo en curso?</span>
-            </label>
-            <label class="field field--full">
-              <span class="field-label"><input id="ddjj-medicacion" type="checkbox" class="mr-2"> ¿Hay medicación crónica?</span>
-            </label>
-            <label class="field field--full">
-              <span class="field-label"><input id="ddjj-discapacidad" type="checkbox" class="mr-2"> ¿Hay una discapacidad declarada?</span>
-            </label>
+          <div class="ddjj-panel">
+            <fieldset class="ddjj-question">
+              <legend class="field-label">¿Alguien del grupo familiar tiene una enfermedad preexistente? <span class="required">*</span></legend>
+              <div class="ddjj-options">
+                <label class="ddjj-option"><input type="radio" name="ddjj-preexistencias" value="si"> Sí</label>
+                <label class="ddjj-option"><input type="radio" name="ddjj-preexistencias" value="no"> No</label>
+              </div>
+            </fieldset>
+            <fieldset class="ddjj-question">
+              <legend class="field-label">¿Hubo internaciones en los últimos 12 meses? <span class="required">*</span></legend>
+              <div class="ddjj-options">
+                <label class="ddjj-option"><input type="radio" name="ddjj-internaciones" value="si"> Sí</label>
+                <label class="ddjj-option"><input type="radio" name="ddjj-internaciones" value="no"> No</label>
+              </div>
+            </fieldset>
+            <fieldset class="ddjj-question">
+              <legend class="field-label">¿Hay un embarazo en curso? <span class="required">*</span></legend>
+              <div class="ddjj-options">
+                <label class="ddjj-option"><input type="radio" name="ddjj-embarazo" value="si"> Sí</label>
+                <label class="ddjj-option"><input type="radio" name="ddjj-embarazo" value="no"> No</label>
+              </div>
+            </fieldset>
+            <fieldset class="ddjj-question">
+              <legend class="field-label">¿Hay medicación crónica? <span class="required">*</span></legend>
+              <div class="ddjj-options">
+                <label class="ddjj-option"><input type="radio" name="ddjj-medicacion" value="si"> Sí</label>
+                <label class="ddjj-option"><input type="radio" name="ddjj-medicacion" value="no"> No</label>
+              </div>
+            </fieldset>
+            <fieldset class="ddjj-question">
+              <legend class="field-label">¿Hay una discapacidad declarada? <span class="required">*</span></legend>
+              <div class="ddjj-options">
+                <label class="ddjj-option"><input type="radio" name="ddjj-discapacidad" value="si"> Sí</label>
+                <label class="ddjj-option"><input type="radio" name="ddjj-discapacidad" value="no"> No</label>
+              </div>
+            </fieldset>
           </div>
 
-          <div id="ddjj-detalle-wrap" class="field field--full hidden">
-            <label for="ddjj-detalle" class="field-label">Detalle de salud <span class="required">*</span></label>
-            <textarea id="ddjj-detalle" rows="3" maxlength="2000" class="field-input" placeholder="Describí brevemente la situación declarada."></textarea>
+          <div id="ddjj-detalle-wrap" class="field field--full">
+            <label for="ddjj-detalle" class="field-label">Descripción de salud <span id="ddjj-detalle-required" class="required hidden">*</span></label>
+            <textarea id="ddjj-detalle" rows="3" maxlength="2000" class="field-input" placeholder="Describí brevemente la situación declarada si respondiste Sí."></textarea>
+            <p id="ddjj-detalle-hint" class="field-hint">Si todas las respuestas son No, podés continuar sin descripción.</p>
           </div>
 
           <label class="field field--full">

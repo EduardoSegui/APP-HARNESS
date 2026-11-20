@@ -74,11 +74,11 @@
     cuil_titular: "",
     aporte_estimado: "",
     ddjj: {
-      preexistencias: false,
-      internaciones_ultimos_12m: false,
-      embarazo_actual: false,
-      medicacion_cronica: false,
-      discapacidad_declarada: false,
+      preexistencias: null,
+      internaciones_ultimos_12m: null,
+      embarazo_actual: null,
+      medicacion_cronica: null,
+      discapacidad_declarada: null,
       detalle: "",
       declaracion_confirmada: false,
     },
@@ -141,11 +141,21 @@
         ? venta.integrantes.map(normalizarIntegrante)
         : [],
       ddjj: {
-        preexistencias: Boolean(venta.ddjj_preexistencias),
-        internaciones_ultimos_12m: Boolean(venta.ddjj_internaciones),
-        embarazo_actual: Boolean(venta.ddjj_embarazo),
-        medicacion_cronica: Boolean(venta.ddjj_medicacion_cronica),
-        discapacidad_declarada: Boolean(venta.ddjj_discapacidad),
+        preexistencias: venta.ddjj_completada
+          ? Boolean(venta.ddjj_preexistencias)
+          : null,
+        internaciones_ultimos_12m: venta.ddjj_completada
+          ? Boolean(venta.ddjj_internaciones)
+          : null,
+        embarazo_actual: venta.ddjj_completada
+          ? Boolean(venta.ddjj_embarazo)
+          : null,
+        medicacion_cronica: venta.ddjj_completada
+          ? Boolean(venta.ddjj_medicacion_cronica)
+          : null,
+        discapacidad_declarada: venta.ddjj_completada
+          ? Boolean(venta.ddjj_discapacidad)
+          : null,
         detalle: texto(venta.ddjj_detalle),
         declaracion_confirmada: Boolean(venta.ddjj_completada),
       },
@@ -203,11 +213,26 @@
             ? ""
             : String(datos.aporte_estimado),
         ddjj: {
-          preexistencias: Boolean(ddjj.preexistencias),
-          internaciones_ultimos_12m: Boolean(ddjj.internaciones_ultimos_12m),
-          embarazo_actual: Boolean(ddjj.embarazo_actual),
-          medicacion_cronica: Boolean(ddjj.medicacion_cronica),
-          discapacidad_declarada: Boolean(ddjj.discapacidad_declarada),
+          preexistencias:
+            typeof ddjj.preexistencias === "boolean"
+              ? ddjj.preexistencias
+              : null,
+          internaciones_ultimos_12m:
+            typeof ddjj.internaciones_ultimos_12m === "boolean"
+              ? ddjj.internaciones_ultimos_12m
+              : null,
+          embarazo_actual:
+            typeof ddjj.embarazo_actual === "boolean"
+              ? ddjj.embarazo_actual
+              : null,
+          medicacion_cronica:
+            typeof ddjj.medicacion_cronica === "boolean"
+              ? ddjj.medicacion_cronica
+              : null,
+          discapacidad_declarada:
+            typeof ddjj.discapacidad_declarada === "boolean"
+              ? ddjj.discapacidad_declarada
+              : null,
           detalle: texto(ddjj.detalle),
           declaracion_confirmada: Boolean(ddjj.declaracion_confirmada),
         },
@@ -554,9 +579,31 @@
     );
   }
 
+  function ddjjCompleta() {
+    return [
+      estado.ddjj.preexistencias,
+      estado.ddjj.internaciones_ultimos_12m,
+      estado.ddjj.embarazo_actual,
+      estado.ddjj.medicacion_cronica,
+      estado.ddjj.discapacidad_declarada,
+    ].every((valor) => typeof valor === "boolean");
+  }
+
   function actualizarDDJJDetalle() {
-    const detalleWrap = document.querySelector("#ddjj-detalle-wrap");
-    detalleWrap?.classList.toggle("hidden", !ddjjConIndicadores());
+    const hayIndicadores = ddjjConIndicadores();
+    const requerido = document.querySelector("#ddjj-detalle-required");
+    const detalle = document.querySelector("#ddjj-detalle");
+    const hint = document.querySelector("#ddjj-detalle-hint");
+
+    requerido?.classList.toggle("hidden", !hayIndicadores);
+    if (detalle) {
+      detalle.required = hayIndicadores;
+    }
+    if (hint) {
+      hint.textContent = hayIndicadores
+        ? "La descripción es obligatoria porque marcaste al menos un Sí."
+        : "Si todas las respuestas son No, podés continuar sin descripción.";
+    }
   }
 
   function actualizarFormularioRegimen() {
@@ -589,24 +636,32 @@
 
   function inicializarDDJJ() {
     const campos = [
-      ["#ddjj-preexistencias", "preexistencias"],
-      ["#ddjj-internaciones", "internaciones_ultimos_12m"],
-      ["#ddjj-embarazo", "embarazo_actual"],
-      ["#ddjj-medicacion", "medicacion_cronica"],
-      ["#ddjj-discapacidad", "discapacidad_declarada"],
+      ["ddjj-preexistencias", "preexistencias"],
+      ["ddjj-internaciones", "internaciones_ultimos_12m"],
+      ["ddjj-embarazo", "embarazo_actual"],
+      ["ddjj-medicacion", "medicacion_cronica"],
+      ["ddjj-discapacidad", "discapacidad_declarada"],
     ];
 
-    campos.forEach(([selector, clave]) => {
-      const campo = document.querySelector(selector);
-      if (!campo) {
-        return;
-      }
-      campo.checked = Boolean(estado.ddjj[clave]);
-      campo.addEventListener("change", () => {
-        estado.ddjj[clave] = campo.checked;
-        guardarEstado();
-        actualizarDDJJDetalle();
-        actualizarResumen();
+    campos.forEach(([nombre, clave]) => {
+      const radios = Array.from(
+        document.querySelectorAll(`input[name="${nombre}"]`),
+      );
+      radios.forEach((radio) => {
+        if (estado.ddjj[clave] === true) {
+          radio.checked = radio.value === "si";
+        } else if (estado.ddjj[clave] === false) {
+          radio.checked = radio.value === "no";
+        }
+        radio.addEventListener("change", () => {
+          if (!radio.checked) {
+            return;
+          }
+          estado.ddjj[clave] = radio.value === "si";
+          guardarEstado();
+          actualizarDDJJDetalle();
+          actualizarResumen();
+        });
       });
     });
 
@@ -669,7 +724,9 @@
     }
 
     if (legajoDDJJ) {
-      if (!estado.ddjj.declaracion_confirmada) {
+      if (!ddjjCompleta()) {
+        legajoDDJJ.textContent = "Pendiente";
+      } else if (!estado.ddjj.declaracion_confirmada) {
         legajoDDJJ.textContent = "Sin confirmar";
       } else if (ddjjRequiereRevision()) {
         legajoDDJJ.textContent = "Revisión médica";
@@ -882,6 +939,13 @@
 
       const ddjjConfirmada = document.querySelector("#ddjj-confirmada");
       const ddjjDetalle = document.querySelector("#ddjj-detalle");
+      if (!ddjjCompleta()) {
+        registrarError(
+          null,
+          "Respondé Sí o No en las cinco preguntas de salud.",
+          errores,
+        );
+      }
       if (!estado.ddjj.declaracion_confirmada) {
         registrarError(
           ddjjConfirmada,
@@ -1044,11 +1108,12 @@
       plan_id: Number(estado.plan_id),
       medio_pago: estado.medio_pago,
       ddjj: {
-        preexistencias: estado.ddjj.preexistencias,
-        internaciones_ultimos_12m: estado.ddjj.internaciones_ultimos_12m,
-        embarazo_actual: estado.ddjj.embarazo_actual,
-        medicacion_cronica: estado.ddjj.medicacion_cronica,
-        discapacidad_declarada: estado.ddjj.discapacidad_declarada,
+        preexistencias: estado.ddjj.preexistencias === true,
+        internaciones_ultimos_12m:
+          estado.ddjj.internaciones_ultimos_12m === true,
+        embarazo_actual: estado.ddjj.embarazo_actual === true,
+        medicacion_cronica: estado.ddjj.medicacion_cronica === true,
+        discapacidad_declarada: estado.ddjj.discapacidad_declarada === true,
         detalle: ddjjConIndicadores()
           ? texto(estado.ddjj.detalle).trim() || null
           : null,

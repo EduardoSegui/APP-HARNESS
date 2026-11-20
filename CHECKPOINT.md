@@ -3,28 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 15 — F16: declaración jurada de salud y R7
-
----
-feature: F16
-fecha: 2026-11-20
-tests: 310 passed
-harness: OK
-commit: feat(F16): declaración jurada de salud y R7
----
-
-**Fecha:** 2026-11-20
-
-**Rol:** Verifier (Builder en sesión previa). **Feature:** F16 — Declaración jurada de salud y auditoría médica. **Estado:** verificada y aprobada.
-
-`Venta` persiste `ddjj_completada`, los cinco indicadores y `ddjj_detalle`; la migración SQLite idempotente agrega las columnas y deja las filas históricas sin DDJJ. `SaludIn` exige `declaracion_confirmada=true` y detalle (5–2000 caracteres) cuando hay indicadores; `VentaIn`/`VentaUpdateIn` exigen `ddjj` y el servicio persiste la declaración confirmada en altas y ediciones. R7 observa DDJJ incompletas, detalle faltante y deriva a revisión médica preexistencias, internaciones o discapacidad; embarazo y medicación con detalle no generan R7 en v1. El wizard exige confirmación, el comprobante/panel muestran el estado resumido y el detalle de salud queda solo en el legajo, fuera de `sessionStorage` y del listado general.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 310 passed; `node --check wizard.js` → OK. Prueba manual con TestClient sobre copia temporal de `ventas.db`: R7 sin observaciones sin riesgo, derivación con preexistencia/internación/discapacidad, 422 sin detalle/sin DDJJ/sin confirmación, venta histórica observada y completada vía PUT, edición de riesgo a sin riesgo, badges del panel y ausencia del detalle sensible en el listado. `ventas.db` real sin modificar.
-
-**Decisión:** R7 es determinística y solo deriva; el detalle declarado se minimiza a la ficha interna del legajo.
-
-**Próximo paso:** F17 — Régimen de afiliación, CUIL y aportes — packet: `features/F17.md`.
-
 ## Sesión 16 — F17: régimen de afiliación, CUIL y aportes
 
 ---
@@ -44,5 +22,27 @@ commit: feat(F17): régimen de afiliación, CUIL y aportes
 **Verificación:** `./init.sh` → OK; `uv run pytest` → 338 passed; `node --check wizard.js` → OK. Prueba manual con TestClient sobre copia temporal de `ventas.db`: particular 45.000, relación de dependencia 45.000−20.000=25.000, monotributo con aporte igual a la base → total 0; 422 por particular con aporte, desregulado sin CUIL, CUIL inválido y aporte > base; PUT F15 cambia régimen/aporte y recalcula; R5/R8 observan; panel/legajo/comprobante OK. Migración con hijos: 7 ventas y 3 integrantes antes/después, ids conservados, CHECK `>= 0`, índices y FKs intactos, `PRAGMA foreign_key_check` vacío, idempotente. `ventas.db` real sin modificar.
 
 **Decisión:** el fix de migración respalda y reinserta `integrantes` antes/después del `DROP TABLE ventas`, porque el cascade de SQLite elimina los hijos aunque las FKs estén diferidas.
+
+**Próximo paso:** F18 — Buscador, filtros, linaje y credencial — packet: `features/F18.md`.
+
+## Sesión 17 — F20: DDJJ con respuestas Sí/No y detalle condicional
+
+---
+feature: F20
+fecha: 2026-11-20
+tests: 338 passed
+harness: OK
+commit: feat(F20): DDJJ con respuestas Sí/No y detalle condicional
+---
+
+**Fecha:** 2026-11-20
+
+**Rol:** Verifier (Builder en sesión previa). **Feature:** F20 — Mejora DDJJ con respuestas Sí/No y detalle condicional. **Estado:** verificada y aprobada.
+
+La DDJJ usa cinco `fieldset` con radios Sí/No (`si`/`no`), estado JS `true`/`false`/`null` y validación que exige las cinco respuestas. La descripción queda siempre visible, es obligatoria ante cualquier “Sí” y opcional si todas son “No”; la confirmación expresa sigue siendo obligatoria. El resumen lateral muestra Pendiente/Sin confirmar/Revisión médica/Completa. Backend, API y R7 se conservan sin cambios; la DDJJ sigue fuera de `sessionStorage`.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 338 passed; `node --check wizard.js` → OK. Prueba manual con TestClient sobre base temporal: 5 grupos Sí/No y descripción visible, todas “No” sin descripción → 201, “Sí” sin descripción → 422, “Sí” con descripción → 201, sin confirmación → 422, edición F16 con respuestas/detalle precargados, panel/legajo/R7 conservados. `ventas.db` real sin modificar.
+
+**Decisión:** el backend mantiene el contrato de F16; F20 cambia solo la experiencia y la validación de completitud en la UI.
 
 **Próximo paso:** F18 — Buscador, filtros, linaje y credencial — packet: `features/F18.md`.

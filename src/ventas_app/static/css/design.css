@@ -582,7 +582,8 @@ a {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   min-height: 44px;
   padding: 0.6rem 0.75rem;
@@ -592,6 +593,56 @@ a {
   color: var(--tinta);
   font: inherit;
   font-size: 0.92rem;
+}
+
+.field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.ddjj-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.ddjj-question {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-control);
+  background: var(--papel);
+}
+
+.ddjj-question legend {
+  padding: 0 6px;
+}
+
+.ddjj-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 2px;
+}
+
+.ddjj-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tinta);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.ddjj-option input {
+  width: auto;
+  min-height: auto;
+  accent-color: var(--verde);
 }
 
 .field input::placeholder {

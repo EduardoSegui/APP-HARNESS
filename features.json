@@ -107,7 +107,7 @@
       "titulo": "Mejora DDJJ con respuestas Sí/No y detalle condicional",
       "descripcion": "Reemplazo de checkboxes por un panel de respuestas explícitas Sí/No y descripción obligatoria solo cuando hay indicadores.",
       "packet": "features/F20.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F17",
