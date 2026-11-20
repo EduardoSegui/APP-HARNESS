@@ -131,7 +131,7 @@ El valor se persiste como texto controlado por la aplicación. No se admiten val
 
 ### 5.5 Declaración jurada de salud (F16)
 
-El alta incorpora una DDJJ familiar con indicadores de preexistencias, internaciones en los últimos 12 meses, embarazo, medicación crónica y discapacidad declarada. Si algún indicador es positivo, el campo `detalle_salud` es obligatorio. El usuario debe confirmar explícitamente la declaración. Se persiste `ddjj_completada` y los indicadores; R7 deriva a revisión médica los casos que correspondan. No se adjuntan estudios ni se muestra el detalle en el listado general.
+El alta incorpora una DDJJ familiar con cinco preguntas de respuesta explícita **Sí/No**: preexistencias, internaciones en los últimos 12 meses, embarazo, medicación crónica y discapacidad declarada. Si alguna respuesta es “Sí”, el campo de descripción es obligatorio; si todas son “No”, se puede continuar sin descripción. El usuario debe confirmar explícitamente la declaración. Se persiste `ddjj_completada` y los indicadores; R7 deriva a revisión médica los casos que correspondan. No se adjuntan estudios ni se muestra el detalle en el listado general.
 
 ---
 
@@ -324,7 +324,7 @@ R8: El régimen RELACION_DEPENDENCIA exige CUIL del titular.
 - Diseño responsive: escritorio y móvil.
 - La Etapa 3 incluye la selección obligatoria de medio de pago, con badges de descuento y actualización en vivo del subtotal, descuento y total.
 - Si el medio es tarjeta o CBU, se despliega el subformulario de instrumento con validación de formatos; el CVV y el número completo no se persisten.
-- La Etapa 1 incorpora la DDJJ de salud (F16) y la Etapa 3 el régimen de afiliación y aportes (F17).
+- La Etapa 1 incorpora la DDJJ de salud (F16): panel de respuestas Sí/No obligatorias, descripción condicional y confirmación expresa. La Etapa 3 incorpora régimen, CUIL y aportes (F17).
 - Al finalizar, pantalla de comprobante con los datos de la venta, medio de pago, instrumento enmascarado, subtotal, descuento, aporte y total a pagar.
 - F15 agrega el modo edición del wizard para ventas pendientes u observadas, con navegación libre entre etapas.
 

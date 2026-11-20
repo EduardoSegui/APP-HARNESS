@@ -14,7 +14,7 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Planes, fórmula de precio y descuentos | `docs/PRD.md` §7.1–7.2 |
 | Instrumentos de pago tarjeta/CBU | `docs/PRD.md` §7.4 |
 | Régimen de afiliación y aportes | `docs/PRD.md` §7.5 |
-| DDJJ de salud | `docs/PRD.md` §5.5 |
+| DDJJ de salud (Sí/No y detalle condicional) | `docs/PRD.md` §5.5; `features/F20.md` |
 | Estados y transiciones | `docs/PRD.md` §8 |
 | Reglas de auditoría R1–R8 | `docs/PRD.md` §9 |
 | Edición y reapertura de legajos | `docs/PRD.md` §8, §10.2 |

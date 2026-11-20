@@ -448,7 +448,7 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 - Navegación: Paso 1 → Paso 2 → Paso 3 → Confirmación. En modo edición (F15), la navegación es libre entre las tres etapas.
 - **Adherentes dinámicos:** agregar crea un objeto con ID temporal; eliminar lo quita del array y del DOM; el contador se actualiza.
 - La Etapa 3 exige elegir un plan y un medio de pago. Si el medio es tarjeta/CBU, muestra el subformulario de instrumento (F14). La cotización se calcula en el cliente como vista previa, con el mismo redondeo half-up del backend. Al confirmar, se envía el payload a `POST /api/ventas` (o `PUT` en edición) y se usa el total devuelto por el servidor.
-- La Etapa 1 incorpora la DDJJ de salud (F16); la Etapa 3 incorpora régimen, CUIL y aporte (F17).
+- La Etapa 1 incorpora la DDJJ de salud (F16/F20) con respuestas Sí/No explícitas y descripción condicional; la Etapa 3 incorpora régimen, CUIL y aporte (F17).
 - El comprobante final muestra ID, fecha, titular, plan, medio de pago, instrumento enmascarado, adherentes, subtotal, descuento, aporte, total y estado inicial.
 - Tailwind se carga por CDN; no hay build de frontend.
 
