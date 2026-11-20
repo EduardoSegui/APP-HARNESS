@@ -65,6 +65,15 @@ def _ventas_demo(db) -> list[VentaIn]:
                 "vencimiento": "12/99",
                 "cvv": "123",
             },
+            ddjj={
+                "preexistencias": True,
+                "internaciones_ultimos_12m": False,
+                "embarazo_actual": False,
+                "medicacion_cronica": True,
+                "discapacidad_declarada": False,
+                "detalle": "Hipertensión controlada con medicación.",
+                "declaracion_confirmada": True,
+            },
             integrantes=[
                 {
                     "nombre": "Martín",
@@ -103,6 +112,15 @@ def _ventas_demo(db) -> list[VentaIn]:
                 "titular": "Carlos Gómez",
                 "cuil": "20251234567",
             },
+            ddjj={
+                "preexistencias": False,
+                "internaciones_ultimos_12m": False,
+                "embarazo_actual": False,
+                "medicacion_cronica": False,
+                "discapacidad_declarada": False,
+                "detalle": None,
+                "declaracion_confirmada": True,
+            },
             integrantes=[],
         ),
         VentaIn(
@@ -120,6 +138,15 @@ def _ventas_demo(db) -> list[VentaIn]:
             codigo_postal="1900",
             plan_id=_plan_id(db, "Plan Superior"),
             medio_pago="PAGO_FACIL",
+            ddjj={
+                "preexistencias": False,
+                "internaciones_ultimos_12m": False,
+                "embarazo_actual": False,
+                "medicacion_cronica": False,
+                "discapacidad_declarada": False,
+                "detalle": None,
+                "declaracion_confirmada": True,
+            },
             integrantes=[],
         ),
         VentaIn(
@@ -137,6 +164,15 @@ def _ventas_demo(db) -> list[VentaIn]:
             codigo_postal="2000",
             plan_id=_plan_id(db, "Plan Integral"),
             medio_pago="COBRADOR_DOMICILIO",
+            ddjj={
+                "preexistencias": False,
+                "internaciones_ultimos_12m": False,
+                "embarazo_actual": False,
+                "medicacion_cronica": False,
+                "discapacidad_declarada": False,
+                "detalle": None,
+                "declaracion_confirmada": True,
+            },
             integrantes=[
                 {
                     "nombre": "Julián",

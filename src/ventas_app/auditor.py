@@ -2,7 +2,7 @@
 
 El auditor se conecta al servidor MCP por transporte ``stdio`` y reutiliza sus
 tres herramientas para listar pendientes, obtener el detalle y actualizar el
-estado. Las reglas de negocio R1–R6 son determinísticas y se aplican en el
+estado. Las reglas de negocio R1–R7 son determinísticas y se aplican en el
 cliente; el LLM opcional solo redacta un resumen de la corrida.
 
 Variables de entorno para el LLM compatible con OpenAI:
@@ -709,11 +709,46 @@ def validar_r6_integridad(detalle: Mapping[str, Any]) -> list[str]:
     return errores
 
 
+def validar_r7_ddjj_salud(detalle: Mapping[str, Any]) -> list[str]:
+    """R7: la DDJJ debe estar completa y derivar los casos de riesgo médico."""
+    if detalle.get("ddjj_completada") is not True:
+        return ["R7: Falta completar la declaración jurada de salud."]
+
+    preexistencias = detalle.get("ddjj_preexistencias") is True
+    internaciones = detalle.get("ddjj_internaciones") is True
+    embarazo = detalle.get("ddjj_embarazo") is True
+    medicacion = detalle.get("ddjj_medicacion_cronica") is True
+    discapacidad = detalle.get("ddjj_discapacidad") is True
+    detalle_salud = detalle.get("ddjj_detalle")
+
+    if (
+        preexistencias
+        or internaciones
+        or embarazo
+        or medicacion
+        or discapacidad
+    ) and not (
+        isinstance(detalle_salud, str) and detalle_salud.strip()
+    ):
+        return [
+            "R7: La DDJJ de salud requiere detalle para los indicadores "
+            "declarados."
+        ]
+
+    if preexistencias or internaciones or discapacidad:
+        return [
+            "R7: La DDJJ declara preexistencias, internaciones o discapacidad; "
+            "requiere revisión médica."
+        ]
+
+    return []
+
+
 def aplicar_reglas(
     detalle: Mapping[str, Any],
     hoy: date | None = None,
 ) -> list[str]:
-    """Aplica R1–R6 y devuelve una lista legible de incumplimientos."""
+    """Aplica R1–R7 y devuelve una lista legible de incumplimientos."""
     if not isinstance(detalle, Mapping):
         return ["R6: El detalle de la venta no es válido."]
 
@@ -728,6 +763,7 @@ def aplicar_reglas(
     errores.extend(validar_r4_codigo_postal(detalle))
     errores.extend(validar_r5_plan_y_precio(detalle))
     errores.extend(validar_r6_integridad(detalle))
+    errores.extend(validar_r7_ddjj_salud(detalle))
 
     return errores
 

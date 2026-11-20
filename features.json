@@ -100,7 +100,7 @@
       "titulo": "Declaración jurada de salud y auditoría médica",
       "descripcion": "DDJJ de salud familiar, persistencia de indicadores y detalle, y regla R7 de derivación a revisión médica.",
       "packet": "features/F16.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F17",

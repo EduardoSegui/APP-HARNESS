@@ -164,6 +164,43 @@ class Venta(Base):
     pago_ultimos_4: Mapped[str | None] = mapped_column(String(4), nullable=True)
     pago_vencimiento: Mapped[str | None] = mapped_column(String(5), nullable=True)
     pago_cuil: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    ddjj_completada: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    ddjj_preexistencias: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    ddjj_internaciones: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    ddjj_embarazo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    ddjj_medicacion_cronica: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    ddjj_discapacidad: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    ddjj_detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
     precio_total: Mapped[int] = mapped_column(Integer, nullable=False)
     estado: Mapped[str] = mapped_column(
         String(30),

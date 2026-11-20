@@ -124,6 +124,7 @@
             <th scope="col">Medio de pago</th>
             <th scope="col" class="ledger__th--right">Total</th>
             <th scope="col">Estado</th>
+            <th scope="col">DDJJ</th>
             <th scope="col">Observaciones</th>
             <th scope="col">Acciones</th>
           </tr>
@@ -168,6 +169,15 @@
               <span class="stamp" data-estado="{{ venta.estado }}">Observada</span>
               {% else %}
               <span class="stamp" data-estado="{{ venta.estado }}">{{ venta.estado }}</span>
+              {% endif %}
+            </td>
+            <td data-label="DDJJ" data-ddjj>
+              {% if not venta.ddjj_completada %}
+              <span class="observation--muted">Sin DDJJ</span>
+              {% elif venta.ddjj_preexistencias or venta.ddjj_internaciones or venta.ddjj_discapacidad %}
+              <span class="observation--pending">Revisión médica</span>
+              {% else %}
+              <span class="observation--ok">Completa</span>
               {% endif %}
             </td>
             <td data-label="Observaciones" data-observaciones class="ledger__obs">

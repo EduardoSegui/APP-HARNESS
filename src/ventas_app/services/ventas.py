@@ -123,6 +123,21 @@ def _resolver_pago_actualizacion(
     return _pago_vacio()
 
 
+def _datos_salud(
+    datos: VentaIn | VentaUpdateIn,
+) -> dict[str, object]:
+    """Persiste la DDJJ ya validada y confirmada por el cliente."""
+    return {
+        "ddjj_completada": True,
+        "ddjj_preexistencias": datos.ddjj.preexistencias,
+        "ddjj_internaciones": datos.ddjj.internaciones_ultimos_12m,
+        "ddjj_embarazo": datos.ddjj.embarazo_actual,
+        "ddjj_medicacion_cronica": datos.ddjj.medicacion_cronica,
+        "ddjj_discapacidad": datos.ddjj.discapacidad_declarada,
+        "ddjj_detalle": datos.ddjj.detalle,
+    }
+
+
 def _construir_integrantes(
     datos: VentaIn | VentaUpdateIn,
 ) -> list[Integrante]:
@@ -150,6 +165,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
 
     cotizacion = calcular_cotizacion(plan, len(datos.integrantes), datos.medio_pago)
     datos_pago = _datos_pago_enmascarados(datos)
+    datos_salud = _datos_salud(datos)
     venta = Venta(
         nombre_titular=datos.nombre_titular,
         apellido_titular=datos.apellido_titular,
@@ -168,6 +184,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
         subtotal_base=cotizacion.subtotal_base,
         descuento_porcentaje=cotizacion.descuento_porcentaje,
         **datos_pago,
+        **datos_salud,
         precio_total=cotizacion.precio_total,
         integrantes=_construir_integrantes(datos),
     )
@@ -220,6 +237,8 @@ def actualizar_venta(
     venta.subtotal_base = cotizacion.subtotal_base
     venta.descuento_porcentaje = cotizacion.descuento_porcentaje
     for campo, valor in datos_pago.items():
+        setattr(venta, campo, valor)
+    for campo, valor in _datos_salud(datos).items():
         setattr(venta, campo, valor)
     venta.precio_total = cotizacion.precio_total
     venta.estado = EstadoVenta.PENDIENTE_VERIFICACION.value

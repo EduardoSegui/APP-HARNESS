@@ -229,7 +229,9 @@ def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
         fila = conexion.exec_driver_sql(
             "SELECT medio_pago, subtotal_base, descuento_porcentaje, "
             "pago_titular, pago_marca_entidad, pago_ultimos_4, "
-            "pago_vencimiento, pago_cuil "
+            "pago_vencimiento, pago_cuil, ddjj_completada, "
+            "ddjj_preexistencias, ddjj_internaciones, ddjj_embarazo, "
+            "ddjj_medicacion_cronica, ddjj_discapacidad, ddjj_detalle "
             "FROM ventas WHERE id = 7"
         ).one()
 
@@ -242,6 +244,29 @@ def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
         "pago_ultimos_4",
         "pago_vencimiento",
         "pago_cuil",
+        "ddjj_completada",
+        "ddjj_preexistencias",
+        "ddjj_internaciones",
+        "ddjj_embarazo",
+        "ddjj_medicacion_cronica",
+        "ddjj_discapacidad",
+        "ddjj_detalle",
     }.issubset(columnas)
-    assert fila == ("PAGO_FACIL", 45_000, 0, None, None, None, None, None)
+    assert fila == (
+        "PAGO_FACIL",
+        45_000,
+        0,
+        None,
+        None,
+        None,
+        None,
+        None,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        None,
+    )
     engine_viejo.dispose()

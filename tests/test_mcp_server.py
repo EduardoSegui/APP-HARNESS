@@ -86,6 +86,15 @@ def _crear_venta(
         "codigo_postal": "1043",
         "plan_id": _obtener_plan_id(plan),
         "medio_pago": medio_pago,
+        "ddjj": {
+            "preexistencias": False,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": None,
+            "declaracion_confirmada": True,
+        },
         "integrantes": integrantes,
     }
     payload.update(_instrumento_para(medio_pago))
@@ -210,6 +219,8 @@ def test_obtener_detalle_venta_devuelve_todos_los_datos(
     assert detalle["medio_pago"] == "PAGO_FACIL"
     assert detalle["subtotal_base"] == 182_000
     assert detalle["descuento_porcentaje"] == 0
+    assert detalle["ddjj_completada"] is True
+    assert detalle["ddjj_detalle"] is None
     assert detalle["precio_total"] == 182_000
     assert detalle["estado"] == "PENDIENTE_VERIFICACION"
     assert detalle["observaciones"] is None
@@ -240,6 +251,8 @@ def test_obtener_detalle_venta_incluye_desglose_de_descuento(
     assert detalle["pago_marca_entidad"] == "VISA"
     assert detalle["pago_ultimos_4"] == "1111"
     assert detalle["pago_vencimiento"] == "12/99"
+    assert detalle["ddjj_completada"] is True
+    assert detalle["ddjj_preexistencias"] is False
     assert detalle["precio_total"] == 91_000
     assert "numero" not in detalle
     assert "cvv" not in detalle

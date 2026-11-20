@@ -43,6 +43,7 @@
   const legajoIntegrantes = document.querySelector("#legajo-integrantes");
   const legajoPlan = document.querySelector("#legajo-plan");
   const legajoMedioPago = document.querySelector("#legajo-medio-pago");
+  const legajoDDJJ = document.querySelector("#legajo-ddjj");
   const comprobanteEstado = document.querySelector("#comprobante-estado");
   const edicion = cargarEdicion();
   const modoEdicion = Boolean(edicion);
@@ -68,6 +69,15 @@
     },
     plan_id: null,
     medio_pago: null,
+    ddjj: {
+      preexistencias: false,
+      internaciones_ultimos_12m: false,
+      embarazo_actual: false,
+      medicacion_cronica: false,
+      discapacidad_declarada: false,
+      detalle: "",
+      declaracion_confirmada: false,
+    },
   };
 
   const clonar = (valor) => JSON.parse(JSON.stringify(valor));
@@ -120,6 +130,15 @@
       integrantes: Array.isArray(venta.integrantes)
         ? venta.integrantes.map(normalizarIntegrante)
         : [],
+      ddjj: {
+        preexistencias: Boolean(venta.ddjj_preexistencias),
+        internaciones_ultimos_12m: Boolean(venta.ddjj_internaciones),
+        embarazo_actual: Boolean(venta.ddjj_embarazo),
+        medicacion_cronica: Boolean(venta.ddjj_medicacion_cronica),
+        discapacidad_declarada: Boolean(venta.ddjj_discapacidad),
+        detalle: texto(venta.ddjj_detalle),
+        declaracion_confirmada: Boolean(venta.ddjj_completada),
+      },
     };
   }
 
@@ -148,6 +167,7 @@
       const planId = Number(datos?.plan_id);
       const titular = datos?.titular ?? {};
       const domicilio = datos?.domicilio ?? {};
+      const ddjj = datos?.ddjj ?? {};
 
       return {
         ...base,
@@ -163,6 +183,15 @@
           : [],
         plan_id: Number.isInteger(planId) && planId > 0 ? planId : null,
         medio_pago: typeof datos?.medio_pago === "string" ? datos.medio_pago : null,
+        ddjj: {
+          preexistencias: Boolean(ddjj.preexistencias),
+          internaciones_ultimos_12m: Boolean(ddjj.internaciones_ultimos_12m),
+          embarazo_actual: Boolean(ddjj.embarazo_actual),
+          medicacion_cronica: Boolean(ddjj.medicacion_cronica),
+          discapacidad_declarada: Boolean(ddjj.discapacidad_declarada),
+          detalle: texto(ddjj.detalle),
+          declaracion_confirmada: Boolean(ddjj.declaracion_confirmada),
+        },
       };
     } catch (_error) {
       return base;
@@ -174,7 +203,9 @@
       return;
     }
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+      const persistible = { ...estado };
+      delete persistible.ddjj;
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistible));
     } catch (_error) {
       // Si el almacenamiento no está disponible, el wizard sigue funcionando en memoria.
     }
@@ -486,6 +517,74 @@
     }
   }
 
+  function ddjjConIndicadores() {
+    return Boolean(
+      estado.ddjj.preexistencias
+        || estado.ddjj.internaciones_ultimos_12m
+        || estado.ddjj.embarazo_actual
+        || estado.ddjj.medicacion_cronica
+        || estado.ddjj.discapacidad_declarada,
+    );
+  }
+
+  function ddjjRequiereRevision() {
+    return Boolean(
+      estado.ddjj.preexistencias
+        || estado.ddjj.internaciones_ultimos_12m
+        || estado.ddjj.discapacidad_declarada,
+    );
+  }
+
+  function actualizarDDJJDetalle() {
+    const detalleWrap = document.querySelector("#ddjj-detalle-wrap");
+    detalleWrap?.classList.toggle("hidden", !ddjjConIndicadores());
+  }
+
+  function inicializarDDJJ() {
+    const campos = [
+      ["#ddjj-preexistencias", "preexistencias"],
+      ["#ddjj-internaciones", "internaciones_ultimos_12m"],
+      ["#ddjj-embarazo", "embarazo_actual"],
+      ["#ddjj-medicacion", "medicacion_cronica"],
+      ["#ddjj-discapacidad", "discapacidad_declarada"],
+    ];
+
+    campos.forEach(([selector, clave]) => {
+      const campo = document.querySelector(selector);
+      if (!campo) {
+        return;
+      }
+      campo.checked = Boolean(estado.ddjj[clave]);
+      campo.addEventListener("change", () => {
+        estado.ddjj[clave] = campo.checked;
+        guardarEstado();
+        actualizarDDJJDetalle();
+        actualizarResumen();
+      });
+    });
+
+    const detalle = document.querySelector("#ddjj-detalle");
+    if (detalle) {
+      detalle.value = estado.ddjj.detalle;
+      detalle.addEventListener("input", () => {
+        estado.ddjj.detalle = detalle.value;
+        guardarEstado();
+      });
+    }
+
+    const confirmada = document.querySelector("#ddjj-confirmada");
+    if (confirmada) {
+      confirmada.checked = Boolean(estado.ddjj.declaracion_confirmada);
+      confirmada.addEventListener("change", () => {
+        estado.ddjj.declaracion_confirmada = confirmada.checked;
+        guardarEstado();
+        actualizarResumen();
+      });
+    }
+
+    actualizarDDJJDetalle();
+  }
+
   function actualizarResumen() {
     const nombre = [
       texto(estado.titular.nombre).trim(),
@@ -520,6 +619,16 @@
         ?.querySelector(".plan-row__name")
         ?.textContent?.trim();
       legajoMedioPago.textContent = nombreMedio || "Sin seleccionar";
+    }
+
+    if (legajoDDJJ) {
+      if (!estado.ddjj.declaracion_confirmada) {
+        legajoDDJJ.textContent = "Sin confirmar";
+      } else if (ddjjRequiereRevision()) {
+        legajoDDJJ.textContent = "Revisión médica";
+      } else {
+        legajoDDJJ.textContent = "Completa";
+      }
     }
   }
 
@@ -693,6 +802,26 @@
       if (new Set(dnis).size !== dnis.length) {
         registrarError(null, "Los DNIs del grupo familiar deben ser únicos.", errores);
       }
+
+      const ddjjConfirmada = document.querySelector("#ddjj-confirmada");
+      const ddjjDetalle = document.querySelector("#ddjj-detalle");
+      if (!estado.ddjj.declaracion_confirmada) {
+        registrarError(
+          ddjjConfirmada,
+          "Tenés que confirmar la declaración jurada de salud.",
+          errores,
+        );
+      }
+      if (
+        ddjjConIndicadores()
+        && texto(ddjjDetalle?.value).trim().length < 5
+      ) {
+        registrarError(
+          ddjjDetalle,
+          "Describí brevemente la situación de salud declarada.",
+          errores,
+        );
+      }
     }
 
     if (paso === 2) {
@@ -810,6 +939,17 @@
       codigo_postal: texto(domicilio.codigo_postal).trim(),
       plan_id: Number(estado.plan_id),
       medio_pago: estado.medio_pago,
+      ddjj: {
+        preexistencias: estado.ddjj.preexistencias,
+        internaciones_ultimos_12m: estado.ddjj.internaciones_ultimos_12m,
+        embarazo_actual: estado.ddjj.embarazo_actual,
+        medicacion_cronica: estado.ddjj.medicacion_cronica,
+        discapacidad_declarada: estado.ddjj.discapacidad_declarada,
+        detalle: ddjjConIndicadores()
+          ? texto(estado.ddjj.detalle).trim() || null
+          : null,
+        declaracion_confirmada: estado.ddjj.declaracion_confirmada,
+      },
       integrantes: estado.integrantes.map((integrante) => ({
         nombre: texto(integrante.nombre).trim(),
         apellido: texto(integrante.apellido).trim(),
@@ -900,6 +1040,21 @@
         instrumentoEl.textContent = `${venta.pago_marca_entidad} · CBU •••• ${venta.pago_ultimos_4}${cuil}`;
       } else {
         instrumentoEl.textContent = "—";
+      }
+    }
+
+    const ddjjEl = document.querySelector("#comprobante-ddjj");
+    if (ddjjEl) {
+      if (!venta.ddjj_completada) {
+        ddjjEl.textContent = "Sin declaración";
+      } else if (
+        venta.ddjj_preexistencias
+        || venta.ddjj_internaciones
+        || venta.ddjj_discapacidad
+      ) {
+        ddjjEl.textContent = "Recibida · requiere revisión médica";
+      } else {
+        ddjjEl.textContent = "Recibida";
       }
     }
 
@@ -1023,6 +1178,7 @@
     }
   }
 
+  inicializarDDJJ();
   inicializarCampos();
   renderizarIntegrantes();
   inicializarPlanes();

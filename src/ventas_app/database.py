@@ -46,11 +46,11 @@ class Base(DeclarativeBase):
 
 
 def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
-    """Agrega las columnas de F13/F14 a una base SQLite creada con F12 o antes.
+    """Agrega las columnas de F13/F14/F16 a una base SQLite anterior.
 
     ``create_all`` no modifica tablas existentes. Esta migración es idempotente
     y conserva las ventas históricas: las filas previas quedan sin datos de
-    pago, sin descuento y con el total anterior como subtotal base.
+    pago, sin DDJJ, sin descuento y con el total anterior como subtotal base.
     """
     if engine_objetivo.dialect.name != "sqlite":
         return
@@ -97,6 +97,40 @@ def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
         if "pago_cuil" not in columnas:
             conexion.exec_driver_sql(
                 "ALTER TABLE ventas ADD COLUMN pago_cuil VARCHAR(11)"
+            )
+        if "ddjj_completada" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_completada "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "ddjj_preexistencias" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_preexistencias "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "ddjj_internaciones" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_internaciones "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "ddjj_embarazo" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_embarazo "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "ddjj_medicacion_cronica" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_medicacion_cronica "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "ddjj_discapacidad" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_discapacidad "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "ddjj_detalle" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN ddjj_detalle TEXT"
             )
 
         if "precio_total" in columnas:

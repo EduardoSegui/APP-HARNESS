@@ -162,6 +162,50 @@ class CbuIn(BaseModel):
     cuil: Cuil
 
 
+class SaludIn(BaseModel):
+    """Declaración jurada familiar de salud."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    preexistencias: bool = False
+    internaciones_ultimos_12m: bool = False
+    embarazo_actual: bool = False
+    medicacion_cronica: bool = False
+    discapacidad_declarada: bool = False
+    detalle: str | None = Field(default=None, min_length=5, max_length=2000)
+    declaracion_confirmada: bool = False
+
+    @field_validator("detalle", mode="before")
+    @classmethod
+    def normalizar_detalle(cls, valor: object) -> object:
+        if isinstance(valor, str) and not valor.strip():
+            return None
+        return valor
+
+    @model_validator(mode="after")
+    def validar_declaracion(self) -> Self:
+        if not self.declaracion_confirmada:
+            raise ValueError(
+                "Tenés que confirmar la declaración jurada de salud."
+            )
+
+        tiene_indicadores = any(
+            (
+                self.preexistencias,
+                self.internaciones_ultimos_12m,
+                self.embarazo_actual,
+                self.medicacion_cronica,
+                self.discapacidad_declarada,
+            )
+        )
+        if tiene_indicadores and not self.detalle:
+            raise ValueError(
+                "El detalle de salud es obligatorio cuando se declara algún "
+                "indicador."
+            )
+        return self
+
+
 class _VentaDatosIn(BaseModel):
     """Campos comunes para crear o actualizar un legajo."""
 
@@ -185,6 +229,7 @@ class _VentaDatosIn(BaseModel):
     medio_pago: MedioPago
     tarjeta: TarjetaIn | None = None
     cbu: CbuIn | None = None
+    ddjj: SaludIn
     integrantes: list[IntegranteIn] = Field(default_factory=list)
 
     @field_validator("fecha_nacimiento_titular")
@@ -331,6 +376,13 @@ class VentaOut(BaseModel):
     pago_ultimos_4: str | None
     pago_vencimiento: str | None
     pago_cuil: str | None
+    ddjj_completada: bool
+    ddjj_preexistencias: bool
+    ddjj_internaciones: bool
+    ddjj_embarazo: bool
+    ddjj_medicacion_cronica: bool
+    ddjj_discapacidad: bool
+    ddjj_detalle: str | None
     precio_total: int
     estado: EstadoVenta
     observaciones: str | None

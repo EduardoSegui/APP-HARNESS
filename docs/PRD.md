@@ -131,7 +131,7 @@ El valor se persiste como texto controlado por la aplicación. No se admiten val
 
 ### 5.5 Declaración jurada de salud (F16)
 
-El alta incorpora una DDJJ familiar con indicadores de preexistencias, internaciones en los últimos 12 meses, embarazo, medicación crónica y discapacidad declarada. Si algún indicador es positivo, el campo `detalle_salud` es obligatorio. La DDJJ se persiste con la venta y R7 deriva a revisión médica los casos que correspondan. No se adjuntan estudios ni se muestra el detalle en el listado general.
+El alta incorpora una DDJJ familiar con indicadores de preexistencias, internaciones en los últimos 12 meses, embarazo, medicación crónica y discapacidad declarada. Si algún indicador es positivo, el campo `detalle_salud` es obligatorio. El usuario debe confirmar explícitamente la declaración. Se persiste `ddjj_completada` y los indicadores; R7 deriva a revisión médica los casos que correspondan. No se adjuntan estudios ni se muestra el detalle en el listado general.
 
 ---
 

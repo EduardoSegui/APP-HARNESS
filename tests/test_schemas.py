@@ -58,6 +58,15 @@ def payload_valido(**overrides: Any) -> dict[str, Any]:
         "codigo_postal": "1043",
         "plan_id": 1,
         "medio_pago": medio_pago,
+        "ddjj": {
+            "preexistencias": False,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": None,
+            "declaracion_confirmada": True,
+        },
         "integrantes": [
             {
                 "nombre": "Luis",
@@ -269,6 +278,13 @@ def test_venta_out_desde_orm_con_plan_e_integrantes(db: Session) -> None:
     assert salida.pago_ultimos_4 is None
     assert salida.pago_vencimiento is None
     assert salida.pago_cuil is None
+    assert salida.ddjj_completada is False
+    assert salida.ddjj_preexistencias is False
+    assert salida.ddjj_internaciones is False
+    assert salida.ddjj_embarazo is False
+    assert salida.ddjj_medicacion_cronica is False
+    assert salida.ddjj_discapacidad is False
+    assert salida.ddjj_detalle is None
     assert salida.plan.nombre == "Plan Superior Test"
     assert salida.integrantes[0].parentesco is Parentesco.HIJO_A
     assert salida.observaciones is None
@@ -375,6 +391,46 @@ def test_venta_in_rechaza_cbu_invalido(campo: str, valor: object) -> None:
 
     with pytest.raises(ValidationError):
         VentaIn.model_validate(payload_valido(medio_pago="CBU", cbu=cbu))
+
+
+def test_venta_in_exige_ddjj() -> None:
+    datos = payload_valido()
+    datos.pop("ddjj")
+
+    with pytest.raises(ValidationError) as excinfo:
+        VentaIn.model_validate(datos)
+
+    assert any(
+        error["loc"] == ("ddjj",) and error["type"] == "missing"
+        for error in excinfo.value.errors()
+    )
+
+
+def test_venta_in_rechaza_ddjj_sin_confirmar() -> None:
+    datos = payload_valido()
+    datos["ddjj"]["declaracion_confirmada"] = False
+
+    with pytest.raises(ValidationError, match="confirmar la declaración"):
+        VentaIn.model_validate(datos)
+
+
+def test_venta_in_rechaza_indicador_de_salud_sin_detalle() -> None:
+    datos = payload_valido()
+    datos["ddjj"]["preexistencias"] = True
+
+    with pytest.raises(ValidationError, match="detalle de salud"):
+        VentaIn.model_validate(datos)
+
+
+def test_venta_in_acepta_ddjj_con_detalle() -> None:
+    datos = payload_valido()
+    datos["ddjj"]["preexistencias"] = True
+    datos["ddjj"]["detalle"] = "Hipertensión controlada."
+
+    venta = VentaIn.model_validate(datos)
+
+    assert venta.ddjj.preexistencias is True
+    assert venta.ddjj.detalle == "Hipertensión controlada."
 
 
 def test_venta_update_permite_omitir_instrumento_para_conservarlo() -> None:

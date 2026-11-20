@@ -50,6 +50,7 @@ def _crear_venta(
     plan: str = "Plan Integral",
     cantidad_adherentes: int = 0,
     medio_pago: str = "PAGO_FACIL",
+    ddjj: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     integrantes = [
         {
@@ -76,6 +77,16 @@ def _crear_venta(
         "codigo_postal": "1043",
         "plan_id": _obtener_plan_id(plan),
         "medio_pago": medio_pago,
+        "ddjj": ddjj
+        or {
+            "preexistencias": False,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": None,
+            "declaracion_confirmada": True,
+        },
         "integrantes": integrantes,
     }
     payload.update(_instrumento_para(medio_pago))
@@ -124,6 +135,8 @@ def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
     assert "$182.000" in html
     assert "Medio de pago" in html
     assert "Pago Fácil / Oficinas" in html
+    assert "DDJJ" in html
+    assert "Completa" in html
     assert 'data-estado="PENDIENTE_VERIFICACION"' in html
     assert 'class="stamp"' in html
     assert ">Pendiente<" in html
@@ -150,6 +163,30 @@ def test_panel_muestra_medio_de_pago_y_total_bonificado(
     assert "30% desc." in html
     assert "VISA •••• 1111 · 12/99" in html
     assert "$91.000" in html
+
+
+def test_panel_muestra_ddjj_completa_y_revision_medica(
+    client: TestClient,
+) -> None:
+    _crear_venta(client)
+    _crear_venta(
+        client,
+        ddjj={
+            "preexistencias": True,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": "Hipertensión controlada.",
+            "declaracion_confirmada": True,
+        },
+    )
+
+    html = client.get("/ventas").text
+
+    assert "Completa" in html
+    assert "Revisión médica" in html
+    assert "Hipertensión controlada." not in html
 
 
 def test_panel_muestra_acciones_de_edicion_y_lectura(
@@ -212,6 +249,8 @@ def test_detalle_venta_muestra_lectura_y_enmascaramiento(
     assert respuesta.status_code == 200
     assert "Legajo #" in respuesta.text
     assert "VISA •••• 1111" in respuesta.text
+    assert "Declaración jurada de salud" in respuesta.text
+    assert "Preexistencias" in respuesta.text
     assert "Editar legajo" in respuesta.text
 
     _cambiar_estado(venta["id"], "APROBADA")

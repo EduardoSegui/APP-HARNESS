@@ -73,6 +73,13 @@ def _detalle_valido() -> dict[str, Any]:
         "medio_pago": "PAGO_FACIL",
         "subtotal_base": 130_000,
         "descuento_porcentaje": 0,
+        "ddjj_completada": True,
+        "ddjj_preexistencias": False,
+        "ddjj_internaciones": False,
+        "ddjj_embarazo": False,
+        "ddjj_medicacion_cronica": False,
+        "ddjj_discapacidad": False,
+        "ddjj_detalle": None,
         "precio_total": 130_000,
         "estado": "PENDIENTE_VERIFICACION",
         "observaciones": None,
@@ -155,6 +162,15 @@ def _crear_venta(
         "codigo_postal": "1043",
         "plan_id": _obtener_plan_id(plan),
         "medio_pago": medio_pago,
+        "ddjj": {
+            "preexistencias": False,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": None,
+            "declaracion_confirmada": True,
+        },
         "integrantes": integrantes,
     }
     payload.update(_instrumento_para(medio_pago))
@@ -536,6 +552,70 @@ def test_r5_descuento_persistido_adulterado_es_observado() -> None:
         "pago 'TARJETA_CREDITO' (30%)" in error
         for error in errores
     )
+
+
+def test_r7_ddjj_completa_sin_riesgo_no_observa() -> None:
+    assert aplicar_reglas(_detalle_valido(), HOY) == []
+
+
+def test_r7_preexistencia_requiere_revision_medica() -> None:
+    detalle = _detalle_valido()
+    detalle["ddjj_preexistencias"] = True
+    detalle["ddjj_detalle"] = "Hipertensión controlada."
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R7: La DDJJ declara preexistencias, internaciones o discapacidad; "
+        "requiere revisión médica."
+    ]
+
+
+def test_r7_internacion_requiere_revision_medica() -> None:
+    detalle = _detalle_valido()
+    detalle["ddjj_internaciones"] = True
+    detalle["ddjj_detalle"] = "Internación por cirugía en 2025."
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R7: La DDJJ declara preexistencias, internaciones o discapacidad; "
+        "requiere revisión médica."
+    ]
+
+
+def test_r7_discapacidad_requiere_revision_medica() -> None:
+    detalle = _detalle_valido()
+    detalle["ddjj_discapacidad"] = True
+    detalle["ddjj_detalle"] = "Certificado vigente."
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R7: La DDJJ declara preexistencias, internaciones o discapacidad; "
+        "requiere revisión médica."
+    ]
+
+
+def test_r7_indicador_sin_detalle_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["ddjj_embarazo"] = True
+    detalle["ddjj_detalle"] = None
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R7: La DDJJ de salud requiere detalle para los indicadores declarados."
+    ]
+
+
+def test_r7_embarazo_con_detalle_no_requiere_revision() -> None:
+    detalle = _detalle_valido()
+    detalle["ddjj_embarazo"] = True
+    detalle["ddjj_detalle"] = "Embarazo de 12 semanas."
+
+    assert aplicar_reglas(detalle, HOY) == []
+
+
+def test_r7_venta_historica_sin_ddjj_es_observada() -> None:
+    detalle = _detalle_valido()
+    detalle["ddjj_completada"] = False
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R7: Falta completar la declaración jurada de salud."
+    ]
 
 
 def test_r6_integrante_de_otra_venta() -> None:

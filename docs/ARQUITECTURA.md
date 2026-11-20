@@ -241,6 +241,7 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 | `regimen_afiliacion` | String(30) | NOT NULL, default `PARTICULAR`. F17. |
 | `cuil_titular` | String(11) | NULL. Obligatorio para desregulados. F17. |
 | `aporte_estimado` | Integer | NOT NULL, default 0. F17. |
+| `ddjj_completada` | Boolean | NOT NULL, default false. Distingue “sin declarar” de “sin riesgos”. F16. |
 | `ddjj_preexistencias` | Boolean | NOT NULL, default false. F16. |
 | `ddjj_internaciones` | Boolean | NOT NULL, default false. F16. |
 | `ddjj_embarazo` | Boolean | NOT NULL, default false. F16. |
@@ -257,7 +258,7 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 
 Las bases creadas antes de F13 se actualizan al arrancar mediante una migración SQLite idempotente en `database.py`: agrega las tres columnas nuevas y completa las filas históricas con `medio_pago='PAGO_FACIL'`, `subtotal_base=precio_total` y `descuento_porcentaje=0`.
 
-F14 agrega las cinco columnas `pago_*` (NULL para filas históricas), F16 las columnas `ddjj_*` (false/NULL) y F17 `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` (NULL) y `aporte_estimado` (0). La misma migración es idempotente y se ejecuta en `init_db()` y al arrancar el servidor MCP.
+F14 agrega las cinco columnas `pago_*` (NULL para filas históricas), F16 las columnas `ddjj_*` (indicadores false, `ddjj_completada=false`, detalle NULL) y F17 `regimen_afiliacion` (default `PARTICULAR`), `cuil_titular` (NULL) y `aporte_estimado` (0). La misma migración es idempotente y se ejecuta en `init_db()` y al arrancar el servidor MCP.
 
 No se impone unicidad global de DNI: la regla de negocio exige unicidad **dentro del grupo familiar de una venta**, no entre ventas distintas.
 
@@ -414,7 +415,7 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 - `IntegranteIn`: nombre, apellido, dni, fecha_nacimiento, parentesco.
 - `TarjetaIn`: marca, número, titular, vencimiento, CVV. El CVV no se persiste.
 - `CbuIn`: número, entidad, titular, CUIL.
-- `SaludIn`: indicadores de DDJJ y detalle.
+- `SaludIn`: indicadores de DDJJ, detalle y `declaracion_confirmada` obligatoria.
 - `VentaIn`: titular + domicilio + `plan_id` + `medio_pago` + `tarjeta`/`cbu` condicional + DDJJ + régimen + `integrantes`.
 - `VentaUpdateIn`: misma estructura, con instrumento opcional para conservar metadatos enmascarados si el medio no cambia.
 - `VentaOut`: datos persistidos + `plan` + `medio_pago` + desglose + `pago_*` enmascarados + DDJJ + régimen + integrantes + estado + observaciones + timestamps.
@@ -512,7 +513,7 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
   instrumento de tarjeta/CBU esté completo y que `subtotal_base`,
   `descuento_porcentaje`, `aporte_estimado` y `precio_total` coincidan con la
   cotización vigente, usando el mismo redondeo half-up que el backend.
-- R7 valida la DDJJ de salud y deriva a revisión médica los casos declarados.
+- R7 exige `ddjj_completada`, valida el detalle cuando hay indicadores y deriva a revisión médica los casos declarados de preexistencias, internaciones o discapacidad.
 - R8 valida régimen de afiliación, CUIL y aporte estimado.
 - Fecha de referencia inyectable (`hoy: date | None`) para tests determinísticos
   de edad.

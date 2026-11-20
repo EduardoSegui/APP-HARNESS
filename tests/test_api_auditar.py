@@ -47,6 +47,15 @@ def _crear_venta(
             "codigo_postal": "1043",
             "plan_id": _obtener_plan_id(),
             "medio_pago": "PAGO_FACIL",
+            "ddjj": {
+                "preexistencias": False,
+                "internaciones_ultimos_12m": False,
+                "embarazo_actual": False,
+                "medicacion_cronica": False,
+                "discapacidad_declarada": False,
+                "detalle": None,
+                "declaracion_confirmada": True,
+            },
             "integrantes": [],
         },
     )

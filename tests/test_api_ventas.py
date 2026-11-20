@@ -74,6 +74,15 @@ def payload_venta(
         "codigo_postal": "1043",
         "plan_id": plan_id,
         "medio_pago": medio_pago,
+        "ddjj": {
+            "preexistencias": False,
+            "internaciones_ultimos_12m": False,
+            "embarazo_actual": False,
+            "medicacion_cronica": False,
+            "discapacidad_declarada": False,
+            "detalle": None,
+            "declaracion_confirmada": True,
+        },
         "integrantes": integrantes,
     }
     datos.update(instrumento_para(str(medio_pago)))
@@ -117,6 +126,72 @@ def test_crear_venta_calcula_el_total_en_el_servidor(
     assert len(datos["integrantes"]) == cantidad_adherentes
     assert datos["creado_en"] is not None
     assert datos["actualizado_en"] is not None
+
+
+def test_crear_venta_persiste_ddjj_de_salud(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    payload = payload_venta(plan_id, 0)
+    payload["ddjj"] = {
+        "preexistencias": True,
+        "internaciones_ultimos_12m": False,
+        "embarazo_actual": False,
+        "medicacion_cronica": True,
+        "discapacidad_declarada": False,
+        "detalle": "Hipertensión controlada.",
+        "declaracion_confirmada": True,
+    }
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 201, respuesta.text
+    datos = respuesta.json()
+    assert datos["ddjj_completada"] is True
+    assert datos["ddjj_preexistencias"] is True
+    assert datos["ddjj_medicacion_cronica"] is True
+    assert datos["ddjj_detalle"] == "Hipertensión controlada."
+
+    with SessionLocal() as db:
+        venta = db.get(Venta, datos["id"])
+        assert venta is not None
+        assert venta.ddjj_completada is True
+        assert venta.ddjj_preexistencias is True
+
+
+def test_crear_venta_sin_ddjj_devuelve_422(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload.pop("ddjj")
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "ddjj" in respuesta.text
+
+
+def test_crear_venta_con_ddjj_sin_confirmar_devuelve_422(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload["ddjj"]["declaracion_confirmada"] = False
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "confirmar" in respuesta.text
+
+
+def test_crear_venta_con_indicador_sin_detalle_devuelve_422(
+    client: TestClient,
+) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload["ddjj"]["preexistencias"] = True
+
+    respuesta = client.post("/api/ventas", json=payload)
+
+    assert respuesta.status_code == 422
+    assert "detalle" in respuesta.text
 
 
 def test_crear_venta_persiste_venta_e_integrantes(client: TestClient) -> None:
@@ -227,6 +302,7 @@ def test_precio_total_usa_los_precios_vigentes_de_la_base(
         ("estado", "APROBADA"),
         ("observaciones", "dato impuesto por el cliente"),
         ("pago_ultimos_4", "9999"),
+        ("ddjj_completada", True),
     ],
 )
 def test_cliente_no_puede_imponer_campos_del_servidor(
@@ -537,6 +613,36 @@ def test_actualizar_venta_a_pago_facil_limpia_instrumento(
     assert datos["pago_titular"] is None
     assert datos["pago_marca_entidad"] is None
     assert datos["pago_ultimos_4"] is None
+
+
+def test_actualizar_venta_permite_corregir_ddjj(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload_inicial = payload_venta(plan_id, 0)
+    payload_inicial["ddjj"] = {
+        "preexistencias": True,
+        "internaciones_ultimos_12m": False,
+        "embarazo_actual": False,
+        "medicacion_cronica": False,
+        "discapacidad_declarada": False,
+        "detalle": "Hipertensión controlada.",
+        "declaracion_confirmada": True,
+    }
+    creada = client.post("/api/ventas", json=payload_inicial)
+    assert creada.status_code == 201, creada.text
+    venta_id = creada.json()["id"]
+
+    respuesta = client.put(
+        f"/api/ventas/{venta_id}",
+        json=payload_venta(plan_id, 0),
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    datos = respuesta.json()
+    assert datos["ddjj_completada"] is True
+    assert datos["ddjj_preexistencias"] is False
+    assert datos["ddjj_detalle"] is None
+    assert datos["estado"] == "PENDIENTE_VERIFICACION"
+    assert datos["observaciones"] is None
 
 
 def test_actualizar_venta_observada_vuelve_a_pendiente(

@@ -120,6 +120,34 @@
     {% endif %}
   </section>
 
+  <section class="sheet">
+    <div class="sheet__head">
+      <div>
+        <h2 class="sheet__title">Declaración jurada de salud</h2>
+        <p class="sheet__hint">Información interna para evaluación médica.</p>
+      </div>
+    </div>
+    {% if not venta.ddjj_completada %}
+    <p class="notice notice--warning">Sin declaración jurada completa.</p>
+    {% else %}
+    <div class="credential">
+      <div class="credential__rows">
+        <div class="credential__row"><span class="credential__label">Preexistencias</span><span class="credential__value">{% if venta.ddjj_preexistencias %}Sí{% else %}No{% endif %}</span></div>
+        <div class="credential__row"><span class="credential__label">Internaciones últimos 12 meses</span><span class="credential__value">{% if venta.ddjj_internaciones %}Sí{% else %}No{% endif %}</span></div>
+        <div class="credential__row"><span class="credential__label">Embarazo actual</span><span class="credential__value">{% if venta.ddjj_embarazo %}Sí{% else %}No{% endif %}</span></div>
+        <div class="credential__row"><span class="credential__label">Medicación crónica</span><span class="credential__value">{% if venta.ddjj_medicacion_cronica %}Sí{% else %}No{% endif %}</span></div>
+        <div class="credential__row"><span class="credential__label">Discapacidad declarada</span><span class="credential__value">{% if venta.ddjj_discapacidad %}Sí{% else %}No{% endif %}</span></div>
+      </div>
+    </div>
+    {% if venta.ddjj_detalle %}
+    <p class="notice"><strong>Detalle:</strong> {{ venta.ddjj_detalle }}</p>
+    {% endif %}
+    {% if venta.ddjj_preexistencias or venta.ddjj_internaciones or venta.ddjj_discapacidad %}
+    <p class="notice notice--warning">Requiere revisión médica.</p>
+    {% endif %}
+    {% endif %}
+  </section>
+
   {% if venta.observaciones %}
   <section class="sheet">
     <div class="sheet__head">

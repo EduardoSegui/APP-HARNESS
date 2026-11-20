@@ -154,6 +154,43 @@
           </p>
         </div>
 
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
+              <h2 class="sheet__title">Declaración jurada de salud</h2>
+              <p class="sheet__hint">Declaración familiar obligatoria. La información se usa para la evaluación médica interna.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field field--full">
+              <span class="field-label"><input id="ddjj-preexistencias" type="checkbox" class="mr-2"> ¿Alguien del grupo familiar tiene una enfermedad preexistente?</span>
+            </label>
+            <label class="field field--full">
+              <span class="field-label"><input id="ddjj-internaciones" type="checkbox" class="mr-2"> ¿Hubo internaciones en los últimos 12 meses?</span>
+            </label>
+            <label class="field field--full">
+              <span class="field-label"><input id="ddjj-embarazo" type="checkbox" class="mr-2"> ¿Hay un embarazo en curso?</span>
+            </label>
+            <label class="field field--full">
+              <span class="field-label"><input id="ddjj-medicacion" type="checkbox" class="mr-2"> ¿Hay medicación crónica?</span>
+            </label>
+            <label class="field field--full">
+              <span class="field-label"><input id="ddjj-discapacidad" type="checkbox" class="mr-2"> ¿Hay una discapacidad declarada?</span>
+            </label>
+          </div>
+
+          <div id="ddjj-detalle-wrap" class="field field--full hidden">
+            <label for="ddjj-detalle" class="field-label">Detalle de salud <span class="required">*</span></label>
+            <textarea id="ddjj-detalle" rows="3" maxlength="2000" class="field-input" placeholder="Describí brevemente la situación declarada."></textarea>
+          </div>
+
+          <label class="field field--full">
+            <span class="field-label"><input id="ddjj-confirmada" type="checkbox" class="mr-2"> Declaro que la información de salud es verdadera y completa. <span class="required">*</span></span>
+          </label>
+          <p class="notice">El detalle de salud no se muestra en el listado general; solo se usa en la evaluación interna del legajo.</p>
+        </div>
+
         <div class="form-actions form-actions--end">
           <button
             type="button"
@@ -492,6 +529,10 @@
         <li class="legajo-summary__item">
           <span class="legajo-summary__label">Medio de pago</span>
           <span id="legajo-medio-pago" class="legajo-summary__value">Sin seleccionar</span>
+        </li>
+        <li class="legajo-summary__item">
+          <span class="legajo-summary__label">DDJJ de salud</span>
+          <span id="legajo-ddjj" class="legajo-summary__value">Sin confirmar</span>
         </li>
       </ul>
     </aside>

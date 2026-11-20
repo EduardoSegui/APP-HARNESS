@@ -53,6 +53,11 @@ def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
     assert 'id="tarjeta-cvv"' in html
     assert 'id="cbu-numero"' in html
     assert 'id="cbu-cuil"' in html
+    assert 'id="ddjj-preexistencias"' in html
+    assert 'id="ddjj-detalle"' in html
+    assert 'id="ddjj-confirmada"' in html
+    assert 'id="legajo-ddjj"' in html
+    assert 'id="comprobante-ddjj"' in html
 
     for campo in (
         "titular.nombre",
@@ -162,6 +167,11 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
         "modoEdicion",
         "api/ventas/${edicion.id}",
         "PUT",
+        "inicializarDDJJ",
+        "ddjjConIndicadores",
+        "declaracion_confirmada",
+        "comprobante-ddjj",
+        "legajo-ddjj",
     ):
         assert fragmento in js
 
