@@ -37,6 +37,7 @@
   const legajoTitular = document.querySelector("#legajo-titular");
   const legajoIntegrantes = document.querySelector("#legajo-integrantes");
   const legajoPlan = document.querySelector("#legajo-plan");
+  const legajoMedioPago = document.querySelector("#legajo-medio-pago");
   const comprobanteEstado = document.querySelector("#comprobante-estado");
 
   const estadoInicial = {
@@ -59,6 +60,7 @@
       codigo_postal: "",
     },
     plan_id: null,
+    medio_pago: null,
   };
 
   const clonar = (valor) => JSON.parse(JSON.stringify(valor));
@@ -111,6 +113,7 @@
           ? datos.integrantes.map(normalizarIntegrante)
           : [],
         plan_id: Number.isInteger(planId) && planId > 0 ? planId : null,
+        medio_pago: typeof datos?.medio_pago === "string" ? datos.medio_pago : null,
       };
     } catch (_error) {
       return base;
@@ -237,6 +240,41 @@
     }
   }
 
+  function inicializarMediosPago() {
+    const radios = Array.from(document.querySelectorAll('input[name="medio_pago"]'));
+
+    radios.forEach((radio) => {
+      if (estado.medio_pago !== null && String(estado.medio_pago) === radio.value) {
+        radio.checked = true;
+      }
+
+      const fila = radio.closest(".plan-row");
+      if (fila) {
+        fila.classList.toggle("is-selected", radio.checked);
+      }
+
+      radio.addEventListener("change", () => {
+        if (!radio.checked) {
+          return;
+        }
+        estado.medio_pago = radio.value;
+        radios.forEach((otro) => {
+          otro.closest(".plan-row")?.classList.toggle(
+            "is-selected",
+            otro === radio,
+          );
+        });
+        guardarEstado();
+        actualizarCotizacion();
+      });
+    });
+
+    if (!radios.some((radio) => radio.checked)) {
+      estado.medio_pago = null;
+      guardarEstado();
+    }
+  }
+
   function actualizarResumen() {
     const nombre = [
       texto(estado.titular.nombre).trim(),
@@ -245,7 +283,8 @@
       .filter(Boolean)
       .join(" ");
     const cantidad = estado.integrantes.length;
-    const seleccionado = document.querySelector('input[name="plan_id"]:checked');
+    const planSeleccionado = document.querySelector('input[name="plan_id"]:checked');
+    const medioSeleccionado = document.querySelector('input[name="medio_pago"]:checked');
 
     if (legajoTitular) {
       legajoTitular.textContent = nombre || "Titular sin cargar";
@@ -257,11 +296,19 @@
     }
 
     if (legajoPlan) {
-      const nombrePlan = seleccionado
+      const nombrePlan = planSeleccionado
         ?.closest(".plan-row")
         ?.querySelector(".plan-row__name")
         ?.textContent?.trim();
       legajoPlan.textContent = nombrePlan || "Plan sin elegir";
+    }
+
+    if (legajoMedioPago) {
+      const nombreMedio = medioSeleccionado
+        ?.closest(".plan-row")
+        ?.querySelector(".plan-row__name")
+        ?.textContent?.trim();
+      legajoMedioPago.textContent = nombreMedio || "Sin seleccionar";
     }
   }
 
@@ -270,8 +317,13 @@
     const cantidadEl = document.querySelector("#cotizacion-cantidad");
     const titularEl = document.querySelector("#cotizacion-titular");
     const subtotalEl = document.querySelector("#cotizacion-subtotal");
+    const baseEl = document.querySelector("#cotizacion-base");
+    const filaDescuentoEl = document.querySelector("#fila-descuento");
+    const descuentoPctEl = document.querySelector("#cotizacion-descuento-pct");
+    const descuentoEl = document.querySelector("#cotizacion-descuento");
     const totalEl = document.querySelector("#cotizacion-total");
-    const seleccionado = document.querySelector('input[name="plan_id"]:checked');
+    const planSeleccionado = document.querySelector('input[name="plan_id"]:checked');
+    const medioSeleccionado = document.querySelector('input[name="medio_pago"]:checked');
 
     actualizarContador();
     actualizarResumen();
@@ -280,22 +332,42 @@
       cantidadEl.textContent = String(cantidad);
     }
 
-    if (!seleccionado) {
+    if (!planSeleccionado) {
       if (titularEl) titularEl.textContent = "—";
       if (subtotalEl) subtotalEl.textContent = "—";
+      if (baseEl) baseEl.textContent = "—";
+      if (filaDescuentoEl) filaDescuentoEl.classList.add("hidden");
       if (totalEl) totalEl.textContent = "—";
       btnConfirmar.disabled = true;
       return;
     }
 
-    const precioTitular = Number(seleccionado.dataset.precioTitular);
-    const precioAdherente = Number(seleccionado.dataset.precioAdherente);
-    const subtotal = cantidad * precioAdherente;
+    const precioTitular = Number(planSeleccionado.dataset.precioTitular);
+    const precioAdherente = Number(planSeleccionado.dataset.precioAdherente);
+    const subtotalAdherentes = cantidad * precioAdherente;
+    const subtotalBase = precioTitular + subtotalAdherentes;
 
-    titularEl.textContent = formatoMoneda.format(precioTitular);
-    subtotalEl.textContent = `${formatoMoneda.format(subtotal)} (${cantidad} × ${formatoMoneda.format(precioAdherente)})`;
-    totalEl.textContent = formatoMoneda.format(precioTitular + subtotal);
-    btnConfirmar.disabled = false;
+    if (titularEl) titularEl.textContent = formatoMoneda.format(precioTitular);
+    if (subtotalEl) subtotalEl.textContent = `${formatoMoneda.format(subtotalAdherentes)} (${cantidad} × ${formatoMoneda.format(precioAdherente)})`;
+    if (baseEl) baseEl.textContent = formatoMoneda.format(subtotalBase);
+
+    const descuentoPct = medioSeleccionado ? Number(medioSeleccionado.dataset.descuento || 0) : 0;
+    const descuentoMonto = Math.round(subtotalBase * (descuentoPct / 100));
+    const total = subtotalBase - descuentoMonto;
+
+    if (descuentoPct > 0 && filaDescuentoEl) {
+      filaDescuentoEl.classList.remove("hidden");
+      if (descuentoPctEl) descuentoPctEl.textContent = `${descuentoPct}% OFF`;
+      if (descuentoEl) descuentoEl.textContent = `- ${formatoMoneda.format(descuentoMonto)}`;
+    } else if (filaDescuentoEl) {
+      filaDescuentoEl.classList.add("hidden");
+    }
+
+    if (totalEl) {
+      totalEl.textContent = formatoMoneda.format(total);
+    }
+
+    btnConfirmar.disabled = !planSeleccionado || !medioSeleccionado;
   }
 
   function mostrarErrorGeneral(mensaje) {
@@ -445,8 +517,13 @@
       }
     }
 
-    if (paso === 3 && !document.querySelector('input[name="plan_id"]:checked')) {
-      registrarError(null, "Seleccioná un plan para confirmar la venta.", errores);
+    if (paso === 3) {
+      if (!document.querySelector('input[name="plan_id"]:checked')) {
+        registrarError(null, "Seleccioná un plan para confirmar la venta.", errores);
+      }
+      if (!document.querySelector('input[name="medio_pago"]:checked')) {
+        registrarError(null, "Seleccioná un medio de pago para confirmar la venta.", errores);
+      }
     }
 
     if (errores.length > 0) {
@@ -520,6 +597,7 @@
       provincia: texto(domicilio.provincia).trim(),
       codigo_postal: texto(domicilio.codigo_postal).trim(),
       plan_id: Number(estado.plan_id),
+      medio_pago: estado.medio_pago,
       integrantes: estado.integrantes.map((integrante) => ({
         nombre: texto(integrante.nombre).trim(),
         apellido: texto(integrante.apellido).trim(),
@@ -571,6 +649,32 @@
   function mostrarComprobante(venta) {
     const plan = venta.plan ?? {};
     const cantidadAdherentes = Array.isArray(venta.integrantes) ? venta.integrantes.length : 0;
+
+    const etiquetasMedio = {
+      TARJETA_CREDITO: "Tarjeta de crédito (30% de descuento)",
+      CBU: "CBU / Débito automático (20% de descuento)",
+      PAGO_FACIL: "Pago Fácil / Rapipago / Oficinas",
+      COBRADOR_DOMICILIO: "Cobrador a domicilio",
+    };
+    const medioPagoEl = document.querySelector("#comprobante-medio-pago");
+    if (medioPagoEl) {
+      medioPagoEl.textContent = etiquetasMedio[venta.medio_pago] || venta.medio_pago || "—";
+    }
+
+    const subtotalBaseEl = document.querySelector("#comprobante-subtotal-base");
+    if (subtotalBaseEl) {
+      subtotalBaseEl.textContent = formatoMoneda.format(venta.subtotal_base || venta.precio_total);
+    }
+
+    const filaDescuentoEl = document.querySelector("#comprobante-fila-descuento");
+    const descuentoEl = document.querySelector("#comprobante-descuento");
+    if (venta.descuento_porcentaje > 0 && filaDescuentoEl && descuentoEl) {
+      const montoDescuento = (venta.subtotal_base || venta.precio_total) - venta.precio_total;
+      descuentoEl.textContent = `- ${formatoMoneda.format(montoDescuento)} (${venta.descuento_porcentaje}% OFF)`;
+      filaDescuentoEl.classList.remove("hidden");
+    } else if (filaDescuentoEl) {
+      filaDescuentoEl.classList.add("hidden");
+    }
 
     document.querySelector("#comprobante-id").textContent = `#${venta.id}`;
     if (comprobanteEstado) {
@@ -667,5 +771,6 @@
   inicializarCampos();
   renderizarIntegrantes();
   inicializarPlanes();
+  inicializarMediosPago();
   mostrarPaso();
 })();

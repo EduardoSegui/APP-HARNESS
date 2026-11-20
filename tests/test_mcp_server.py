@@ -16,6 +16,7 @@ from ventas_app.database import SessionLocal
 from ventas_app.mcp_server import (
     actualizar_estado_venta,
     listar_ventas_pendientes,
+    main as main_mcp,
     obtener_detalle_venta,
     servidor_mcp,
 )
@@ -35,6 +36,7 @@ def _crear_venta(
     *,
     plan: str = "Plan Integral",
     cantidad_adherentes: int = 0,
+    medio_pago: str = "PAGO_FACIL",
 ) -> dict[str, Any]:
     integrantes = [
         {
@@ -62,6 +64,7 @@ def _crear_venta(
             "provincia": "Ciudad Autónoma de Buenos Aires",
             "codigo_postal": "1043",
             "plan_id": _obtener_plan_id(plan),
+            "medio_pago": medio_pago,
             "integrantes": integrantes,
         },
     )
@@ -91,6 +94,29 @@ def test_servidor_expone_las_tres_herramientas() -> None:
         actualizar.input_schema["properties"]["observaciones"]["default"] is None
     )
     assert all(herramienta.description for herramienta in herramientas)
+
+
+def test_main_migra_la_base_antes_de_arrancar_el_servidor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    llamadas: list[object] = []
+
+    monkeypatch.setattr(
+        "ventas_app.mcp_server.init_db",
+        lambda: llamadas.append("init_db"),
+    )
+    monkeypatch.setattr(
+        servidor_mcp,
+        "run",
+        lambda **kwargs: llamadas.append(("run", kwargs)),
+    )
+
+    main_mcp()
+
+    assert llamadas == [
+        "init_db",
+        ("run", {"transport": "stdio"}),
+    ]
 
 
 def test_listar_ventas_pendientes_sin_ventas(client: TestClient) -> None:
@@ -158,6 +184,9 @@ def test_obtener_detalle_venta_devuelve_todos_los_datos(
     assert detalle["provincia"] == "Ciudad Autónoma de Buenos Aires"
     assert detalle["codigo_postal"] == "1043"
     assert detalle["plan"]["nombre"] == "Plan Integral"
+    assert detalle["medio_pago"] == "PAGO_FACIL"
+    assert detalle["subtotal_base"] == 182_000
+    assert detalle["descuento_porcentaje"] == 0
     assert detalle["precio_total"] == 182_000
     assert detalle["estado"] == "PENDIENTE_VERIFICACION"
     assert detalle["observaciones"] is None
@@ -167,6 +196,24 @@ def test_obtener_detalle_venta_devuelve_todos_los_datos(
     assert datetime.fromisoformat(detalle["creado_en"])
     assert datetime.fromisoformat(detalle["actualizado_en"])
     json.dumps(detalle)
+
+
+def test_obtener_detalle_venta_incluye_desglose_de_descuento(
+    client: TestClient,
+) -> None:
+    creada = _crear_venta(
+        client,
+        plan="Plan Integral",
+        cantidad_adherentes=1,
+        medio_pago="TARJETA_CREDITO",
+    )
+
+    detalle = obtener_detalle_venta(creada["id"])
+
+    assert detalle["medio_pago"] == "TARJETA_CREDITO"
+    assert detalle["subtotal_base"] == 130_000
+    assert detalle["descuento_porcentaje"] == 30
+    assert detalle["precio_total"] == 91_000
 
 
 def test_obtener_detalle_venta_inexistente_es_error() -> None:

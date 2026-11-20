@@ -7,7 +7,7 @@ from typing import Any, Literal
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from ventas_app.database import SessionLocal
+from ventas_app.database import SessionLocal, init_db
 from ventas_app.models import EstadoVenta, Venta
 from ventas_app.schemas import VentaOut
 from ventas_app.services.estados import (
@@ -116,6 +116,7 @@ def actualizar_estado_venta(
 
 def main() -> None:
     """Ejecuta el servidor MCP por stdio."""
+    init_db()
     servidor_mcp.run(transport="stdio")
 
 

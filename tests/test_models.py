@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ventas_app.database import engine, init_db
+from ventas_app.database import _migrar_ventas_sqlite, engine, init_db
 from ventas_app.models import EstadoVenta, Integrante, Parentesco, Plan, Venta
 
 
@@ -179,3 +179,36 @@ def test_parentesco_invalido_es_rechazado_por_la_base(db: Session) -> None:
         db.commit()
 
     db.rollback()
+
+
+def test_migracion_f13_agrega_columnas_y_conserva_ventas(tmp_path) -> None:
+    engine_viejo = create_engine(f"sqlite:///{tmp_path / 'ventas-viejas.db'}")
+    with engine_viejo.begin() as conexion:
+        conexion.exec_driver_sql(
+            "CREATE TABLE ventas ("
+            "id INTEGER PRIMARY KEY, "
+            "precio_total INTEGER NOT NULL"
+            ")"
+        )
+        conexion.exec_driver_sql(
+            "INSERT INTO ventas (id, precio_total) VALUES (7, 45000)"
+        )
+
+    _migrar_ventas_sqlite(engine_viejo)
+    _migrar_ventas_sqlite(engine_viejo)
+
+    with engine_viejo.connect() as conexion:
+        columnas = {
+            fila[1]
+            for fila in conexion.exec_driver_sql("PRAGMA table_info(ventas)")
+        }
+        fila = conexion.exec_driver_sql(
+            "SELECT medio_pago, subtotal_base, descuento_porcentaje "
+            "FROM ventas WHERE id = 7"
+        ).one()
+
+    assert {"medio_pago", "subtotal_base", "descuento_porcentaje"}.issubset(
+        columnas
+    )
+    assert fila == ("PAGO_FACIL", 45_000, 0)
+    engine_viejo.dispose()

@@ -46,6 +46,10 @@ from ventas_app.schemas import (
     Provincia,
     Telefono,
 )
+from ventas_app.services.pricing import (
+    calcular_descuento_monto,
+    obtener_descuento_porcentaje,
+)
 
 ESTADO_APROBADA = "APROBADA"
 ESTADO_OBSERVADA = "OBSERVADA"
@@ -540,7 +544,52 @@ def validar_r5_plan_y_precio(detalle: Mapping[str, Any]) -> list[str]:
         errores.append("R5: El precio total persistido no es válido.")
         return errores
 
-    esperado = precio_titular + len(integrantes) * precio_adherente
+    subtotal_esperado = precio_titular + len(integrantes) * precio_adherente
+    medio_pago = detalle.get("medio_pago")
+    if not isinstance(medio_pago, str) or not medio_pago.strip():
+        errores.append("R5: Falta el medio de pago.")
+        return errores
+
+    try:
+        descuento_pct = obtener_descuento_porcentaje(medio_pago)
+    except ValueError:
+        errores.append(f"R5: El medio de pago '{medio_pago}' no es válido.")
+        return errores
+
+    subtotal_persistido = detalle.get("subtotal_base")
+    if not isinstance(subtotal_persistido, int) or isinstance(
+        subtotal_persistido, bool
+    ):
+        errores.append("R5: El subtotal base persistido no es válido.")
+        return errores
+
+    if subtotal_persistido != subtotal_esperado:
+        errores.append(
+            "R5: El subtotal base persistido "
+            f"({subtotal_persistido}) no coincide con el cálculo vigente "
+            f"({subtotal_esperado})."
+        )
+
+    descuento_persistido = detalle.get("descuento_porcentaje")
+    if not isinstance(descuento_persistido, int) or isinstance(
+        descuento_persistido, bool
+    ):
+        errores.append("R5: El descuento persistido no es válido.")
+        return errores
+
+    if descuento_persistido != descuento_pct:
+        errores.append(
+            "R5: El descuento persistido "
+            f"({descuento_persistido}%) no coincide con el medio de pago "
+            f"'{medio_pago}' ({descuento_pct}%)."
+        )
+
+    descuento_monto = calcular_descuento_monto(
+        subtotal_esperado,
+        descuento_pct,
+    )
+    esperado = subtotal_esperado - descuento_monto
+
     if precio_total != esperado:
         errores.append(
             "R5: El precio total persistido "

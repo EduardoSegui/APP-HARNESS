@@ -49,6 +49,7 @@ def payload_venta(
         "provincia": "Ciudad Autónoma de Buenos Aires",
         "codigo_postal": "1043",
         "plan_id": plan_id,
+        "medio_pago": "PAGO_FACIL",
         "integrantes": integrantes,
     }
     datos.update(overrides)
@@ -82,6 +83,9 @@ def test_crear_venta_calcula_el_total_en_el_servidor(
     datos = respuesta.json()
     assert datos["id"] > 0
     assert datos["precio_total"] == total_esperado
+    assert datos["subtotal_base"] == total_esperado
+    assert datos["descuento_porcentaje"] == 0
+    assert datos["medio_pago"] == "PAGO_FACIL"
     assert datos["plan"]["nombre"] == nombre_plan
     assert datos["estado"] == "PENDIENTE_VERIFICACION"
     assert datos["observaciones"] is None
@@ -259,6 +263,59 @@ def test_error_de_commit_no_deja_registros_parciales(
         client.post("/api/ventas", json=payload)
 
     monkeypatch.undo()
+
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(Venta)) == 0
+        assert db.scalar(select(func.count()).select_from(Integrante)) == 0
+
+
+def test_crear_venta_con_descuento_tarjeta_credito(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    # Plan Esencial: 45_000 -> 30% desc = 13_500 -> total = 31_500
+    payload = payload_venta(plan_id, 0, medio_pago="TARJETA_CREDITO")
+
+    respuesta = client.post("/api/ventas", json=payload)
+    assert respuesta.status_code == 201
+    datos = respuesta.json()
+    assert datos["medio_pago"] == "TARJETA_CREDITO"
+    assert datos["subtotal_base"] == 45_000
+    assert datos["descuento_porcentaje"] == 30
+    assert datos["precio_total"] == 31_500
+
+
+def test_crear_venta_con_descuento_cbu(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Integral")
+    # Plan Integral con 1 adherente: 78_000 + 52_000 = 130_000 -> 20% desc = 26_000 -> total = 104_000
+    payload = payload_venta(plan_id, 1, medio_pago="CBU")
+
+    respuesta = client.post("/api/ventas", json=payload)
+    assert respuesta.status_code == 201
+    datos = respuesta.json()
+    assert datos["medio_pago"] == "CBU"
+    assert datos["subtotal_base"] == 130_000
+    assert datos["descuento_porcentaje"] == 20
+    assert datos["precio_total"] == 104_000
+
+
+def test_crear_venta_con_medio_pago_invalido_devuelve_422(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0, medio_pago="METODO_INEXISTENTE")
+
+    respuesta = client.post("/api/ventas", json=payload)
+    assert respuesta.status_code == 422
+
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(Venta)) == 0
+        assert db.scalar(select(func.count()).select_from(Integrante)) == 0
+
+
+def test_crear_venta_sin_medio_pago_devuelve_422(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    payload = payload_venta(plan_id, 0)
+    payload.pop("medio_pago")
+
+    respuesta = client.post("/api/ventas", json=payload)
+    assert respuesta.status_code == 422
 
     with SessionLocal() as db:
         assert db.scalar(select(func.count()).select_from(Venta)) == 0

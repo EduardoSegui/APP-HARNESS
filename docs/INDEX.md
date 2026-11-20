@@ -11,7 +11,7 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Etapa 1: titular y grupo familiar | `docs/PRD.md` §5 |
 | Etapa 2: domicilio | `docs/PRD.md` §6 |
 | Etapa 3: plan, cotización y confirmación | `docs/PRD.md` §7 |
-| Planes y fórmula de precio | `docs/PRD.md` §7.1–7.2 |
+| Planes, fórmula de precio y descuentos | `docs/PRD.md` §7.1–7.2 |
 | Estados y transiciones | `docs/PRD.md` §8 |
 | Reglas de auditoría R1–R6 | `docs/PRD.md` §9 |
 | Interfaz web (wizard y panel) | `docs/PRD.md` §10 |

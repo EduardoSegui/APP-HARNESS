@@ -21,6 +21,10 @@
           <dd id="comprobante-plan"></dd>
         </div>
         <div>
+          <dt>Medio de pago</dt>
+          <dd id="comprobante-medio-pago"></dd>
+        </div>
+        <div>
           <dt>Fecha</dt>
           <dd id="comprobante-fecha"></dd>
         </div>
@@ -33,12 +37,20 @@
       <div class="credential">
         <div class="credential__rows">
           <div class="credential__row">
-            <span class="credential__label">Desglose</span>
+            <span class="credential__label">Desglose de plan</span>
             <span id="comprobante-desglose" class="credential__value"></span>
+          </div>
+          <div class="credential__row">
+            <span class="credential__label">Subtotal de lista</span>
+            <span id="comprobante-subtotal-base" class="credential__value"></span>
+          </div>
+          <div id="comprobante-fila-descuento" class="credential__row hidden">
+            <span class="credential__label">Descuento aplicado</span>
+            <span id="comprobante-descuento" class="credential__value" style="color: var(--color-success, #2e7d32); font-weight: 600;"></span>
           </div>
         </div>
         <div class="credential__total">
-          <span class="credential__total-label">Total</span>
+          <span class="credential__total-label">Total a pagar</span>
           <span id="comprobante-total" class="credential__total-value"></span>
         </div>
       </div>

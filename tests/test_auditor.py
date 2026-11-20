@@ -70,6 +70,9 @@ def _detalle_valido() -> dict[str, Any]:
             "precio_adherente": 52_000,
             "activo": True,
         },
+        "medio_pago": "PAGO_FACIL",
+        "subtotal_base": 130_000,
+        "descuento_porcentaje": 0,
         "precio_total": 130_000,
         "estado": "PENDIENTE_VERIFICACION",
         "observaciones": None,
@@ -102,6 +105,7 @@ def _crear_venta(
     plan: str = "Plan Integral",
     fecha_titular: str = "1990-05-20",
     cantidad_adherentes: int = 0,
+    medio_pago: str = "PAGO_FACIL",
 ) -> dict[str, Any]:
     integrantes = [
         {
@@ -129,6 +133,7 @@ def _crear_venta(
             "provincia": "Ciudad Autónoma de Buenos Aires",
             "codigo_postal": "1043",
             "plan_id": _obtener_plan_id(plan),
+            "medio_pago": medio_pago,
             "integrantes": integrantes,
         },
     )
@@ -200,6 +205,7 @@ def test_r2_detecta_dni_repetido_entre_integrantes() -> None:
     segundo["id"] = 11
     segundo["nombre"] = "María"
     detalle["integrantes"].append(segundo)
+    detalle["subtotal_base"] = 182_000
     detalle["precio_total"] = 182_000
 
     assert aplicar_reglas(detalle, HOY) == [
@@ -388,9 +394,88 @@ def test_r5_precios_del_plan_invalidos() -> None:
 def test_r5_sin_integrantes_usa_solo_el_precio_del_titular() -> None:
     detalle = _detalle_valido()
     detalle["integrantes"] = []
+    detalle["subtotal_base"] = 78_000
     detalle["precio_total"] = 78_000
 
     assert aplicar_reglas(detalle, HOY) == []
+
+
+def test_r5_con_descuento_tarjeta_credito_valido() -> None:
+    detalle = _detalle_valido()
+    # 78_000 + 52_000 = 130_000 -> 30% desc = 39_000 -> 91_000
+    detalle["medio_pago"] = "TARJETA_CREDITO"
+    detalle["descuento_porcentaje"] = 30
+    detalle["precio_total"] = 91_000
+
+    assert aplicar_reglas(detalle, HOY) == []
+
+
+def test_r5_con_descuento_tarjeta_credito_invalido() -> None:
+    detalle = _detalle_valido()
+    detalle["medio_pago"] = "TARJETA_CREDITO"
+    detalle["descuento_porcentaje"] = 30
+    detalle["precio_total"] = 130_000  # No aplicó el descuento
+
+    errores = aplicar_reglas(detalle, HOY)
+    assert any(
+        "R5: El precio total persistido (130000) no coincide con el "
+        "cálculo vigente (91000)" in e
+        for e in errores
+    )
+
+
+def test_r5_con_descuento_cbu_valido() -> None:
+    detalle = _detalle_valido()
+    # 78_000 + 52_000 = 130_000 -> 20% desc = 26_000 -> 104_000
+    detalle["medio_pago"] = "CBU"
+    detalle["descuento_porcentaje"] = 20
+    detalle["precio_total"] = 104_000
+
+    assert aplicar_reglas(detalle, HOY) == []
+
+
+def test_r5_medio_pago_no_reconocido() -> None:
+    detalle = _detalle_valido()
+    detalle["medio_pago"] = "CHEQUE"
+
+    assert aplicar_reglas(detalle, HOY) == [
+        "R5: El medio de pago 'CHEQUE' no es válido."
+    ]
+
+
+def test_r5_sin_medio_pago_es_observado() -> None:
+    detalle = _detalle_valido()
+    del detalle["medio_pago"]
+
+    assert aplicar_reglas(detalle, HOY) == ["R5: Falta el medio de pago."]
+
+
+def test_r5_subtotal_base_adulterado_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["subtotal_base"] = 100_000
+
+    errores = aplicar_reglas(detalle, HOY)
+
+    assert any(
+        "R5: El subtotal base persistido (100000) no coincide con el "
+        "cálculo vigente (130000)" in error
+        for error in errores
+    )
+
+
+def test_r5_descuento_persistido_adulterado_es_observado() -> None:
+    detalle = _detalle_valido()
+    detalle["medio_pago"] = "TARJETA_CREDITO"
+    detalle["descuento_porcentaje"] = 0
+    detalle["precio_total"] = 91_000
+
+    errores = aplicar_reglas(detalle, HOY)
+
+    assert any(
+        "R5: El descuento persistido (0%) no coincide con el medio de "
+        "pago 'TARJETA_CREDITO' (30%)" in error
+        for error in errores
+    )
 
 
 def test_r6_integrante_de_otra_venta() -> None:
@@ -706,10 +791,33 @@ def test_cliente_mcp_real_invoca_las_tres_herramientas(
     )
 
     assert [venta["id"] for venta in pendientes] == [creada["id"]]
+    assert detalle["medio_pago"] == "PAGO_FACIL"
+    assert detalle["subtotal_base"] == 78_000
+    assert detalle["descuento_porcentaje"] == 0
     assert detalle["estado"] == "PENDIENTE_VERIFICACION"
     assert actualizada["estado"] == "APROBADA"
     assert actualizada["observaciones"] is None
     assert pendientes_finales == []
+
+
+def test_cliente_mcp_real_audita_venta_con_descuento(
+    client: TestClient,
+) -> None:
+    creada = _crear_venta(
+        client,
+        plan="Plan Integral",
+        cantidad_adherentes=1,
+        medio_pago="TARJETA_CREDITO",
+    )
+
+    resultado = ejecutar_auditoria(hoy=HOY)
+
+    assert _conteos(resultado) == (1, 1, 0)
+    with SessionLocal() as db:
+        venta = db.get(Venta, creada["id"])
+        assert venta is not None
+        assert venta.estado == "APROBADA"
+        assert venta.observaciones is None
 
 
 def test_cliente_mcp_real_registra_traza_ordenada(

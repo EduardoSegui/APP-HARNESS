@@ -2,9 +2,9 @@
 
 > Generado por `uv run python scripts/contexto.py estado`. No editar a mano.
 
-- **Plan:** 12/13 features verificadas (`features.json`).
-- **Próximo paso:** F13 — Medios de pago y descuentos en cotización — packet: `features/F13.md`.
-- **Última sesión:** Sesión 11 — F12: rediseño visual del wizard y el panel (2026-11-19).
-- **Última entrada:** `CHECKPOINT.md#sesión-11`.
-- **Tests:** 206 passed.
+- **Plan:** 13/13 features verificadas (`features.json`).
+- **Próximo paso:** planificación (no hay features pendientes).
+- **Última sesión:** Sesión 12 — F13: medios de pago y descuentos en cotización (2026-11-20).
+- **Última entrada:** `CHECKPOINT.md#sesión-12`.
+- **Tests:** 252 passed.
 - **Harness:** OK.

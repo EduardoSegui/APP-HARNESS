@@ -3,58 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 10 — Feature packets e intake
-
----
-feature: F11
-fecha: 2026-11-18
-tests: 204 passed
-harness: OK
-commit: feat(F11): feature packets e intake
----
-
-**Fecha:** 2026-11-18
-
-**Rol ejercido:** Builder + Verifier (fases separadas)
-
-**Feature:** F11 — Feature packets e intake
-
-**Estado:** verificada y aprobada
-
-### Objetivo
-
-Agregar una ficha autocontenida por feature y el protocolo de planificación para abrir trabajo nuevo sin inferir alcance ni leer el PRD completo.
-
-### Entregables
-
-- `features/_TEMPLATE.md` con las secciones mínimas.
-- `features/F11.md` como primera ficha real.
-- `features.json` con el campo `packet` para F11.
-- `.agent/rules.md` con el protocolo de planificación y la regla “sin ficha no se construye”.
-- `AGENTS.md`, roles, `docs/INDEX.md`, `docs/ARQUITECTURA.md` y `README.md` actualizados.
-- `scripts/contexto.py --check` exige ficha en toda feature pendiente.
-- Tests de plantilla, ficha real, protocolo y cap de 8 KB.
-
-### Verificación ejecutada
-
-| Comprobación | Comando | Resultado |
-|---|---|---|
-| Harness completo | `./init.sh` | OK |
-| Suite de tests | `uv run pytest` | `204 passed` |
-| Presupuesto | `uv run python scripts/contexto.py --check` | OK |
-| Ficha F11 | `wc -c features/F11.md` | 2.7 KB < 8 KB |
-
-### Decisiones verificadas
-
-- La ficha es la orden de trabajo; `features.json` es solo el índice.
-- Toda feature pendiente debe declarar `packet`; el chequeo falla si falta.
-- Las fichas se validan por secciones y por cap de 8 KB.
-- No se reescribieron fichas de F01–F10.
-
-### Próximo paso
-
-No quedan features pendientes. Para abrir trabajo nuevo, usar la sesión de planificación: copiar `features/_TEMPLATE.md` a `features/F0X.md`, registrarla en `features.json` y recién después construir.
-
 ## Sesión 11 — F12: rediseño visual del wizard y el panel
 
 ---
@@ -78,5 +26,27 @@ Aplicar la identidad “legajo de alta / mesa de entradas” con `frontend-desig
 **Verificación:** `./init.sh` y `uv run pytest` → OK, 206 passed. 360/768/1280 sin desborde; wizard, comprobante, panel vacío, tabla, acta y traza revisados; formulario inválido con 6 errores y foco; auditoría en vivo actualiza sellos y observaciones.
 
 **Decisiones:** audacia en rail de solapas y sellos; sin card soup, eyebrows en mayúsculas ni gradientes. “Pendiente/Aprobada/Observada” visibles; `data-estado` conserva el enum. Bricolage Grotesque + Public Sans; tinta/papel/verde/vino/mostaza.
+
+**Próximo paso:** no quedan features pendientes; planificar con `features/_TEMPLATE.md` antes de construir.
+
+## Sesión 12 — F13: medios de pago y descuentos en cotización
+
+---
+feature: F13
+fecha: 2026-11-20
+tests: 252 passed
+harness: OK
+commit: feat(F13): medios de pago y descuentos en cotización
+---
+
+**Fecha:** 2026-11-20
+
+**Rol:** Verifier (Builder en sesión previa). **Feature:** F13 — Medios de pago y descuentos en cotización. **Estado:** verificada y aprobada.
+
+`MedioPago` con tarjeta 30%, CBU 20% y Pago Fácil/Cobrador 0%; `POST /api/ventas` exige `medio_pago` (422 si falta o es inválido) y persiste `subtotal_base`, `descuento_porcentaje` y `precio_total` con redondeo half-up compartido con el wizard. Comprobante y panel muestran el desglose; R5 valida plan, medio, subtotal, descuento y total. Migración SQLite idempotente para bases F12 en `init_db()` y al arrancar el MCP.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 252 passed. Prueba manual con TestClient sobre copia temporal de `ventas.db`: CBU 130.000 → 104.000, 422 sin medio e inválido, R5 detecta total adulterado, panel y wizard con desglose. `ventas.db` real sin modificar.
+
+**Decisión:** el redondeo se centraliza en `pricing.py` y replica `Math.round`; las filas históricas quedan en `PAGO_FACIL`, descuento 0 y `subtotal_base=precio_total`.
 
 **Próximo paso:** no quedan features pendientes; planificar con `features/_TEMPLATE.md` antes de construir.

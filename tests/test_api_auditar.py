@@ -46,6 +46,7 @@ def _crear_venta(
             "provincia": "Ciudad Autónoma de Buenos Aires",
             "codigo_postal": "1043",
             "plan_id": _obtener_plan_id(),
+            "medio_pago": "PAGO_FACIL",
             "integrantes": [],
         },
     )

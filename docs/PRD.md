@@ -167,17 +167,31 @@ Un adherente es cada integrante cargado en la Etapa 1. El titular no se cuenta c
 ### 7.2 Fórmula de cotización
 
 ```text
-precio_total = precio_titular(plan) + cantidad_adherentes × precio_adherente(plan)
+subtotal_base = precio_titular(plan) + cantidad_adherentes × precio_adherente(plan)
+descuento_porcentaje = según medio de pago
+descuento_monto = round_half_up(subtotal_base × descuento_porcentaje / 100)
+precio_total = subtotal_base - descuento_monto
 ```
+
+Medios de pago y descuentos:
+
+| Medio de pago | Descuento |
+|---|---:|
+| Tarjeta de crédito | 30% |
+| CBU / Débito automático | 20% |
+| Pago Fácil / Rapipago / Oficinas | 0% |
+| Cobrador a domicilio | 0% |
 
 Reglas:
 
 - El cálculo se ejecuta **en el servidor** al crear la venta, usando los precios vigentes en la base de datos. Nunca se confía en un total enviado por el cliente.
-- El total se persiste en `ventas.precio_total` como una foto del precio al momento de la venta.
-- No se aplican descuentos, impuestos ni recargos en v1.
-- La interfaz muestra el desglose: precio del titular, cantidad de adherentes, subtotal de adherentes y total.
+- `medio_pago` es obligatorio en la Etapa 3 y en `POST /api/ventas`.
+- Se persisten `subtotal_base`, `descuento_porcentaje` y `precio_total` como una foto de la cotización al momento de la venta.
+- El redondeo es half-up (0,5 hacia arriba) y se aplica con aritmética entera para que el backend y la vista previa del wizard coincidan.
+- No se aplican impuestos ni recargos en v1.
+- La interfaz muestra el desglose: precio del titular, cantidad de adherentes, subtotal base, descuento y total a pagar.
 
-**Ejemplo:** Plan Integral con 2 adherentes → `78.000 + 2 × 52.000 = 182.000 ARS`.
+**Ejemplo:** Plan Integral con 2 adherentes → `78.000 + 2 × 52.000 = 182.000 ARS`. Con tarjeta de crédito: `182.000 − 54.600 = 127.400 ARS`.
 
 ### 7.3 Confirmación y guardado atómico
 
@@ -185,7 +199,7 @@ Al presionar **Confirmar venta**:
 
 1. Se revalidan todos los datos de las tres etapas.
 2. Se verifica que el plan exista y esté activo.
-3. Se calcula el `precio_total` en el servidor.
+3. Se valida el medio de pago y se calculan `subtotal_base`, `descuento_porcentaje` y `precio_total` en el servidor.
 4. Se inserta la venta y todos sus integrantes en **una única transacción**.
 5. Si cualquier inserción falla, se hace rollback completo: no quedan ventas ni integrantes parciales.
 6. La venta se crea con estado `PENDIENTE_VERIFICACION`, `observaciones = null` y timestamps de creación/actualización.
@@ -226,7 +240,7 @@ El Agente Auditor evalúa las ventas en estado `PENDIENTE_VERIFICACION` y aplica
 | `R2` | Los DNIs del grupo familiar son **únicos** dentro de la venta: no se repite el DNI del titular ni el de ningún integrante. | `OBSERVADA` |
 | `R3` | Los **datos obligatorios** de titular, integrantes y domicilio están completos y cumplen formato (nombre, apellido, DNI de 7–8 dígitos, email, teléfono, fechas válidas, parentesco permitido, calle, altura, localidad, provincia). | `OBSERVADA` |
 | `R4` | El **código postal** tiene exactamente 4 dígitos. | `OBSERVADA` |
-| `R5` | El **plan** existe, está activo y el `precio_total` persistido coincide con el cálculo vigente. | `OBSERVADA` |
+| `R5` | El **plan** existe, está activo, el **medio de pago** es válido y el desglose persistido (`subtotal_base`, `descuento_porcentaje` y `precio_total`) coincide con el cálculo vigente con redondeo half-up. | `OBSERVADA` |
 | `R6` | La venta posee un titular y todos sus integrantes pertenecen a la misma venta (integridad referencial). | `OBSERVADA` |
 
 ### 9.1 Resultado de la auditoría
@@ -245,6 +259,8 @@ R2: El DNI 30111222 está repetido en el grupo familiar.
 R3: Falta el email del titular.
 R4: El código postal 'C1425' no tiene el formato de 4 dígitos.
 R5: El plan seleccionado no existe o está inactivo.
+R5: El subtotal base persistido (100000) no coincide con el cálculo vigente (130000).
+R5: El descuento persistido (0%) no coincide con el medio de pago 'TARJETA_CREDITO' (30%).
 ```
 
 ---
@@ -259,13 +275,14 @@ R5: El plan seleccionado no existe o está inactivo.
 - Persistencia del estado entre pasos en el navegador (objeto JavaScript en memoria y, si se recarga, recuperación desde `sessionStorage`).
 - Validación del lado del cliente para UX y validación definitiva del lado del servidor.
 - Diseño responsive: escritorio y móvil.
-- Al finalizar, pantalla de comprobante con los datos de la venta.
+- La Etapa 3 incluye la selección obligatoria de medio de pago, con badges de descuento y actualización en vivo del subtotal, descuento y total.
+- Al finalizar, pantalla de comprobante con los datos de la venta, medio de pago, subtotal, descuento y total a pagar.
 
 ### 10.2 Panel de ventas
 
 - Ruta: `GET /ventas`.
 - Lista las ventas de la más reciente a la más antigua.
-- Columnas mínimas: ID, titular, plan, cantidad de integrantes, total, estado y observaciones.
+- Columnas mínimas: ID, titular, plan, cantidad de integrantes, medio de pago, total bonificado, estado y observaciones.
 - La columna **Observaciones** muestra el motivo exacto de la auditoría:
   - `APROBADA`: “Sin observaciones”.
   - `OBSERVADA`: el texto persistido, una razón `R1`–`R6` por línea.
@@ -296,8 +313,9 @@ R5: El plan seleccionado no existe o está inactivo.
 
 ### 11.1 Reglas de la API
 
-- `POST /api/ventas` recibe titular, domicilio, `plan_id` y la lista de integrantes.
-- El cliente **no** envía `precio_total`, `estado` ni `observaciones`; el servidor los determina.
+- `POST /api/ventas` recibe titular, domicilio, `plan_id`, `medio_pago` y la lista de integrantes.
+- `medio_pago` es obligatorio y debe ser uno de `TARJETA_CREDITO`, `CBU`, `PAGO_FACIL` o `COBRADOR_DOMICILIO`.
+- El cliente **no** envía `subtotal_base`, `descuento_porcentaje`, `precio_total`, `estado` ni `observaciones`; el servidor los determina.
 - Error de validación: HTTP `422` con detalle por campo.
 - Plan inexistente/inactivo: HTTP `422` o `400` con mensaje claro.
 - Venta inexistente en `GET`: HTTP `404`.
@@ -395,15 +413,16 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 
 1. El wizard permite completar las 3 etapas y confirmar una venta.
 2. Los adherentes se agregan y eliminan dinámicamente.
-3. El total se calcula en el servidor con la tabla de precios y se persiste.
+3. El total se calcula en el servidor con la tabla de precios y el medio de pago, y se persiste con su desglose.
 4. La venta y sus integrantes se guardan en una sola transacción.
 5. Toda venta nueva queda en `PENDIENTE_VERIFICACION`.
 6. El panel lista las ventas con estado, titular, plan y total.
 7. El servidor MCP expone las tres herramientas y valida sus entradas.
 8. El auditor aplica las reglas y actualiza el estado con observaciones.
 9. El panel permite lanzar la auditoría, muestra el resumen del LLM y la traza MCP, y expone las observaciones exactas por venta.
-10. `./init.sh` y `uv run pytest` pasan antes de marcar cualquier feature como completada.
-11. Cada feature cerrada queda registrada en `CHECKPOINT.md` y en un commit de Git.
+10. El wizard, el comprobante y el panel muestran el medio de pago y el descuento aplicado.
+11. `./init.sh` y `uv run pytest` pasan antes de marcar cualquier feature como completada.
+12. Cada feature cerrada queda registrada en `CHECKPOINT.md` y en un commit de Git.
 
 ---
 
@@ -419,3 +438,8 @@ Las herramientas reutilizan la capa de servicios/ORM; no ejecutan SQL concatenad
 | F06 | Servidor MCP con las tres herramientas. |
 | F07 | Agente Auditor y reglas de negocio. |
 | F08 | UI de auditoría en vivo, endpoint `POST /api/auditar` y trazabilidad MCP. |
+| F09 | Contexto always-on, `STATE.md` y presupuesto de contexto. |
+| F10 | Bitácora rotativa y comando `/sesion`. |
+| F11 | Feature packets e intake SDD. |
+| F12 | Rediseño visual del wizard y el panel. |
+| F13 | Medios de pago y descuentos en la cotización. |

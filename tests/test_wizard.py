@@ -34,6 +34,18 @@ def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
     assert "Grupo familiar" in html
     assert "Domicilio" in html
     assert "Resumen de cotización" in html
+    assert "Elegí el medio de pago" in html
+    assert 'name="medio_pago"' in html
+    assert 'value="TARJETA_CREDITO"' in html
+    assert 'value="CBU"' in html
+    assert 'value="PAGO_FACIL"' in html
+    assert 'value="COBRADOR_DOMICILIO"' in html
+    assert "30% de descuento" in html
+    assert "20% de descuento" in html
+    assert 'id="comprobante-medio-pago"' in html
+    assert 'id="comprobante-subtotal-base"' in html
+    assert 'id="comprobante-fila-descuento"' in html
+    assert 'id="comprobante-descuento"' in html
 
     for campo in (
         "titular.nombre",
@@ -128,6 +140,11 @@ def test_assets_del_wizard_se_sirven(client: TestClient) -> None:
         "precioTitular",
         "precioAdherente",
         "codigo_postal",
+        "medio_pago",
+        "inicializarMediosPago",
+        "descuentoPct",
+        "comprobante-descuento",
+        "medio_pago: estado.medio_pago",
     ):
         assert fragmento in js
 

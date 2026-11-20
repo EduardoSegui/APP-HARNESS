@@ -121,6 +121,7 @@
             <th scope="col">Titular</th>
             <th scope="col">Plan</th>
             <th scope="col" class="ledger__th--center">Integrantes</th>
+            <th scope="col">Medio de pago</th>
             <th scope="col" class="ledger__th--right">Total</th>
             <th scope="col">Estado</th>
             <th scope="col">Observaciones</th>
@@ -137,6 +138,19 @@
             <td data-label="Plan">{{ venta.plan.nombre }}</td>
             <td data-label="Integrantes" data-cantidad-integrantes="{{ cantidad_integrantes }}" class="ledger__center">
               {{ cantidad_integrantes }}
+            </td>
+            <td data-label="Medio de pago">
+              {% if venta.medio_pago == "TARJETA_CREDITO" %}
+              <p class="ledger__name">Tarjeta de crédito</p>
+              <p class="ledger__meta" style="color: var(--color-success, #2e7d32);">30% desc.</p>
+              {% elif venta.medio_pago == "CBU" %}
+              <p class="ledger__name">CBU / Débito</p>
+              <p class="ledger__meta" style="color: var(--color-success, #2e7d32);">20% desc.</p>
+              {% elif venta.medio_pago == "COBRADOR_DOMICILIO" %}
+              <p class="ledger__name">Cobrador a dom.</p>
+              {% else %}
+              <p class="ledger__name">Pago Fácil / Oficinas</p>
+              {% endif %}
             </td>
             <td data-label="Total" class="ledger__amount">
               {{ venta.precio_total | pesos }}

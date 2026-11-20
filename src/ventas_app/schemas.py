@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from ventas_app.models import EstadoVenta, Parentesco
+from ventas_app.models import EstadoVenta, MedioPago, Parentesco
 
 _EMAIL_REGEX = (
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
@@ -127,6 +127,7 @@ class VentaIn(BaseModel):
     codigo_postal: CodigoPostal
 
     plan_id: int = Field(gt=0)
+    medio_pago: MedioPago
     integrantes: list[IntegranteIn] = Field(default_factory=list)
 
     @field_validator("fecha_nacimiento_titular")
@@ -224,6 +225,9 @@ class VentaOut(BaseModel):
     codigo_postal: str
     plan_id: int
     plan: PlanOut
+    medio_pago: MedioPago
+    subtotal_base: int
+    descuento_porcentaje: int
     precio_total: int
     estado: EstadoVenta
     observaciones: str | None

@@ -57,6 +57,7 @@ def _ventas_demo(db) -> list[VentaIn]:
             provincia="Ciudad Autónoma de Buenos Aires",
             codigo_postal="1425",
             plan_id=_plan_id(db, "Plan Integral"),
+            medio_pago="TARJETA_CREDITO",
             integrantes=[
                 {
                     "nombre": "Martín",
@@ -88,6 +89,7 @@ def _ventas_demo(db) -> list[VentaIn]:
             provincia="Córdoba",
             codigo_postal="5000",
             plan_id=_plan_id(db, "Plan Esencial"),
+            medio_pago="CBU",
             integrantes=[],
         ),
         VentaIn(
@@ -104,6 +106,7 @@ def _ventas_demo(db) -> list[VentaIn]:
             provincia="Buenos Aires",
             codigo_postal="1900",
             plan_id=_plan_id(db, "Plan Superior"),
+            medio_pago="PAGO_FACIL",
             integrantes=[],
         ),
         VentaIn(
@@ -120,6 +123,7 @@ def _ventas_demo(db) -> list[VentaIn]:
             provincia="Santa Fe",
             codigo_postal="2000",
             plan_id=_plan_id(db, "Plan Integral"),
+            medio_pago="COBRADOR_DOMICILIO",
             integrantes=[
                 {
                     "nombre": "Julián",

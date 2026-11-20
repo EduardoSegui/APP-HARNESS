@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from ventas_app.models import EstadoVenta, Integrante, Parentesco, Plan, Venta
+from ventas_app.models import EstadoVenta, Integrante, MedioPago, Parentesco, Plan, Venta
 from ventas_app.schemas import IntegranteIn, PlanOut, VentaIn, VentaOut
 
 
@@ -28,6 +28,7 @@ def payload_valido(**overrides: Any) -> dict[str, Any]:
         "provincia": "Ciudad Autónoma de Buenos Aires",
         "codigo_postal": "1043",
         "plan_id": 1,
+        "medio_pago": "PAGO_FACIL",
         "integrantes": [
             {
                 "nombre": "Luis",
@@ -230,9 +231,35 @@ def test_venta_out_desde_orm_con_plan_e_integrantes(db: Session) -> None:
     serializado = salida.model_dump(mode="json")
 
     assert salida.estado is EstadoVenta.PENDIENTE_VERIFICACION
+    assert salida.medio_pago is MedioPago.PAGO_FACIL
+    assert salida.subtotal_base == 0
+    assert salida.descuento_porcentaje == 0
     assert salida.plan.nombre == "Plan Superior Test"
     assert salida.integrantes[0].parentesco is Parentesco.HIJO_A
     assert salida.observaciones is None
     assert serializado["estado"] == "PENDIENTE_VERIFICACION"
+    assert serializado["medio_pago"] == "PAGO_FACIL"
     assert serializado["integrantes"][0]["parentesco"] == "Hijo/a"
     assert serializado["plan"]["precio_titular"] == 125_000
+
+
+def test_venta_in_medio_pago_valido_e_invalido() -> None:
+    for medio in ["TARJETA_CREDITO", "CBU", "PAGO_FACIL", "COBRADOR_DOMICILIO"]:
+        venta = VentaIn.model_validate(payload_valido(medio_pago=medio))
+        assert venta.medio_pago == MedioPago(medio)
+
+    with pytest.raises(ValidationError):
+        VentaIn.model_validate(payload_valido(medio_pago="CRIPTOMONEDA"))
+
+
+def test_venta_in_exige_medio_pago() -> None:
+    datos = payload_valido()
+    datos.pop("medio_pago")
+
+    with pytest.raises(ValidationError) as excinfo:
+        VentaIn.model_validate(datos)
+
+    assert any(
+        error["loc"] == ("medio_pago",) and error["type"] == "missing"
+        for error in excinfo.value.errors()
+    )

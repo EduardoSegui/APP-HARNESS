@@ -26,6 +26,7 @@ def _crear_venta(
     *,
     plan: str = "Plan Integral",
     cantidad_adherentes: int = 0,
+    medio_pago: str = "PAGO_FACIL",
 ) -> dict[str, Any]:
     integrantes = [
         {
@@ -53,6 +54,7 @@ def _crear_venta(
             "provincia": "Ciudad Autónoma de Buenos Aires",
             "codigo_postal": "1043",
             "plan_id": _obtener_plan_id(plan),
+            "medio_pago": medio_pago,
             "integrantes": integrantes,
         },
     )
@@ -89,6 +91,8 @@ def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
     assert "Plan Integral" in html
     assert 'data-cantidad-integrantes="2"' in html
     assert "$182.000" in html
+    assert "Medio de pago" in html
+    assert "Pago Fácil / Oficinas" in html
     assert 'data-estado="PENDIENTE_VERIFICACION"' in html
     assert 'class="stamp"' in html
     assert ">Pendiente<" in html
@@ -96,6 +100,24 @@ def test_panel_lista_venta_con_todos_los_datos(client: TestClient) -> None:
     assert "data-observaciones" in html
     assert "Pendiente de auditoría" in html
     assert "1 venta registrada" in html
+
+
+def test_panel_muestra_medio_de_pago_y_total_bonificado(
+    client: TestClient,
+) -> None:
+    _crear_venta(
+        client,
+        plan="Plan Integral",
+        cantidad_adherentes=1,
+        medio_pago="TARJETA_CREDITO",
+    )
+
+    html = client.get("/ventas").text
+
+    assert "Medio de pago" in html
+    assert "Tarjeta de crédito" in html
+    assert "30% desc." in html
+    assert "$91.000" in html
 
 
 def test_panel_ordena_ventas_de_mas_reciente_a_mas_antigua(client: TestClient) -> None:

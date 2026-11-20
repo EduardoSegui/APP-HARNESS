@@ -255,6 +255,96 @@
         <div class="sheet">
           <div class="sheet__head">
             <div>
+              <h2 class="sheet__title">Elegí el medio de pago</h2>
+              <p class="sheet__hint">Aprovechá hasta un 30% de descuento abonando con tarjeta de crédito o CBU.</p>
+            </div>
+          </div>
+
+          <div class="plan-table" role="radiogroup" aria-label="Medios de pago disponibles">
+            <div class="plan-table__head" aria-hidden="true">
+              <span>Medio de pago</span>
+              <span>Descuento</span>
+              <span>Modalidad</span>
+              <span></span>
+            </div>
+
+            <label class="plan-row">
+              <input
+                type="radio"
+                name="medio_pago"
+                value="TARJETA_CREDITO"
+                data-descuento="30"
+                class="sr-only plan-row__input"
+                aria-label="Tarjeta de crédito (30% de descuento)"
+              >
+              <span class="plan-row__name">Tarjeta de crédito</span>
+              <span class="plan-row__price plan-row__price--main" data-label="Beneficio">30% de descuento</span>
+              <span class="plan-row__price plan-row__price--sub" data-label="Modalidad">Débito mensual</span>
+              <span class="plan-row__choice-wrap">
+                <span class="plan-row__choice plan-row__choice--idle">Elegir</span>
+                <span class="plan-row__choice plan-row__choice--selected">Elegido</span>
+              </span>
+            </label>
+
+            <label class="plan-row">
+              <input
+                type="radio"
+                name="medio_pago"
+                value="CBU"
+                data-descuento="20"
+                class="sr-only plan-row__input"
+                aria-label="CBU / Débito en cuenta (20% de descuento)"
+              >
+              <span class="plan-row__name">CBU / Débito automático</span>
+              <span class="plan-row__price plan-row__price--main" data-label="Beneficio">20% de descuento</span>
+              <span class="plan-row__price plan-row__price--sub" data-label="Modalidad">CBU bancario</span>
+              <span class="plan-row__choice-wrap">
+                <span class="plan-row__choice plan-row__choice--idle">Elegir</span>
+                <span class="plan-row__choice plan-row__choice--selected">Elegido</span>
+              </span>
+            </label>
+
+            <label class="plan-row">
+              <input
+                type="radio"
+                name="medio_pago"
+                value="PAGO_FACIL"
+                data-descuento="0"
+                class="sr-only plan-row__input"
+                aria-label="Pago Fácil / Rapipago / Oficinas (Sin descuento)"
+              >
+              <span class="plan-row__name">Pago Fácil / Rapipago / Oficinas</span>
+              <span class="plan-row__price plan-row__price--main" data-label="Beneficio">Sin descuento</span>
+              <span class="plan-row__price plan-row__price--sub" data-label="Modalidad">Precio de lista</span>
+              <span class="plan-row__choice-wrap">
+                <span class="plan-row__choice plan-row__choice--idle">Elegir</span>
+                <span class="plan-row__choice plan-row__choice--selected">Elegido</span>
+              </span>
+            </label>
+
+            <label class="plan-row">
+              <input
+                type="radio"
+                name="medio_pago"
+                value="COBRADOR_DOMICILIO"
+                data-descuento="0"
+                class="sr-only plan-row__input"
+                aria-label="Cobrador a domicilio (Sin descuento)"
+              >
+              <span class="plan-row__name">Cobrador a domicilio</span>
+              <span class="plan-row__price plan-row__price--main" data-label="Beneficio">Sin descuento</span>
+              <span class="plan-row__price plan-row__price--sub" data-label="Modalidad">Visita mensual</span>
+              <span class="plan-row__choice-wrap">
+                <span class="plan-row__choice plan-row__choice--idle">Elegir</span>
+                <span class="plan-row__choice plan-row__choice--selected">Elegido</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="sheet">
+          <div class="sheet__head">
+            <div>
               <h2 class="sheet__title">Resumen de cotización</h2>
               <p class="sheet__hint">El total final lo confirma el servidor al guardar la venta.</p>
             </div>
@@ -270,9 +360,17 @@
                 <span class="credential__label">Adherentes (<span id="cotizacion-cantidad">0</span>)</span>
                 <span id="cotizacion-subtotal" class="credential__value">—</span>
               </div>
+              <div class="credential__row">
+                <span class="credential__label">Subtotal de lista</span>
+                <span id="cotizacion-base" class="credential__value">—</span>
+              </div>
+              <div id="fila-descuento" class="credential__row hidden">
+                <span class="credential__label">Descuento aplicado (<span id="cotizacion-descuento-pct">0%</span>)</span>
+                <span id="cotizacion-descuento" class="credential__value" style="color: var(--color-success, #2e7d32); font-weight: 600;">—</span>
+              </div>
             </div>
             <div class="credential__total">
-              <span class="credential__total-label">Total</span>
+              <span class="credential__total-label">Total a pagar</span>
               <span id="cotizacion-total" class="credential__total-value">—</span>
             </div>
           </div>
@@ -312,6 +410,10 @@
         <li class="legajo-summary__item">
           <span class="legajo-summary__label">Plan</span>
           <span id="legajo-plan" class="legajo-summary__value">Plan sin elegir</span>
+        </li>
+        <li class="legajo-summary__item">
+          <span class="legajo-summary__label">Medio de pago</span>
+          <span id="legajo-medio-pago" class="legajo-summary__value">Sin seleccionar</span>
         </li>
       </ul>
     </aside>

@@ -31,6 +31,15 @@ class EstadoVenta(str, Enum):
     OBSERVADA = "OBSERVADA"
 
 
+class MedioPago(str, Enum):
+    """Medios de pago admitidos para la contratación."""
+
+    TARJETA_CREDITO = "TARJETA_CREDITO"
+    CBU = "CBU"
+    PAGO_FACIL = "PAGO_FACIL"
+    COBRADOR_DOMICILIO = "COBRADOR_DOMICILIO"
+
+
 class Parentesco(str, Enum):
     """Parentescos admitidos para los integrantes del grupo familiar."""
 
@@ -43,6 +52,7 @@ class Parentesco(str, Enum):
 
 
 _ESTADOS_SQL = ", ".join(f"'{estado.value}'" for estado in EstadoVenta)
+_MEDIOS_PAGO_SQL = ", ".join(f"'{medio.value}'" for medio in MedioPago)
 _PARENTESCOS_SQL = ", ".join(f"'{parentesco.value}'" for parentesco in Parentesco)
 
 
@@ -90,6 +100,12 @@ class Venta(Base):
             f"estado IN ({_ESTADOS_SQL})",
             name="ck_ventas_estado_valido",
         ),
+        CheckConstraint(
+            f"medio_pago IN ({_MEDIOS_PAGO_SQL})",
+            name="ck_ventas_medio_pago_valido",
+        ),
+        CheckConstraint("subtotal_base >= 0", name="ck_ventas_subtotal_base_no_negativo"),
+        CheckConstraint("descuento_porcentaje >= 0", name="ck_ventas_descuento_no_negativo"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -112,6 +128,24 @@ class Venta(Base):
         ForeignKey("planes.id"),
         nullable=False,
         index=True,
+    )
+    medio_pago: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default=MedioPago.PAGO_FACIL.value,
+        server_default=text(f"'{MedioPago.PAGO_FACIL.value}'"),
+    )
+    subtotal_base: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    descuento_porcentaje: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
     )
     precio_total: Mapped[int] = mapped_column(Integer, nullable=False)
     estado: Mapped[str] = mapped_column(

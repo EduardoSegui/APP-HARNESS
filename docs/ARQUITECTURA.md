@@ -229,13 +229,18 @@ El seed inserta solo los planes faltantes (por `nombre`) y no pisa precios edita
 | `provincia` | String(80) | NOT NULL. |
 | `codigo_postal` | String(4) | NOT NULL. |
 | `plan_id` | Integer | FK `planes.id`, NOT NULL. |
-| `precio_total` | Integer | NOT NULL, > 0. |
+| `medio_pago` | String(30) | NOT NULL, default `PAGO_FACIL`, CHECK contra el catálogo. |
+| `subtotal_base` | Integer | NOT NULL, >= 0. Precio de lista antes del descuento. |
+| `descuento_porcentaje` | Integer | NOT NULL, >= 0. 30, 20 o 0 según el medio de pago. |
+| `precio_total` | Integer | NOT NULL, > 0. Total bonificado persistido. |
 | `estado` | String(30) | NOT NULL, default `PENDIENTE_VERIFICACION`, CHECK en los 3 estados. |
 | `observaciones` | Text | NULL. |
 | `creado_en` | DateTime | NOT NULL, default UTC now. |
 | `actualizado_en` | DateTime | NOT NULL, on update UTC now. |
 
 Índices: `ix_ventas_estado`, `ix_ventas_dni_titular`.
+
+Las bases creadas antes de F13 se actualizan al arrancar mediante una migración SQLite idempotente en `database.py`: agrega las tres columnas nuevas y completa las filas históricas con `medio_pago='PAGO_FACIL'`, `subtotal_base=precio_total` y `descuento_porcentaje=0`.
 
 No se impone unicidad global de DNI: la regla de negocio exige unicidad **dentro del grupo familiar de una venta**, no entre ventas distintas.
 
@@ -304,25 +309,26 @@ La validación de transiciones se centraliza en `services/estados.py` y se reuti
 `POST /api/ventas` ejecuta el siguiente algoritmo:
 
 ```text
-1. Validar payload con Pydantic (titular, domicilio, plan_id, integrantes).
+1. Validar payload con Pydantic (titular, domicilio, plan_id, medio_pago, integrantes).
 2. Abrir sesión SQLAlchemy.
 3. BEGIN implícito.
 4. Buscar plan por id y verificar activo=True.
 5. Normalizar datos (trim, DNI sin puntos).
 6. Validar que los DNIs del payload sean únicos (titular + integrantes).
-7. Calcular precio_total con precios leídos de la fila del plan.
-8. Crear Venta con estado=PENDIENTE_VERIFICACION y observaciones=null.
-9. flush() para obtener venta.id.
-10. Crear Integrante para cada adherente con venta_id.
-11. commit().
-12. Refrescar y devolver el comprobante (HTTP 201).
+7. Calcular subtotal_base con precios leídos de la fila del plan.
+8. Aplicar el descuento del medio_pago con redondeo half-up y calcular precio_total.
+9. Crear Venta con estado=PENDIENTE_VERIFICACION, desglose y observaciones=null.
+10. flush() para obtener venta.id.
+11. Crear Integrante para cada adherente con venta_id.
+12. commit().
+13. Refrescar y devolver el comprobante (HTTP 201).
 
 Si cualquier paso 4–11 falla:
     rollback()
     devolver error controlado (400/422/500), sin filas parciales.
 ```
 
-El payload del cliente no incluye `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se ignoran o se rechazan por configuración de Pydantic (`extra="forbid"`).
+El payload del cliente incluye `medio_pago` como dato obligatorio, pero no incluye `subtotal_base`, `descuento_porcentaje`, `precio_total`, `estado`, `observaciones`, `id` ni timestamps. Si los envía, se ignoran o se rechazan por configuración de Pydantic (`extra="forbid"`).
 
 ---
 
@@ -362,8 +368,8 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 ### 8.3 Schemas Pydantic v2
 
 - `IntegranteIn`: nombre, apellido, dni, fecha_nacimiento, parentesco.
-- `VentaIn`: datos del titular + domicilio + `plan_id` + `integrantes: list[IntegranteIn]`.
-- `VentaOut`: todos los datos persistidos + `plan` + `integrantes` + estado + observaciones + timestamps.
+- `VentaIn`: datos del titular + domicilio + `plan_id` + `medio_pago` obligatorio + `integrantes: list[IntegranteIn]`.
+- `VentaOut`: todos los datos persistidos + `plan` + `medio_pago` + `subtotal_base` + `descuento_porcentaje` + `precio_total` + `integrantes` + estado + observaciones + timestamps.
 - `PlanOut`: id, nombre, precios, activo.
 - Validadores reutilizables para DNI, teléfono, código postal y email.
 - `model_config = ConfigDict(extra="forbid", from_attributes=True)` en los schemas de entrada/salida correspondientes.
@@ -381,20 +387,21 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
     titular: {...},
     integrantes: [...],
     domicilio: {...},
-    plan_id: null
+    plan_id: null,
+    medio_pago: null
   }
   ```
 - Se sincroniza en `sessionStorage` para tolerar recargas accidentales.
 - Navegación: Paso 1 → Paso 2 → Paso 3 → Confirmación.
 - **Adherentes dinámicos:** agregar crea un objeto con ID temporal; eliminar lo quita del array y del DOM; el contador se actualiza.
-- La cotización del Paso 3 se calcula en el cliente solo como vista previa. Al confirmar, se envía el payload a `POST /api/ventas` y se usa el total devuelto por el servidor.
-- El comprobante final muestra ID, fecha, titular, plan, adherentes, desglose y estado inicial.
+- La Etapa 3 exige elegir un plan y un medio de pago. La cotización se calcula en el cliente solo como vista previa, con el mismo redondeo half-up del backend. Al confirmar, se envía el payload a `POST /api/ventas` y se usa el total devuelto por el servidor.
+- El comprobante final muestra ID, fecha, titular, plan, medio de pago, adherentes, subtotal, descuento, total y estado inicial.
 - Tailwind se carga por CDN; no hay build de frontend.
 
 ### 9.2 Panel
 
 - `GET /ventas` consulta las ventas con `joinedload` del plan y conteo de integrantes.
-- Tabla responsive con badges de estado y una columna de **Observaciones** que muestra el texto persistido o el estado de la auditoría.
+- Tabla responsive con columna de **Medio de pago**, total bonificado, badges de estado y una columna de **Observaciones** que muestra el texto persistido o el estado de la auditoría.
 - Botón **“Auditar Pendientes con IA”** en la cabecera:
   - Hace `POST /api/auditar` y bloquea el botón mientras corre.
   - Muestra un panel colapsable con `procesadas`/`aprobadas`/`observadas`, el resumen del LLM, su advertencia si corresponde y la tabla de `traza_mcp`.
@@ -446,6 +453,9 @@ La traza se produce en el cliente MCP real y no reemplaza las observaciones pers
 - Las reglas se implementan como funciones puras que reciben el detalle y
   devuelven una lista de strings. Esto facilita tests unitarios sin base de
   datos.
+- R5 valida que el plan esté activo, que el medio de pago sea válido y que
+  `subtotal_base`, `descuento_porcentaje` y `precio_total` coincidan con la
+  cotización vigente, usando el mismo redondeo half-up que el backend.
 - Fecha de referencia inyectable (`hoy: date | None`) para tests determinísticos
   de edad.
 - El auditor comparte la capa de servicios con el servidor MCP a través del
@@ -628,6 +638,8 @@ No se escribe código hasta que la ficha exista y esté commiteada. El Builder n
 | F09 | Contexto always-on y estado del harness. | `AGENTS.md`/reglas/roles livianos, `STATE.md` generado, checker de presupuestos. |
 | F10 | Bitácora rotativa, caps y comando `/sesion`. | Rotación de `CHECKPOINT.md`, journal, caps en `init.sh`, comando de OpenCode. |
 | F11 | Feature packets e intake. | Plantilla, packets autocontenidos y protocolo de planificación. |
+| F12 | Rediseño visual del wizard y el panel. | Render, estados y pruebas visuales existentes. |
+| F13 | Medios de pago y descuentos. | Cotización, desglose, API, wizard, panel, comprobante, migración y R5. |
 
 ---
 

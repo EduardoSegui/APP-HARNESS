@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ventas_app.models import EstadoVenta, Integrante, Plan, Venta
 from ventas_app.schemas import VentaIn
-from ventas_app.services.pricing import calcular_precio_total
+from ventas_app.services.pricing import calcular_cotizacion
 
 
 class PlanNoDisponibleError(ValueError):
@@ -49,6 +49,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
     if plan is None or not plan.activo:
         raise PlanNoDisponibleError(datos.plan_id)
 
+    cotizacion = calcular_cotizacion(plan, len(datos.integrantes), datos.medio_pago)
     venta = Venta(
         nombre_titular=datos.nombre_titular,
         apellido_titular=datos.apellido_titular,
@@ -63,7 +64,10 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
         provincia=datos.provincia,
         codigo_postal=datos.codigo_postal,
         plan=plan,
-        precio_total=calcular_precio_total(plan, len(datos.integrantes)),
+        medio_pago=cotizacion.medio_pago.value,
+        subtotal_base=cotizacion.subtotal_base,
+        descuento_porcentaje=cotizacion.descuento_porcentaje,
+        precio_total=cotizacion.precio_total,
         integrantes=_construir_integrantes(datos),
     )
 
