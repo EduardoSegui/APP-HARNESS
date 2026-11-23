@@ -3,26 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 20 — F21: wizard con sticky rail y navegación libre
-
----
-feature: F21
-fecha: 2026-11-20
-tests: 358 passed
-harness: OK
-commit: feat(F21): wizard con sticky rail y navegación libre
----
-
-**Fecha:** 2026-11-20
-
-**Rol:** Verifier. **Feature:** F21 — Wizard con sticky rail y navegación libre. **Estado:** verificada y aprobada.
-
-`#wizard-sidebar` unifica rail y resumen sticky en escritorio y se apila en móvil. Las tres solapas navegan libremente sin validar, conservan datos en DOM/estado y muestran activo/pendiente/completado con check verde. La confirmación valida 1–3 y redirige al primer paso inválido. Los indicadores se recalculan al cambiar DDJJ (radios, detalle y confirmación) y al editar cualquier campo de tarjeta/CBU; el checkbox DDJJ quedó inline 18×18.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 358 passed; `node --check` → OK. Chrome headless sobre base temporal: sticky top 20 al scrollear, static en 390px, gap rail/resumen 16px, checkbox 18×18 inline; navegación libre y conservación en alta y edición; check de paso 1 baja/sube al desmarcar/reconfirmar DDJJ y al escribir/borrar detalle; check de paso 3 cambia al completar/borrar tarjeta y CBU; confirmación con faltantes va a pasos 1 y 2; alta POST y edición PUT con comprobante. Endpoints `/health`, `/api/ventas`, detalle, `/ventas`, `/dashboard` y `/api/metricas` OK.
-
-**Próximo paso:** F22 — Tablero con KPIs, barras y filtros de exportación — packet: `features/F22.md`.
-
 ## Sesión 21 — F22: Tablero con KPIs, barras y filtros de exportación
 
 ---
@@ -42,3 +22,23 @@ KPIs separados en “Operación y padrón” (ventas, tasa de aprobación, cober
 **Verificación:** `./init.sh` → OK; `uv run pytest` → 359 passed. Smoke TestClient sobre base temporal: 2 aprobadas + 2 observadas + 1 pendiente, porcentajes 50/50, motivos 50/25/25, filtros por estado, export default/observada/pendiente, URLs y badge, vacíos, 400/422 y ausencia de PAN/CVV/CBU/CUIL completos. Chrome headless a 1280/900/390 px sin desbordes. `ventas.db` real intacta.
 
 **Próximo paso:** no quedan features pendientes; corresponde planificación (SDD pasos 1–5) antes de construir.
+
+## Sesión 22 — F23: autenticación local, MFA y RBAC
+
+---
+feature: F23
+fecha: 2026-11-23
+tests: 366 passed
+harness: OK
+commit: feat(F23): autenticación local, MFA y RBAC
+---
+
+**Fecha:** 2026-11-23
+
+**Rol:** Verifier. **Feature:** F23 — Autenticación local, MFA, sesiones y RBAC. **Estado:** verificada y aprobada.
+
+Usuarios locales con Argon2id, sesiones opacas (solo hash en DB), CSRF de pre-sesión y por sesión, expiración idle 30 min/absoluta 8 h, rotación y revocación, MFA TOTP obligatorio para ADMIN/AUDITOR con recovery codes de un solo uso, bootstrap y CLI de usuarios, y RBAC OPERADOR/AUDITOR/ADMIN en HTML y API.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 366 passed; `node --check` → OK; CLI `--help` y bootstrap único → OK. 111 verificaciones manuales con TestClient sobre base temporal: 303/401 sin sesión, login genérico, rate limit/lockout, cookie flags (HttpOnly/Secure/SameSite), CSRF faltante/ajeno, MFA setup/challenge/replay/recovery, matriz RBAC e IDOR, idle/absoluta/revocación, desactivación, flujos existentes y ausencia de secretos en logs/`security_events`. `ventas.db` y `.env` locales intactos (600). Checklist F23 completo; riesgos residuales medios de rate limit MFA y `sessionStorage` previo quedan en F24/F25.
+
+**Próximo paso:** F24 — Hardening HTTP, errores seguros y anti-abuso — packet: `features/F24.md`.

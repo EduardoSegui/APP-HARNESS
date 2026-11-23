@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Ingresar | Ventas Obra Social{% endblock %}
+
+{% block content %}
+<main class="app-main">
+  <div class="auth-layout">
+    <section class="auth-card">
+      <p class="page-context">Acceso interno</p>
+      <h1 class="page-title">Ingresar</h1>
+      <p class="page-sub">Usá tu cuenta individual. No compartas credenciales.</p>
+
+      {% if error %}
+      <p class="notice notice--warning" role="alert">{{ error }}</p>
+      {% endif %}
+
+      <form method="post" action="/login" class="auth-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="field">
+          <label for="login-username" class="field-label">Usuario</label>
+          <input id="login-username" name="username" type="text" autocomplete="username" maxlength="50" required class="field-input" autofocus>
+        </div>
+        <div class="field">
+          <label for="login-password" class="field-label">Contraseña</label>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" minlength="12" required class="field-input">
+        </div>
+        <button type="submit" class="btn btn--primary">Ingresar</button>
+      </form>
+
+      <p class="auth-hint">El acceso está restringido a la red interna y al personal autorizado.</p>
+    </section>
+  </div>
+</main>
+{% endblock %}

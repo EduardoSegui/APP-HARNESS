@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if request.state.usuario is defined and request.state.usuario %}
+  <meta name="csrf-token" content="{{ request.state.csrf_token|default('') }}">
+  {% endif %}
   <title>{% block title %}Ventas Obra Social{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,6 +28,7 @@
         </span>
       </a>
 
+      {% if request.state.usuario is defined and request.state.usuario %}
       <nav class="app-nav" aria-label="Navegación principal">
         <a
           href="/"
@@ -49,7 +53,16 @@
         </a>
       </nav>
 
-      <span class="app-header__note">Uso interno</span>
+      <div class="app-header__user">
+        <span class="app-header__note">{{ request.state.usuario.username }} · {{ request.state.usuario.rol }}</span>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}">
+          <button type="submit" class="btn btn--quiet btn--sm">Salir</button>
+        </form>
+      </div>
+      {% else %}
+      <span class="app-header__note">Acceso restringido</span>
+      {% endif %}
     </div>
   </header>
 

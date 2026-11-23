@@ -2,6 +2,8 @@
 
 (() => {
   const STORAGE_KEY = "ventas-obra-social.wizard.v1";
+  const CSRF_TOKEN =
+    document.querySelector('meta[name="csrf-token"]')?.content || "";
   const HOY_ISO = fechaLocalISO();
   const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)");
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1480,7 +1482,10 @@
       const method = modoEdicion ? "PUT" : "POST";
       const respuesta = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": CSRF_TOKEN,
+        },
         body: JSON.stringify(payload),
       });
       const datos = await respuesta.json().catch(() => ({}));

@@ -40,6 +40,14 @@ class TipoEventoVenta(str, Enum):
     AUDITADA_OBSERVADA = "AUDITADA_OBSERVADA"
 
 
+class RolUsuario(str, Enum):
+    """Roles de acceso a la aplicación."""
+
+    OPERADOR = "OPERADOR"
+    AUDITOR = "AUDITOR"
+    ADMIN = "ADMIN"
+
+
 class MedioPago(str, Enum):
     """Medios de pago admitidos para la contratación."""
 
@@ -78,6 +86,7 @@ class Parentesco(str, Enum):
 
 
 _ESTADOS_SQL = ", ".join(f"'{estado.value}'" for estado in EstadoVenta)
+_ROLES_SQL = ", ".join(f"'{rol.value}'" for rol in RolUsuario)
 _TIPOS_EVENTO_SQL = ", ".join(
     f"'{tipo.value}'" for tipo in TipoEventoVenta
 )
@@ -342,3 +351,180 @@ class VentaEvento(Base):
     )
 
     venta: Mapped[Venta] = relationship(back_populates="eventos")
+
+
+class Usuario(Base):
+    """Usuario local con rol, contraseña y MFA opcional."""
+
+    __tablename__ = "usuarios"
+    __table_args__ = (
+        CheckConstraint(f"rol IN ({_ROLES_SQL})", name="ck_usuarios_rol_valido"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    rol: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=RolUsuario.OPERADOR.value,
+        server_default=text(f"'{RolUsuario.OPERADOR.value}'"),
+    )
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("1"),
+    )
+    mfa_secret_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    mfa_last_counter: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    failed_attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_login: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+        onupdate=_utcnow,
+    )
+
+    sesiones: Mapped[list[Sesion]] = relationship(
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    codigos_recuperacion: Mapped[list[CodigoRecuperacion]] = relationship(
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class Sesion(Base):
+    """Sesión opaca; solo se guarda el hash del token."""
+
+    __tablename__ = "sesiones"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    token_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    csrf_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    autenticada: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("0"),
+    )
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )
+    ultimo_uso: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )
+    expira_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    revocada_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    usuario: Mapped[Usuario] = relationship(back_populates="sesiones")
+
+
+class CodigoRecuperacion(Base):
+    """Código de recuperación MFA de un solo uso."""
+
+    __tablename__ = "codigos_recuperacion"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    codigo_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    usado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )
+
+    usuario: Mapped[Usuario] = relationship(back_populates="codigos_recuperacion")
+
+
+class SecurityEvent(Base):
+    """Evento de seguridad sin PII."""
+
+    __tablename__ = "security_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    resultado: Mapped[str] = mapped_column(String(20), nullable=False)
+    usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+        index=True,
+    )

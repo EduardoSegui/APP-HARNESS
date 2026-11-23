@@ -149,7 +149,7 @@
       "titulo": "Autenticación local, MFA, sesiones y RBAC",
       "descripcion": "Usuarios locales, Argon2id, sesiones, CSRF, TOTP, bootstrap admin, CLI de usuarios y autorización por roles.",
       "packet": "features/F23.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F24",

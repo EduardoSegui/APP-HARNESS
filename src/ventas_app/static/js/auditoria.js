@@ -6,6 +6,9 @@
     return;
   }
 
+  const CSRF_TOKEN =
+    document.querySelector('meta[name="csrf-token"]')?.content || "";
+
   const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const textoBoton = document.querySelector("#btn-auditar-texto");
@@ -207,7 +210,10 @@
     try {
       const respuesta = await fetch("/api/auditar", {
         method: "POST",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "X-CSRF-Token": CSRF_TOKEN,
+        },
       });
       let datos = {};
       try {

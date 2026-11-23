@@ -14,12 +14,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ventas_app.database import get_db
+from ventas_app.dependencies import require_web_roles, require_web_user
 from ventas_app.models import (
     EstadoVenta,
     MedioPago,
     Parentesco,
     Plan,
     RegimenAfiliacion,
+    RolUsuario,
     Venta,
 )
 from ventas_app.schemas import VentaOut
@@ -73,10 +75,20 @@ def _formato_pesos(valor: int) -> str:
 
 templates.env.filters["pesos"] = _formato_pesos
 
-router = APIRouter(tags=["web"])
+router = APIRouter(
+    tags=["web"],
+    dependencies=[Depends(require_web_user)],
+)
 
 
-@router.get("/", response_class=HTMLResponse, name="wizard")
+@router.get(
+    "/",
+    response_class=HTMLResponse,
+    name="wizard",
+    dependencies=[
+        Depends(require_web_roles(RolUsuario.OPERADOR, RolUsuario.ADMIN))
+    ],
+)
 def mostrar_wizard(request: Request, db: SessionDep) -> HTMLResponse:
     """Renderiza el wizard de carga de ventas en tres etapas."""
     planes = list(
@@ -201,7 +213,14 @@ def _parse_fecha_filtro(valor: str | None, nombre: str) -> date | None:
         ) from exc
 
 
-@router.get("/dashboard", response_class=HTMLResponse, name="dashboard")
+@router.get(
+    "/dashboard",
+    response_class=HTMLResponse,
+    name="dashboard",
+    dependencies=[
+        Depends(require_web_roles(RolUsuario.AUDITOR, RolUsuario.ADMIN))
+    ],
+)
 def mostrar_dashboard(
     request: Request,
     db: SessionDep,
@@ -290,6 +309,9 @@ def mostrar_detalle_venta(
     "/ventas/{venta_id}/credencial",
     response_class=HTMLResponse,
     name="credencial_venta",
+    dependencies=[
+        Depends(require_web_roles(RolUsuario.AUDITOR, RolUsuario.ADMIN))
+    ],
 )
 def mostrar_credencial(
     request: Request,
@@ -319,6 +341,9 @@ def mostrar_credencial(
     response_class=HTMLResponse,
     name="editar_venta",
     response_model=None,
+    dependencies=[
+        Depends(require_web_roles(RolUsuario.OPERADOR, RolUsuario.ADMIN))
+    ],
 )
 def mostrar_edicion_venta(
     request: Request,

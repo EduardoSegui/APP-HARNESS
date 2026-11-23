@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from ventas_app.auditor import ejecutar_auditoria
 from ventas_app.database import get_db
-from ventas_app.models import Venta
+from ventas_app.dependencies import require_api_roles, require_api_user
+from ventas_app.models import RolUsuario, Venta
 from ventas_app.schemas import (
     AuditoriaOut,
     EventoOut,
@@ -38,7 +39,11 @@ from ventas_app.services.ventas import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["ventas"])
+router = APIRouter(
+    prefix="/api",
+    tags=["ventas"],
+    dependencies=[Depends(require_api_user)],
+)
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
@@ -47,6 +52,9 @@ SessionDep = Annotated[Session, Depends(get_db)]
     "/auditar",
     response_model=AuditoriaOut,
     tags=["auditor"],
+    dependencies=[
+        Depends(require_api_roles(RolUsuario.AUDITOR, RolUsuario.ADMIN))
+    ],
 )
 def auditar_endpoint() -> dict[str, Any]:
     """Ejecuta el Agente Auditor sobre las ventas pendientes."""
@@ -64,6 +72,9 @@ def auditar_endpoint() -> dict[str, Any]:
     "/ventas",
     response_model=VentaOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(require_api_roles(RolUsuario.OPERADOR, RolUsuario.ADMIN))
+    ],
 )
 def crear_venta_endpoint(payload: VentaIn, db: SessionDep) -> Venta:
     """Crea una venta completa y devuelve el comprobante persistido."""
@@ -81,7 +92,13 @@ def crear_venta_endpoint(payload: VentaIn, db: SessionDep) -> Venta:
         ) from exc
 
 
-@router.get("/metricas", response_model=MetricasOut)
+@router.get(
+    "/metricas",
+    response_model=MetricasOut,
+    dependencies=[
+        Depends(require_api_roles(RolUsuario.AUDITOR, RolUsuario.ADMIN))
+    ],
+)
 def metricas_endpoint(
     db: SessionDep,
     desde: date | None = None,
@@ -107,7 +124,10 @@ def metricas_endpoint(
         ) from exc
 
 
-@router.get("/exportar/{tipo}")
+@router.get(
+    "/exportar/{tipo}",
+    dependencies=[Depends(require_api_roles(RolUsuario.ADMIN))],
+)
 def exportar_endpoint(
     tipo: Literal["padron", "cobranzas"],
     db: SessionDep,
@@ -209,7 +229,13 @@ def listar_eventos_endpoint(venta_id: int, db: SessionDep) -> list[EventoOut]:
     return listar_eventos(db, venta_id)
 
 
-@router.put("/ventas/{venta_id}", response_model=VentaOut)
+@router.put(
+    "/ventas/{venta_id}",
+    response_model=VentaOut,
+    dependencies=[
+        Depends(require_api_roles(RolUsuario.OPERADOR, RolUsuario.ADMIN))
+    ],
+)
 def actualizar_venta_endpoint(
     venta_id: int,
     payload: VentaUpdateIn,

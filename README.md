@@ -14,11 +14,24 @@ Aplicación web de carga de ventas de obra social en tres etapas, con cálculo a
 
 ## Inicio rápido
 
+> Para datos reales usar LAN + HTTPS por reverse proxy, `COOKIE_SECURE=true` y las reglas de `docs/SECURITY.md`. El modo HTTP local es solo desarrollo.
+
 ```bash
 uv sync
+# Generar una clave de desarrollo para MFA:
+uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Agregarla como APP_ENCRYPTION_KEY en .env y usar COOKIE_SECURE=false solo en HTTP local.
 uv run uvicorn ventas_app.main:app --reload --port 8000
 curl http://localhost:8000/health   # {"status":"ok"}
 ```
+
+Crear el primer administrador (interactivo, sin contraseña por defecto):
+
+```bash
+uv run python -m ventas_app.cli admin-bootstrap
+```
+
+El primer login de ADMIN/AUDITOR exige configurar TOTP. Los operadores se crean con `user-create`.
 
 Abrí `http://localhost:8000/` para cargar una venta y `http://localhost:8000/ventas`
 para ver el panel y ejecutar la auditoría.

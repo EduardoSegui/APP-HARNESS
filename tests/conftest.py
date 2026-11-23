@@ -9,19 +9,34 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from cryptography.fernet import Fernet
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 # La URL debe configurarse antes de importar ventas_app.database.
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="ventas-app-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'ventas-test.db'}"
+os.environ["COOKIE_SECURE"] = "false"
+os.environ["APP_ENCRYPTION_KEY"] = Fernet.generate_key().decode("ascii")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from ventas_app import models  # noqa: E402, F401
 from ventas_app.database import Base, SessionLocal, engine  # noqa: E402
 from ventas_app.main import app  # noqa: E402
-from ventas_app.models import Integrante, Plan, Venta  # noqa: E402
+from ventas_app.models import (  # noqa: E402
+    CodigoRecuperacion,
+    Integrante,
+    Plan,
+    SecurityEvent,
+    Sesion,
+    Usuario,
+    Venta,
+    VentaEvento,
+)
+from ventas_app.security import crear_sesion, hash_password  # noqa: E402
+
+_TEST_ADMIN_HASH = hash_password("admin-test-password-123")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -50,9 +65,14 @@ def aislar_llm(monkeypatch: pytest.MonkeyPatch) -> None:
 def limpiar_tablas(base_de_datos_temporal: None) -> Iterator[None]:
     """Deja las tablas vacías antes de cada test."""
     with SessionLocal() as db:
+        db.execute(delete(SecurityEvent))
+        db.execute(delete(CodigoRecuperacion))
+        db.execute(delete(Sesion))
+        db.execute(delete(VentaEvento))
         db.execute(delete(Integrante))
         db.execute(delete(Venta))
         db.execute(delete(Plan))
+        db.execute(delete(Usuario))
         db.commit()
     yield
 
@@ -66,6 +86,33 @@ def db() -> Iterator[Session]:
 
 @pytest.fixture
 def client(limpiar_tablas: None) -> Iterator[TestClient]:
-    """Cliente HTTP con el ciclo de vida de la app y seed de planes."""
+    """Cliente autenticado como ADMIN de prueba, con CSRF listo."""
+    with TestClient(app) as test_client:
+        with SessionLocal() as db:
+            admin = Usuario(
+                username="admin-test",
+                password_hash=_TEST_ADMIN_HASH,
+                rol="ADMIN",
+                activo=True,
+                mfa_enabled=False,
+            )
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
+            token, csrf, _ = crear_sesion(
+                db,
+                admin,
+                autenticada=True,
+            )
+            db.commit()
+        test_client.cookies.set("vos_session", token, path="/")
+        test_client.cookies.set("vos_csrf", csrf, path="/")
+        test_client.headers.update({"X-CSRF-Token": csrf})
+        yield test_client
+
+
+@pytest.fixture
+def anon_client(limpiar_tablas: None) -> Iterator[TestClient]:
+    """Cliente sin sesión para probar autenticación y RBAC."""
     with TestClient(app) as test_client:
         yield test_client
