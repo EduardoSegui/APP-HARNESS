@@ -14,6 +14,7 @@ from pydantic import (
     model_validator,
 )
 
+from ventas_app.config import MAX_INTEGRANTES
 from ventas_app.models import (
     EstadoVenta,
     MedioPago,
@@ -240,7 +241,10 @@ class _VentaDatosIn(BaseModel):
     regimen_afiliacion: RegimenAfiliacion = RegimenAfiliacion.PARTICULAR
     cuil_titular: Cuil | None = None
     aporte_estimado: int = Field(default=0, ge=0)
-    integrantes: list[IntegranteIn] = Field(default_factory=list)
+    integrantes: list[IntegranteIn] = Field(
+        default_factory=list,
+        max_length=MAX_INTEGRANTES,
+    )
 
     @field_validator("fecha_nacimiento_titular")
     @classmethod

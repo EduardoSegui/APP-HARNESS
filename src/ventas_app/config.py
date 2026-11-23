@@ -22,6 +22,20 @@ APP_ENCRYPTION_KEY = os.getenv("APP_ENCRYPTION_KEY", "").strip()
 LOGIN_RATE_WINDOW_SECONDS = int(os.getenv("LOGIN_RATE_WINDOW_SECONDS", "60"))
 LOGIN_RATE_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_MAX_ATTEMPTS", "5"))
 LOGIN_LOCK_MINUTES = int(os.getenv("LOGIN_LOCK_MINUTES", "15"))
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", str(256 * 1024)))
+MAX_INTEGRANTES = int(os.getenv("MAX_INTEGRANTES", "20"))
+MAX_EXPORT_ROWS = int(os.getenv("MAX_EXPORT_ROWS", "5000"))
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() != "false"
+HSTS_ENABLED = os.getenv("HSTS_ENABLED", "false").lower() == "true"
+ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
+ALLOWED_HOSTS = tuple(
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1,testserver",
+    ).split(",")
+    if host.strip()
+)
 
 
 def cargar_entorno() -> bool:

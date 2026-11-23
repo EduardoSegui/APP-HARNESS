@@ -18,6 +18,10 @@ _TMP_DIR = Path(tempfile.mkdtemp(prefix="ventas-app-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'ventas-test.db'}"
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["APP_ENCRYPTION_KEY"] = Fernet.generate_key().decode("ascii")
+# El rate limit se prueba de forma aislada; la suite crea muchas ventas.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+os.environ["ALLOWED_HOSTS"] = "testserver,localhost,127.0.0.1"
+os.environ["ENABLE_DOCS"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 

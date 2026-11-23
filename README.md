@@ -21,9 +21,11 @@ uv sync
 # Generar una clave de desarrollo para MFA:
 uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # Agregarla como APP_ENCRYPTION_KEY en .env y usar COOKIE_SECURE=false solo en HTTP local.
-uv run uvicorn ventas_app.main:app --reload --port 8000
+uv run uvicorn ventas_app.main:app --reload --port 8000 --no-access-log
 curl http://localhost:8000/health   # {"status":"ok"}
 ```
+
+En producción configurá `ALLOWED_HOSTS` con el hostname de la LAN, `HSTS_ENABLED=true`, `COOKIE_SECURE=true` y mantené `ENABLE_DOCS=false`. El access log propio registra solo método, ruta y estado, sin query strings. El reverse proxy debe aplicar TLS, firewall y timeouts de request/upstream; la app limita body, listas, búsquedas, exportaciones y rate limiting.
 
 Crear el primer administrador (interactivo, sin contraseña por defecto):
 
@@ -44,11 +46,8 @@ IA”** ejecuta `POST /api/auditar`, muestra el estado de carga, despliega un pa
 colapsable con el resumen del LLM y la traza ordenada de herramientas MCP, y
 actualiza las filas procesadas.
 
-También se puede invocar directamente:
-
-```bash
-curl -X POST http://localhost:8000/api/auditar
-```
+También se puede invocar desde la sesión autenticada (requiere cookie de sesión
+y header CSRF `X-CSRF-Token`); no está pensado para `curl` anónimo.
 
 La respuesta incluye `procesadas`, `aprobadas`, `observadas`, `resumen_llm`,
 `llm_ok`, `advertencia` y `traza_mcp`.
@@ -73,6 +72,8 @@ cp .env.example .env
 ```
 
 ```dotenv
+APP_ENCRYPTION_KEY=<clave Fernet generada>
+COOKIE_SECURE=false
 OPENAI_API_KEY=ollama
 OPENAI_BASE_URL=http://localhost:11434/v1
 OPENAI_MODEL=qwen2.5:7b
@@ -148,13 +149,15 @@ completa.
 - [CONSTITUTION.md](CONSTITUTION.md): principios inmutables y gobernanza SDD.
 - [PRD](docs/PRD.md): especificación funcional de las 3 etapas y reglas de auditoría.
 - [Arquitectura](docs/ARQUITECTURA.md): diseño técnico, modelo de datos y flujo de estados.
+- [Seguridad y privacidad](docs/SECURITY.md): política, roles, datos, MFA, backups y retención.
+- [Checklist de seguridad](docs/SECURITY_CHECKLIST.md): controles obligatorios por feature.
 - [Índice de documentación](docs/INDEX.md): mapa de temas a secciones.
 - [Plan de diseño F12](docs/design/F12.md): dirección visual del wizard y el panel con `frontend-design`.
 - [AGENTS.md](AGENTS.md): punto de entrada del harness y roles de agentes.
 - [STATE.md](STATE.md): estado actual y próximo paso.
 - [CHECKPOINT.md](CHECKPOINT.md): ventana de las últimas 2 sesiones.
 - [Bitácora histórica](docs/journal/2026.md): sesiones anteriores.
-- [features.json](features.json): plan atómico F01–F12.
+- [features.json](features.json): plan atómico F01–F28.
 - [Plantilla de ficha](features/_TEMPLATE.md): plantilla SDD para planificar features.
 
 ## Estado

@@ -131,6 +131,11 @@ def mostrar_panel_ventas(
     pagina: int = Query(default=1, ge=1),
 ) -> HTMLResponse:
     """Renderiza el panel con búsqueda, filtros y paginación."""
+    if q and len(q) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="La búsqueda admite hasta 100 caracteres.",
+        )
     plan_id_valor: int | None = None
     if plan_id:
         try:

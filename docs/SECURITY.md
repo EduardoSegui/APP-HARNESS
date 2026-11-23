@@ -59,6 +59,14 @@ Reglas:
 - Límites de body, integrantes, búsqueda, page size y exportaciones.
 - Una sola auditoría concurrente; lock/idempotencia.
 - Logs de acceso sin query strings con PII.
+- Headers: CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, `X-Robots-Tag` y `Cache-Control: no-store`.
+- `TrustedHost` configurable; HSTS solo con HTTPS; docs/OpenAPI cerrados en
+  producción.
+- Errores 422 sanitizados: sin `input`, `ctx`, PAN, CVV ni salud.
+- Límites: body 256 KB, 20 integrantes, búsqueda 100 caracteres, página 100 y
+  exportación 5.000 filas.
+- Access logs de Uvicorn filtrados; log propio sin query strings.
 
 ## 7. Datos, PII y salud
 

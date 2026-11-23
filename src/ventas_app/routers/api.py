@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
+from threading import Lock
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -46,6 +47,7 @@ router = APIRouter(
 )
 
 SessionDep = Annotated[Session, Depends(get_db)]
+_AUDITORIA_LOCK = Lock()
 
 
 @router.post(
@@ -58,14 +60,23 @@ SessionDep = Annotated[Session, Depends(get_db)]
 )
 def auditar_endpoint() -> dict[str, Any]:
     """Ejecuta el Agente Auditor sobre las ventas pendientes."""
+    if not _AUDITORIA_LOCK.acquire(blocking=False):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya hay una auditoría en curso.",
+        )
     try:
         return ejecutar_auditoria()
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Falló la ejecución del Agente Auditor")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo ejecutar la auditoría.",
         ) from exc
+    finally:
+        _AUDITORIA_LOCK.release()
 
 
 @router.post(
@@ -165,7 +176,7 @@ def exportar_endpoint(
 @router.get("/ventas", response_model=PaginaVentasOut)
 def listar_ventas_endpoint(
     db: SessionDep,
-    q: str | None = None,
+    q: str | None = Query(default=None, max_length=100),
     estado: str | None = None,
     plan_id: int | None = None,
     medio_pago: str | None = None,

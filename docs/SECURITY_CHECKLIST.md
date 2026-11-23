@@ -33,3 +33,20 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 366 passed (auth/RBAC/CSRF/MFA/rate limit) + 111 verificaciones manuales TestClient sobre base temporal (flags, expiración, rotación, revocación, replay, recovery, IDOR, logs).
 - [x] `./init.sh` y `uv run pytest` verdes.
 - [x] Sin Critical/High abiertos; riesgo residual medio de rate limit MFA diferido a F24.
+
+## F24 — Hardening HTTP, errores seguros y anti-abuso (2026-11-23)
+
+- [x] Datos: no agrega PII/salud; aplica headers y `no-store` a HTML/API, incluida la credencial. PAN/CBU/CVV y DDJJ quedan fuera de logs y errores.
+- [x] Rutas: sin rutas públicas nuevas; `/docs`, `/redoc` y `/openapi.json` cerrados por defecto (`ENABLE_DOCS=false`). `/static` sirve solo assets; auditoría sigue AUDITOR/ADMIN y exportaciones ADMIN.
+- [x] RBAC sin cambios; verificado en F24: anónimo web → 303 a login, anónimo API → 401, OPERADOR en export → 403, CSRF ausente → 403.
+- [x] Validación server-side y límites: body 256 KB (413), 20 integrantes, `q` 100 (API 422; panel HTML 400), page size 100 y export 5.000 filas (422); sin escrituras laterales.
+- [x] CSRF se mantiene en POST/PUT autenticados; no se modificó la matriz de F23 y los tests siguen verdes.
+- [x] Sin PII/salud/PAN/CVV en errores: handler 422 elimina `input`/`ctx`; verificado con tarjeta, CBU y detalle DDJJ. Logs propios y access log de Uvicorn sin query strings.
+- [x] Secretos fuera del repo: nuevas variables en `.env.example` sin valores sensibles; `.env` y `ventas.db` ignorados; MCP/LLM sin cambios.
+- [x] Cifrado/permisos: sin datos nuevos; cifrado de campos y backups siguen en F25/F26.
+- [x] Rate limiting/abuso: login de F23 + políticas en memoria para alta/edición, auditoría, exportaciones y búsquedas; lock global de auditoría con 409. Verificado real: 31 POST → 429 y 61 búsquedas → 429.
+- [x] Eventos de seguridad: lock/rate limit no registran PII; ampliación de `security_events` para denegaciones, exportaciones y configuración queda en F27.
+- [x] Retención/legal hold: sin cambios; F27.
+- [x] Tests: 11 casos nuevos en `tests/test_security.py` (headers/CSP, docs, 422, 413, integrantes, búsqueda, export, lock, rate limit, logs, `onclick`) + 54 verificaciones manuales TestClient sobre base temporal.
+- [x] `./init.sh` y `uv run pytest` verdes: 377 passed.
+- [x] Sin Critical/High abiertos. Riesgos residuales medios: rate limit en memoria de un worker (el proxy complementa), límite de body basado en `Content-Length` (el proxy debe cortar chunked/timeouts) y CSP con CDN/`unsafe-inline` transitorios hasta F28.

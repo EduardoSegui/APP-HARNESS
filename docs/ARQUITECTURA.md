@@ -748,6 +748,7 @@ La política operativa vive en `docs/SECURITY.md` y el checklist por feature en 
 - **Autenticación:** cuentas locales, Argon2id, sesiones opacas, cookies `HttpOnly`/`Secure`/`SameSite`, CSRF y expiración.
 - **MFA:** TOTP obligatorio para ADMIN/AUDITOR, recovery codes; sin SMS.
 - **RBAC:** OPERADOR, AUDITOR y ADMIN con matriz de rutas testeada.
+- **HTTP:** CSP/headers, `TrustedHost`, HSTS opcional, límites de body/listas/export, rate limiting, lock de auditoría y 422 sanitizados; docs cerrados por defecto.
 - **Datos:** clasificación, minimización, cifrado de volumen/campos sensibles, permisos 600/700, backups cifrados.
 - **LLM/MCP:** local por defecto, externo opt-in, sin PII/salud, API key fuera del subproceso MCP.
 - **Recuperación:** backup diario cifrado, retención 7+4+1, restore mensual, RPO 24 h/RTO 8 h.

@@ -156,7 +156,7 @@
       "titulo": "Hardening HTTP, errores seguros y anti-abuso",
       "descripcion": "Headers/CSP, límites, rate limiting, lock de auditoría, docs cerrados y 422 sanitizados.",
       "packet": "features/F24.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F25",

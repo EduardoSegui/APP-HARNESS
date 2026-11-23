@@ -10,6 +10,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from ventas_app.config import MAX_EXPORT_ROWS
 from ventas_app.models import EstadoVenta, Venta
 from ventas_app.services.metricas import construir_filtros
 
@@ -89,6 +90,7 @@ def _ventas_exportacion(
             )
             .where(*filtros)
             .order_by(Venta.creado_en.asc(), Venta.id.asc())
+            .limit(MAX_EXPORT_ROWS + 1)
         ).all()
     )
 
@@ -175,6 +177,10 @@ def generar_exportacion(
         plan_id=plan_id,
         estado=estado,
     )
+    if len(ventas) > MAX_EXPORT_ROWS:
+        raise ValueError(
+            f"La exportación supera el máximo de {MAX_EXPORT_ROWS} filas."
+        )
     cabeceras = (
         _CABECERAS_PADRON if tipo == "padron" else _CABECERAS_COBRANZAS
     )
