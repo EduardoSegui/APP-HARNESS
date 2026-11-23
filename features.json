@@ -170,7 +170,7 @@
       "titulo": "Durabilidad, backups, concurrencia e inmutabilidad",
       "descripcion": "WAL, backups cifrados/restore, control optimista y eventos append-only.",
       "packet": "features/F26.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F27",

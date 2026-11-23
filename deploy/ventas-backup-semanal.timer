@@ -1,0 +1,11 @@
+[Unit]
+Description=Programar backup semanal cifrado
+Documentation=file:/opt/ventas/docs/SECURITY.md
+
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

@@ -112,13 +112,35 @@ Reglas:
 
 ## 10. Backups y recuperación
 
-- Backup diario con API online de SQLite; cifrado obligatorio.
+- Backup diario con API online de SQLite; cifrado obligatorio con
+  `BACKUP_ENCRYPTION_KEY` (o `APP_ENCRYPTION_KEY` como fallback).
 - 7 copias diarias, 4 semanales y 1 semanal desconectada.
 - Clave fuera del almacenamiento de backups.
 - Acceso/restore solo ADMIN/custodio; sin endpoint web de restore.
-- Checksum + `PRAGMA integrity_check`; restore mensual.
+- Checksum + `PRAGMA integrity_check` y `foreign_key_check`; restore mensual.
 - RPO 24 h; RTO 8 h.
-- Nunca backups planos ni versionados.
+- Nunca backups planos ni versionados. `backups/` está en `.gitignore`.
+
+Comandos operativos (desde `/opt/ventas`):
+
+```bash
+uv run python scripts/backup.py crear --tipo diario
+uv run python scripts/backup.py crear --tipo semanal
+uv run python scripts/backup.py verificar /ruta/backup.db.enc
+uv run python scripts/backup.py offline
+uv run python scripts/backup.py retencion --tipo diario
+# Restauración en modo mantenimiento y con confirmación explícita:
+uv run python scripts/restore.py /ruta/backup.db.enc /opt/ventas/ventas.db --confirmar
+```
+
+`deploy/ventas-backup.service`/`.timer` y
+`deploy/ventas-backup-semanal.service`/`.timer` son ejemplos systemd. El medio
+offline debe ser un dispositivo distinto y desconectado; no dejarlo montado.
+Después de restaurar, ejecutar smoke (`/health`, login, legajo) y `./init.sh`.
+
+SQLite usa WAL, `busy_timeout`, `synchronous=FULL`, claves foráneas y
+`integrity_check` al iniciar. Las ediciones usan `Venta.version` (409 si el
+legajo cambió) y `venta_eventos` es append-only mediante triggers.
 
 ## 11. Logs y respuesta a incidentes
 

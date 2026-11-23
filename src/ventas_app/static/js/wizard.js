@@ -1256,6 +1256,10 @@
       })),
     };
 
+    if (modoEdicion && Number.isInteger(Number(edicion?.version))) {
+      payload.version = Number(edicion.version);
+    }
+
     if (estado.medio_pago === "TARJETA_CREDITO") {
       if (
         !hayInstrumentoActual("TARJETA_CREDITO")

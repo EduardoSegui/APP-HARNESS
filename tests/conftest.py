@@ -18,6 +18,7 @@ _TMP_DIR = Path(tempfile.mkdtemp(prefix="ventas-app-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'ventas-test.db'}"
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["APP_ENCRYPTION_KEY"] = Fernet.generate_key().decode("ascii")
+os.environ["BACKUP_ENCRYPTION_KEY"] = Fernet.generate_key().decode("ascii")
 # El rate limit se prueba de forma aislada; la suite crea muchas ventas.
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["ALLOWED_HOSTS"] = "testserver,localhost,127.0.0.1"
@@ -26,7 +27,13 @@ os.environ["ENABLE_DOCS"] = "false"
 from fastapi.testclient import TestClient  # noqa: E402
 
 from ventas_app import models  # noqa: E402, F401
-from ventas_app.database import Base, SessionLocal, engine  # noqa: E402
+from ventas_app.database import (  # noqa: E402
+    Base,
+    SessionLocal,
+    activar_triggers_eventos,
+    desactivar_triggers_eventos,
+    engine,
+)
 from ventas_app.main import app  # noqa: E402
 from ventas_app.models import (  # noqa: E402
     CodigoRecuperacion,
@@ -47,6 +54,7 @@ _TEST_ADMIN_HASH = hash_password("admin-test-password-123")
 def base_de_datos_temporal() -> Iterator[None]:
     """Crea el esquema en una base SQLite temporal aislada de desarrollo."""
     Base.metadata.create_all(bind=engine)
+    activar_triggers_eventos()
     yield
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
@@ -69,16 +77,20 @@ def aislar_llm(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def limpiar_tablas(base_de_datos_temporal: None) -> Iterator[None]:
     """Deja las tablas vacías antes de cada test."""
-    with SessionLocal() as db:
-        db.execute(delete(SecurityEvent))
-        db.execute(delete(CodigoRecuperacion))
-        db.execute(delete(Sesion))
-        db.execute(delete(VentaEvento))
-        db.execute(delete(Integrante))
-        db.execute(delete(Venta))
-        db.execute(delete(Plan))
-        db.execute(delete(Usuario))
-        db.commit()
+    desactivar_triggers_eventos()
+    try:
+        with SessionLocal() as db:
+            db.execute(delete(SecurityEvent))
+            db.execute(delete(CodigoRecuperacion))
+            db.execute(delete(Sesion))
+            db.execute(delete(VentaEvento))
+            db.execute(delete(Integrante))
+            db.execute(delete(Venta))
+            db.execute(delete(Plan))
+            db.execute(delete(Usuario))
+            db.commit()
+    finally:
+        activar_triggers_eventos()
     yield
 
 

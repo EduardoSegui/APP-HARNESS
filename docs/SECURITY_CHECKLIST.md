@@ -67,3 +67,20 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 389 passed, 12 de `test_privacy.py` (incluye `gAAAA...` y migración) + verificaciones manuales TestClient/MCP/Node.
 - [x] `./init.sh` y `uv run pytest` verdes.
 - [x] Sin Critical/High abiertos: bypass de cifrado corregido y revalidado.
+
+## F26 — Durabilidad, backups, concurrencia e inmutabilidad (2026-11-23)
+
+- [x] Datos: ventas, integrantes y eventos; backups contienen PII/salud y se cifran; claves fuera del backup. `Venta.version` y triggers no agregan PII.
+- [x] Rutas: sin endpoints nuevos de backup/restore; CLI/OS y systemd; restore exclusivo de ADMIN/custodio en modo mantenimiento.
+- [x] RBAC/CSRF: matriz F23 y CSRF F24 intactos; no hay ruta web de restauración.
+- [x] Validación: WAL, `busy_timeout=5000`, `synchronous=FULL`, foreign keys, `wal_autocheckpoint`, `integrity_check` y `foreign_key_check`.
+- [x] Sin PII en logs/errores nuevos; los backups no se versionan y se excluyen en `.gitignore`; restore no expone contenido por HTTP.
+- [x] Secretos: `BACKUP_ENCRYPTION_KEY` separada (fallback `APP_ENCRYPTION_KEY`) en entorno, fuera de `backups/`; archivos y checksums 600, directorio 700.
+- [x] Cifrado/permisos: backups Fernet + SHA-256, verificación de checksum/integridad, restore a DB temporal con smoke y triggers conservados.
+- [x] Rate limiting: sin rutas nuevas; lock de auditoría F24 intacto.
+- [x] Eventos: `venta_eventos` append-only por triggers; UPDATE/DELETE rechazados; inserción normal permitida.
+- [x] Retención: 7 diarios + 4 semanales + 1 offline; copia offline renombrada `-offline`, retención integrada y regresión con dos semanales.
+- [x] Concurrencia: `Venta.version` con SQLAlchemy `version_id_col`; PUT obsoleto → 409 sin cambios; sin versión mantiene compatibilidad.
+- [x] Tests: 397 passed, incluidos `tests/test_backup_restore.py` (WAL, backup, restore, corrupción, retención, offline, versión, triggers).
+- [x] `./init.sh` y `uv run pytest` verdes.
+- [x] Sin Critical/High abiertos; riesgos residuales documentados (medio offline físico y restore en mantenimiento).

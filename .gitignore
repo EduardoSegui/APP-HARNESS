@@ -12,8 +12,15 @@ dist/
 # SQLite (base de datos local generada en tiempo de ejecución)
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+
+# Backups cifrados (nunca versionar)
+backups/
+*.db.enc
+*.db.enc.sha256
 
 # Testing y cobertura
 .pytest_cache/

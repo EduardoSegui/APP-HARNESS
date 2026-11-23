@@ -1,0 +1,15 @@
+[Unit]
+Description=Backup semanal cifrado de Ventas Obra Social
+Documentation=file:/opt/ventas/docs/SECURITY.md
+After=network.target
+
+[Service]
+Type=oneshot
+User=ventas
+Group=ventas
+WorkingDirectory=/opt/ventas
+EnvironmentFile=/opt/ventas/.env
+ExecStart=/opt/ventas/.venv/bin/python /opt/ventas/scripts/backup.py crear --tipo semanal
+Nice=10
+PrivateTmp=true
+NoNewPrivileges=true

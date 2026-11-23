@@ -24,6 +24,17 @@ def _fernet() -> Fernet:
         ) from exc
 
 
+def _fernet_para(clave: str) -> Fernet:
+    if not clave:
+        raise EncryptionKeyError("Falta una clave de cifrado.")
+    try:
+        return Fernet(clave.encode("ascii"))
+    except (ValueError, UnicodeEncodeError) as exc:
+        raise EncryptionKeyError(
+            "La clave de cifrado no es una clave Fernet válida."
+        ) from exc
+
+
 def cifrar_texto(valor: str) -> str:
     return _fernet().encrypt(valor.encode("utf-8")).decode("ascii")
 
@@ -33,6 +44,17 @@ def descifrar_texto(valor: str) -> str:
         return _fernet().decrypt(valor.encode("ascii")).decode("utf-8")
     except (InvalidToken, ValueError, UnicodeEncodeError) as exc:
         raise ValueError("No se pudo descifrar el campo sensible.") from exc
+
+
+def cifrar_bytes(datos: bytes, clave: str) -> bytes:
+    return _fernet_para(clave).encrypt(datos)
+
+
+def descifrar_bytes(datos: bytes, clave: str) -> bytes:
+    try:
+        return _fernet_para(clave).decrypt(datos)
+    except (InvalidToken, ValueError, UnicodeEncodeError) as exc:
+        raise ValueError("No se pudo descifrar el backup.") from exc
 
 
 def es_token_cifrado(valor: str) -> bool:
@@ -58,8 +80,10 @@ def clave_disponible() -> bool:
 
 __all__ = [
     "EncryptionKeyError",
+    "cifrar_bytes",
     "cifrar_texto",
     "clave_disponible",
+    "descifrar_bytes",
     "descifrar_texto",
     "es_token_cifrado",
     "es_token_valido",

@@ -32,6 +32,7 @@ from ventas_app.services.ventas import (
     PlanNoDisponibleError,
     VentaNoEditableError,
     VentaNoEncontradaError,
+    VentaVersionDesincronizadaError,
     actualizar_venta,
     buscar_ventas,
     crear_venta,
@@ -260,7 +261,7 @@ def actualizar_venta_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    except VentaNoEditableError as exc:
+    except (VentaNoEditableError, VentaVersionDesincronizadaError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),

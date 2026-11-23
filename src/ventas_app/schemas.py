@@ -318,6 +318,8 @@ class VentaIn(_VentaDatosIn):
 class VentaUpdateIn(_VentaDatosIn):
     """Payload de edición; el instrumento puede omitirse para conservarlo."""
 
+    version: int | None = Field(default=None, ge=1)
+
     @model_validator(mode="after")
     def validar_instrumento_opcional(self) -> Self:
         if self.tarjeta is not None and self.cbu is not None:
@@ -381,6 +383,7 @@ class VentaResumenOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    version: int
     nombre_titular: str
     apellido_titular: str
     dni_titular: str
@@ -399,6 +402,7 @@ class VentaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    version: int
     nombre_titular: str
     apellido_titular: str
     dni_titular: str

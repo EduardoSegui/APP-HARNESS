@@ -105,6 +105,20 @@ Sin `OPENAI_API_KEY` no se llama al LLM. Si la API tarda o falla, el auditor
 registra una advertencia y continúa con el resumen local; nunca delega la decisión
 de estado al modelo.
 
+## Backups y recuperación
+
+Los backups son cifrados, verificables y nunca se versionan. Configurá
+`BACKUP_ENCRYPTION_KEY` fuera de `backups/` y ejecutá:
+
+```bash
+uv run python scripts/backup.py crear --tipo diario
+uv run python scripts/backup.py verificar /ruta/backup.db.enc
+uv run python scripts/restore.py /ruta/backup.db.enc /opt/ventas/ventas.db --confirmar
+```
+
+La retención es 7 diarios + 4 semanales + 1 offline. Ver `docs/SECURITY.md` y
+`deploy/` para systemd y el procedimiento de restore mensual.
+
 ## Datos de demostración
 
 El script `scripts/cargar_demo.py` inserta cuatro ventas pendientes en

@@ -1,0 +1,11 @@
+[Unit]
+Description=Programar backup diario cifrado
+Documentation=file:/opt/ventas/docs/SECURITY.md
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

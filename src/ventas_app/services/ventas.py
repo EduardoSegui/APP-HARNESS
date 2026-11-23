@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm.exc import StaleDataError
 
 from ventas_app.models import (
     EstadoVenta,
@@ -47,6 +48,17 @@ class VentaNoEditableError(ValueError):
 
 class DatosPagoInvalidosError(ValueError):
     """Faltan o son inválidos los datos del instrumento de pago."""
+
+
+class VentaVersionDesincronizadaError(ValueError):
+    """La venta cambió desde que el cliente la cargó."""
+
+    def __init__(self, venta_id: int) -> None:
+        self.venta_id = venta_id
+        super().__init__(
+            f"La venta {venta_id} fue modificada por otra operación. "
+            "Recargá el legajo antes de editar."
+        )
 
 
 class AporteInvalidoError(ValueError):
@@ -248,6 +260,8 @@ def actualizar_venta(
     venta = obtener_venta(db, venta_id)
     if venta.estado == EstadoVenta.APROBADA.value:
         raise VentaNoEditableError(venta_id)
+    if datos.version is not None and datos.version != venta.version:
+        raise VentaVersionDesincronizadaError(venta_id)
 
     estado_anterior = venta.estado
     plan = db.get(Plan, datos.plan_id)
@@ -301,6 +315,9 @@ def actualizar_venta(
             estado_nuevo=venta.estado,
         )
         db.commit()
+    except StaleDataError as exc:
+        db.rollback()
+        raise VentaVersionDesincronizadaError(venta_id) from exc
     except Exception:
         db.rollback()
         raise

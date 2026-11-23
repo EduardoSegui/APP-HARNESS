@@ -185,6 +185,15 @@ class Venta(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
+
+    __mapper_args__ = {"version_id_col": version}
+
     nombre_titular: Mapped[str] = mapped_column(String(80), nullable=False)
     apellido_titular: Mapped[str] = mapped_column(String(80), nullable=False)
     dni_titular: Mapped[str] = mapped_column(String(8), nullable=False, index=True)

@@ -29,10 +29,14 @@ engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 if DATABASE_URL.startswith("sqlite"):
 
     @event.listens_for(engine, "connect")
-    def _enable_sqlite_foreign_keys(dbapi_connection, connection_record) -> None:
-        """Activa la integridad referencial en cada conexión SQLite."""
+    def _configurar_sqlite(dbapi_connection, connection_record) -> None:
+        """Configura WAL, durabilidad, locks e integridad referencial."""
         cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA synchronous=FULL")
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA wal_autocheckpoint=1000")
         cursor.close()
 
 
@@ -149,6 +153,11 @@ def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
             conexion.exec_driver_sql(
                 "ALTER TABLE ventas ADD COLUMN aporte_estimado "
                 "INTEGER NOT NULL DEFAULT 0"
+            )
+        if "version" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN version "
+                "INTEGER NOT NULL DEFAULT 1"
             )
 
         if "precio_total" in columnas:
@@ -268,6 +277,59 @@ def _migrar_campos_sensibles(engine_objetivo: Engine = engine) -> None:
                 )
 
 
+_TRIGGER_EVENTOS_NO_UPDATE = """
+CREATE TRIGGER IF NOT EXISTS venta_eventos_no_update
+BEFORE UPDATE ON venta_eventos
+BEGIN
+    SELECT RAISE(ABORT, 'venta_eventos es inmutable: UPDATE prohibido');
+END
+"""
+
+_TRIGGER_EVENTOS_NO_DELETE = """
+CREATE TRIGGER IF NOT EXISTS venta_eventos_no_delete
+BEFORE DELETE ON venta_eventos
+BEGIN
+    SELECT RAISE(ABORT, 'venta_eventos es inmutable: DELETE prohibido');
+END
+"""
+
+
+def activar_triggers_eventos(engine_objetivo: Engine = engine) -> None:
+    """Activa la inmutabilidad normal de ``venta_eventos``."""
+    if engine_objetivo.dialect.name != "sqlite":
+        return
+    with engine_objetivo.begin() as conexion:
+        tablas = {
+            fila[0]
+            for fila in conexion.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        if "venta_eventos" not in tablas:
+            return
+        conexion.exec_driver_sql(_TRIGGER_EVENTOS_NO_UPDATE)
+        conexion.exec_driver_sql(_TRIGGER_EVENTOS_NO_DELETE)
+
+
+def desactivar_triggers_eventos(engine_objetivo: Engine = engine) -> None:
+    """Desactiva temporalmente los triggers para mantenimiento controlado."""
+    if engine_objetivo.dialect.name != "sqlite":
+        return
+    with engine_objetivo.begin() as conexion:
+        conexion.exec_driver_sql("DROP TRIGGER IF EXISTS venta_eventos_no_update")
+        conexion.exec_driver_sql("DROP TRIGGER IF EXISTS venta_eventos_no_delete")
+
+
+def verificar_integridad_db(engine_objetivo: Engine = engine) -> bool:
+    """Ejecuta ``integrity_check`` y ``foreign_key_check`` de SQLite."""
+    if engine_objetivo.dialect.name != "sqlite":
+        return True
+    with engine_objetivo.connect() as conexion:
+        integridad = conexion.exec_driver_sql("PRAGMA integrity_check").scalar()
+        claves = conexion.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+    return integridad == "ok" and not claves
+
+
 def _endurecer_permisos_db(engine_objetivo: Engine = engine) -> None:
     """Restringe la base SQLite al usuario del servicio."""
     if engine_objetivo.dialect.name != "sqlite":
@@ -292,7 +354,10 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _migrar_ventas_sqlite()
     _migrar_campos_sensibles()
+    activar_triggers_eventos()
     _endurecer_permisos_db()
+    if not verificar_integridad_db():
+        raise RuntimeError("La base SQLite no pasó integrity_check.")
 
 
 def get_db() -> Generator[Session, None, None]:

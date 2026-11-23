@@ -3,26 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 23 — F24: hardening HTTP y anti-abuso
-
----
-feature: F24
-fecha: 2026-11-23
-tests: 377 passed
-harness: OK
-commit: feat(F24): hardening HTTP y anti-abuso
----
-
-**Fecha:** 2026-11-23
-
-**Rol:** Verifier. **Feature:** F24 — Hardening HTTP, errores seguros y anti-abuso. **Estado:** verificada y aprobada.
-
-Middleware de CSP/headers (`nosniff`, `DENY`, `no-referrer`, `Permissions-Policy`, `noindex`, `no-store`), HSTS opt-in y `TrustedHost` configurable; docs/OpenAPI cerrados por defecto; body 256 KB, 20 integrantes, `q` 100, page size 100 y export 5.000 filas; rate limiting por IP/política; lock de auditoría con 409; 422 sanitizado sin `input`/`ctx`; access logs sin query; credencial sin `onclick` y con JS externo.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 377 passed. 54 verificaciones manuales TestClient sobre base temporal: headers/CSP en HTML/API, HSTS opt-in, TrustedHost, docs 404, 413, 422 de integrantes/búsqueda/export/PAN/CBU/DDJJ sin filtrar datos, lock 409, logs propios y de Uvicorn sin query, JS externo, y flujos F23 (login, CSRF y RBAC). Rate limit real: 31 POST → 429 y 61 búsquedas → 429. `ventas.db` real intacta.
-
-**Próximo paso:** F25 — Protección de PII/salud, secretos, MCP y LLM — packet: `features/F25.md`.
-
 ## Sesión 24 — F25: protección de PII/salud, secretos, MCP y LLM
 
 ---
@@ -42,3 +22,23 @@ Cifrado en reposo de `ddjj_detalle` con Fernet/`EncryptedText`, validación crip
 **Verificación:** `./init.sh` → OK; `uv run pytest` → 389 passed; 12 casos en `tests/test_privacy.py`; `node --check` de wizard/auditoría/credencial → OK; 10 verificaciones manuales TestClient/MCP/Node y re-verificación del borde `gAAAA...` (cifrado real, `descifrar_texto(crudo) == detalle`, migración de fila histórica, GET 200 y sin 500) + smoke F23/F24. Checklist F25 completo; sin Critical/High abiertos.
 
 **Próximo paso:** F26 — Durabilidad, backups, concurrencia e inmutabilidad — packet: `features/F26.md`.
+
+## Sesión 25 — F26: durabilidad, backups, concurrencia e inmutabilidad
+
+---
+feature: F26
+fecha: 2026-11-23
+tests: 397 passed
+harness: OK
+commit: feat(F26): durabilidad, backups, concurrencia e inmutabilidad
+---
+
+**Fecha:** 2026-11-23
+
+**Rol:** Verifier. **Feature:** F26 — Durabilidad, backups, concurrencia e inmutabilidad. **Estado:** verificada y aprobada.
+
+SQLite en WAL, `busy_timeout`, `synchronous=FULL`, claves foráneas y `integrity_check`/`foreign_key_check` al iniciar; backups cifrados con checksum, retención 7+4+1, copia offline renombrada y restore verificado; `Venta.version` con 409 y `venta_eventos` append-only por triggers.
+
+**Verificación:** `./init.sh` → OK; `uv run pytest` → 397 passed; 67 comprobaciones manuales TestClient/SQLite sobre base temporal (PRAGMAs, integridad, backup cifrado sin PII en claro, permisos 600/700, corrupción/checksum inválido, dos semanales con una sola copia offline, restore con triggers, versión 409, compatibilidad sin versión, CSV/CLI, migración) + CLI backup/restore y `node --check`; F23–F25 intactos; `ventas.db` real sin cambios. Checklist F26 completo; sin Critical/High abiertos.
+
+**Próximo paso:** F27 — Privacidad, retención, legal hold y seguridad operativa — packet: `features/F27.md`.
