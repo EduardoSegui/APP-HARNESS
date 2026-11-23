@@ -3,26 +3,6 @@
 > Estado actual: [`STATE.md`](STATE.md). Historia completa: [`docs/journal/`](docs/journal/).
 > Se conservan las últimas 2 sesiones; `uv run python scripts/contexto.py rotate` mueve las anteriores.
 
-## Sesión 25 — F26: durabilidad, backups, concurrencia e inmutabilidad
-
----
-feature: F26
-fecha: 2026-11-23
-tests: 397 passed
-harness: OK
-commit: feat(F26): durabilidad, backups, concurrencia e inmutabilidad
----
-
-**Fecha:** 2026-11-23
-
-**Rol:** Verifier. **Feature:** F26 — Durabilidad, backups, concurrencia e inmutabilidad. **Estado:** verificada y aprobada.
-
-SQLite en WAL, `busy_timeout`, `synchronous=FULL`, claves foráneas y `integrity_check`/`foreign_key_check` al iniciar; backups cifrados con checksum, retención 7+4+1, copia offline renombrada y restore verificado; `Venta.version` con 409 y `venta_eventos` append-only por triggers.
-
-**Verificación:** `./init.sh` → OK; `uv run pytest` → 397 passed; 67 comprobaciones manuales TestClient/SQLite sobre base temporal (PRAGMAs, integridad, backup cifrado sin PII en claro, permisos 600/700, corrupción/checksum inválido, dos semanales con una sola copia offline, restore con triggers, versión 409, compatibilidad sin versión, CSV/CLI, migración) + CLI backup/restore y `node --check`; F23–F25 intactos; `ventas.db` real sin cambios. Checklist F26 completo; sin Critical/High abiertos.
-
-**Próximo paso:** F27 — Privacidad, retención, legal hold y seguridad operativa — packet: `features/F27.md`.
-
 ## Sesión 26 — F27: privacidad, retención, legal hold y DSR
 
 ---
@@ -42,3 +22,23 @@ commit: feat(F27): privacidad, retención, legal hold y DSR
 **Verificación:** `./init.sh` → OK; `uv run pytest` → 406 passed; `tests/test_privacidad_f27.py` → 9 passed; `node --check` OK; pruebas manuales TestClient/SQLite/CLI sobre base temporal: rechazo sin backup/confirmación o con backup corrupto sin modificar datos, anonimización con backup real, holds bloqueando DSR, retención selectiva, eventos sin PII y F23–F26 intactos. Checklist F27 completo; sin Critical/High abiertos.
 
 **Próximo paso:** F28 — Cadena de suministro y SDD seguro — packet: `features/F28.md`.
+
+## Sesión 27 — F28: cadena de suministro y SDD seguro
+
+---
+feature: F28
+fecha: 2026-11-23
+tests: 411 passed
+harness: OK
+commit: feat(F28): cadena de suministro y SDD seguro
+---
+
+**Fecha:** 2026-11-23
+
+**Rol:** Verifier. **Feature:** F28 — Cadena de suministro y SDD seguro. **Estado:** verificada y aprobada.
+
+Lockfile reproducible, dev deps `pip-audit`/`bandit`, gate local (`uv lock --check`, pip-audit, bandit High, hashes de assets y fallback de secretos), CI/pre-commit con Semgrep/gitleaks, y Tailwind 3.4.17 + fuentes Bricolage/Public Sans self-hosted con SHA-256 y CSP sin CDN (`script-src 'self'`, `font-src 'self'`).
+
+**Verificación:** `./init.sh` → OK (gate incluido); `uv run pytest` → 411 passed; `uv sync --locked --all-groups` y `uv lock --check` OK; pip-audit sin vulnerabilidades; bandit sin High; Semgrep 1.186.0 rc 0; gitleaks 8.30.1 sin leaks en historia y archivos versionados; 7 hashes de assets OK; CSP/HTML sin Tailwind/Google Fonts externos; F23–F27 intactos; pruebas negativas de hash alterado y secreto local detectadas.
+
+**Próximo paso:** Plan completo (28/28).

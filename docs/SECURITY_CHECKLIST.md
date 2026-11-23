@@ -103,3 +103,16 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] `./init.sh` y `uv run pytest` verdes.
 - [x] Flujo de supresión/anonimización exige backup verificado y confirmación explícita (`--backup` + `--confirmar`), verificado por checksum/integridad.
 - [x] Sin Critical/High abiertos; documentación `docs/PRIVACIDAD.md` y runbook AAIP.
+
+## F28 — Cadena de suministro y SDD seguro (2026-11-23)
+
+- [x] Lockfile: `uv lock --check` y `uv sync --locked`.
+- [x] Dependencias auditadas con `pip-audit`; sin High/Critical.
+- [x] `bandit -lll`/Semgrep sin High; configuraciones versionadas.
+- [x] gitleaks en CI/pre-commit y fallback local sin secretos detectados.
+- [x] Assets Tailwind/fuentes self-hosted con hashes en `ASSETS.lock`; CSP sin CDN externo y `script-src 'self'`.
+- [x] `init.sh` ejecuta el gate local; CI ejecuta lock, pip-audit, bandit, Semgrep, gitleaks y tests.
+- [x] Tests de assets, CSP, lock y escaneo local.
+- [x] Tests: 411 passed; `./init.sh` ejecuta gate y suite.
+- [x] `./init.sh` y `uv run pytest` verdes.
+- [x] Sin Critical/High abiertos; excepciones Medium/Low documentadas.

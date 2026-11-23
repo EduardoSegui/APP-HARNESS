@@ -754,6 +754,7 @@ La política operativa vive en `docs/SECURITY.md` y el checklist por feature en 
 - **Durabilidad:** SQLite en WAL, `busy_timeout`, `synchronous=FULL`, FK e `integrity_check`; `Venta.version` para control optimista (409) y `venta_eventos` protegido por triggers append-only.
 - **Recuperación:** backup diario cifrado con checksum, retención 7+4+1, copia offline, restore mensual verificado, RPO 24 h/RTO 8 h.
 - **Privacidad:** retención configurable, legal hold, DSR, aviso y consentimiento; marco Ley 25.326.
+- **Cadena de suministro:** lockfile reproducible, pip-audit/bandit/Semgrep/gitleaks en CI y gate local; Tailwind y fuentes self-hosted con `ASSETS.lock`; CSP sin CDN.
 - **Despliegue:** LAN, reverse proxy TLS, firewall/VPN, sin exposición directa a Internet.
 
 Ninguna feature con auth, PII, salud, exportaciones, LLM o backups puede aprobarse con hallazgos Critical/High abiertos.

@@ -162,8 +162,10 @@ y la ficha es la orden de trabajo.
 uv run pytest
 ```
 
-`./init.sh` valida archivos obligatorios, presupuesto de contexto y la suite
-completa.
+`./init.sh` valida archivos obligatorios, presupuesto de contexto, la suite
+completa y el gate de seguridad (lockfile, pip-audit, bandit, hashes de assets y
+escaneo local de secretos). Semgrep/gitleaks se ejecutan en CI y, si están
+instalados, también en local.
 
 ## Documentación
 

@@ -184,7 +184,7 @@
       "titulo": "Cadena de suministro y SDD seguro",
       "descripcion": "Lock check, scanners, CI, gates de seguridad y pinning de assets.",
       "packet": "features/F28.md",
-      "passes": false
+      "passes": true
     }
   ]
 }

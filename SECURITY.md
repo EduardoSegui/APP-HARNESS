@@ -14,7 +14,8 @@ Este repositorio corresponde a una aplicación interna de gestión de ventas de 
 1. Confirmar recepción y clasificar severidad.
 2. Contener y preservar evidencia.
 3. Corregir y agregar test de regresión.
-4. Validar con `./init.sh` y `uv run pytest`.
+4. Validar con `./init.sh`, `uv run pytest`, `uv lock --check`, `pip-audit`,
+   `bandit`, `semgrep` y `gitleaks`.
 5. Notificar según corresponda y documentar el postmortem.
 
 ## Alcance

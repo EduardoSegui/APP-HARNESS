@@ -25,7 +25,7 @@
 {% block content %}
 <main class="app-main">
   {% if modo_edicion %}
-  <script id="wizard-edicion-data" type="application/json">{{ venta_data | tojson }}</script>
+  <template id="wizard-edicion-data">{{ venta_data | tojson }}</template>
   {% endif %}
   <div id="wizard-page-head" class="page-head">
     <div class="page-head__main">

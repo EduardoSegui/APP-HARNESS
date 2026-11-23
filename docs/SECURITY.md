@@ -160,7 +160,20 @@ legajo cambió) y `venta_eventos` es append-only mediante triggers.
 - Incidente: detectar, contener, preservar evidencia, erradicar, recuperar, notificar y postmortem.
 - Contacto de seguridad y política de divulgación en `SECURITY.md` raíz.
 
-## 12. Gate de seguridad
+## 12. Cadena de suministro
+
+- Lockfile: `uv lock --check`; instalación reproducible con `uv sync --locked`.
+- Dependencias: `pip-audit` (High/Critical bloquean).
+- Código: `bandit -lll` (High) en local y CI; Semgrep con `.semgrep.yml`.
+- Secretos: gitleaks en pre-commit/CI; fallback local de patrones en `scripts/security_gate.py`.
+- Assets: Tailwind 3.4.17 y fuentes Bricolage/Public Sans self-hosted; hashes en
+  `src/ventas_app/static/ASSETS.lock`; CSP solo `'self'` para scripts/fuentes.
+- CI: `.github/workflows/security.yml`; pre-commit: `.pre-commit-config.yaml`.
+- `./init.sh` ejecuta lock check, pip-audit, bandit, hashes, secretos y tests.
+- Excepciones de scanners Medium/Low se documentan con justificación y fecha; no
+  se aprueba con High/Critical abiertos.
+
+## 13. Gate de seguridad
 
 Ninguna feature con autenticación, PII, salud, exportaciones, LLM o backups puede marcar `passes` sin:
 - checklist de seguridad;

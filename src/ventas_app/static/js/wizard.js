@@ -103,7 +103,8 @@
       return null;
     }
     try {
-      const datos = JSON.parse(nodo.textContent);
+      const contenido = nodo.content?.textContent ?? nodo.textContent ?? "";
+      const datos = JSON.parse(contenido);
       return Number.isInteger(datos?.id) ? datos : null;
     } catch (_error) {
       return null;

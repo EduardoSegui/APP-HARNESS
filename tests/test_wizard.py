@@ -17,7 +17,7 @@ def test_wizard_renderiza_etapas_campos_y_planes(client: TestClient) -> None:
 
     html = respuesta.text
 
-    assert "cdn.tailwindcss.com" in html
+    assert "/static/vendor/tailwindcss-3.4.17.js" in html
     assert 'id="wizard"' in html
     assert 'id="template-integrante"' in html
     assert 'id="integrantes-container"' in html

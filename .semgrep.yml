@@ -1,0 +1,25 @@
+rules:
+  - id: python-no-eval
+    languages: [python]
+    message: No usar eval en el backend.
+    severity: ERROR
+    pattern: eval(...)
+
+  - id: python-no-exec
+    languages: [python]
+    message: No usar exec en el backend.
+    severity: ERROR
+    pattern: exec(...)
+
+  - id: python-subprocess-shell
+    languages: [python]
+    message: Evitar shell=True en subprocess; el MCP usa stdio con allowlist.
+    severity: ERROR
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+
+  - id: python-hardcoded-openai-key
+    languages: [python]
+    message: No hardcodear claves de proveedores.
+    severity: ERROR
+    pattern-regex: 'sk-[A-Za-z0-9]{20,}'

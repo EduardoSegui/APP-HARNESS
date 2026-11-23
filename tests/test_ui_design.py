@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 def test_base_carga_fuentes_css_y_shell(client: TestClient) -> None:
     html = client.get("/").text
 
-    assert "fonts.googleapis.com" in html
-    assert "Bricolage+Grotesque" in html
-    assert "Public+Sans" in html
+    assert "fonts.googleapis.com" not in html
+    assert "/static/fonts/font-1.ttf" not in html  # las fuentes viven en CSS
+    assert "/static/vendor/tailwindcss-3.4.17.js" in html
     assert "/static/css/design.css" in html
     assert 'class="app-header"' in html
     assert 'class="step-tab' in html
@@ -29,6 +29,8 @@ def test_css_incluye_tokens_y_accesibilidad(client: TestClient) -> None:
     for token in ("--tinta", "--papel", "--verde", "--vino", "--mostaza"):
         assert token in css
 
+    assert "@font-face" in css
+    assert "/static/fonts/font-1.ttf" in css
     assert "prefers-reduced-motion" in css
     assert ":focus-visible" in css
     assert ".stamp" in css

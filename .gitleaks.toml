@@ -1,0 +1,14 @@
+title = "Ventas Obra Social secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder del ejemplo y fixtures de test; no hay claves reales"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)tests/.*''',
+]
+regexes = [
+  '''OPENAI_API_KEY=ollama''',
+]

@@ -7,13 +7,7 @@
   <meta name="csrf-token" content="{{ request.state.csrf_token|default('') }}">
   {% endif %}
   <title>{% block title %}Ventas Obra Social{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Public+Sans:wght@400;500;600&display=swap"
-    rel="stylesheet"
-  >
+  <script src="{{ url_for('static', path='vendor/tailwindcss-3.4.17.js') }}" defer></script>
   <link rel="stylesheet" href="{{ url_for('static', path='css/design.css') }}">
   {% block head %}{% endblock %}
 </head>
