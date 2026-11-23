@@ -184,61 +184,24 @@
         return base;
       }
 
+      // Compatibilidad segura: solo se restauran paso y plan. Los datos
+      // personales, de salud y de pago nunca se persisten en el navegador.
       const datos = JSON.parse(guardado);
       const paso = Number(datos?.paso);
       const planId = Number(datos?.plan_id);
-      const titular = datos?.titular ?? {};
-      const domicilio = datos?.domicilio ?? {};
-      const ddjj = datos?.ddjj ?? {};
-
-      return {
+      const estadoSeguro = {
         ...base,
         paso: [1, 2, 3].includes(paso) ? paso : 1,
-        titular: Object.fromEntries(
-          Object.keys(base.titular).map((clave) => [clave, texto(titular[clave])]),
-        ),
-        domicilio: Object.fromEntries(
-          Object.keys(base.domicilio).map((clave) => [clave, texto(domicilio[clave])]),
-        ),
-        integrantes: Array.isArray(datos?.integrantes)
-          ? datos.integrantes.map(normalizarIntegrante)
-          : [],
         plan_id: Number.isInteger(planId) && planId > 0 ? planId : null,
-        medio_pago: typeof datos?.medio_pago === "string" ? datos.medio_pago : null,
-        regimen_afiliacion:
-          typeof datos?.regimen_afiliacion === "string"
-            ? datos.regimen_afiliacion
-            : "PARTICULAR",
-        cuil_titular: texto(datos?.cuil_titular),
-        aporte_estimado:
-          datos?.aporte_estimado === null || datos?.aporte_estimado === undefined
-            ? ""
-            : String(datos.aporte_estimado),
-        ddjj: {
-          preexistencias:
-            typeof ddjj.preexistencias === "boolean"
-              ? ddjj.preexistencias
-              : null,
-          internaciones_ultimos_12m:
-            typeof ddjj.internaciones_ultimos_12m === "boolean"
-              ? ddjj.internaciones_ultimos_12m
-              : null,
-          embarazo_actual:
-            typeof ddjj.embarazo_actual === "boolean"
-              ? ddjj.embarazo_actual
-              : null,
-          medicacion_cronica:
-            typeof ddjj.medicacion_cronica === "boolean"
-              ? ddjj.medicacion_cronica
-              : null,
-          discapacidad_declarada:
-            typeof ddjj.discapacidad_declarada === "boolean"
-              ? ddjj.discapacidad_declarada
-              : null,
-          detalle: texto(ddjj.detalle),
-          declaracion_confirmada: Boolean(ddjj.declaracion_confirmada),
-        },
       };
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          paso: estadoSeguro.paso,
+          plan_id: estadoSeguro.plan_id,
+        }),
+      );
+      return estadoSeguro;
     } catch (_error) {
       return base;
     }
@@ -249,9 +212,14 @@
       return;
     }
     try {
-      const persistible = { ...estado };
-      delete persistible.ddjj;
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistible));
+      // Nunca se guardan PII, salud ni instrumentos de pago.
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          paso: estado.paso,
+          plan_id: estado.plan_id,
+        }),
+      );
     } catch (_error) {
       // Si el almacenamiento no está disponible, el wizard sigue funcionando en memoria.
     }

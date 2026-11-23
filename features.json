@@ -163,7 +163,7 @@
       "titulo": "Protección de PII/salud, secretos, MCP y LLM",
       "descripcion": "Permisos/cifrado, minimización, LLMProvider local/externo, redacción y aislamiento de secretos.",
       "packet": "features/F25.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F26",

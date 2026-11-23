@@ -15,12 +15,10 @@ from typing import Any
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHash, VerifyMismatchError, VerificationError
-from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ventas_app.config import (
-    APP_ENCRYPTION_KEY,
     LOGIN_LOCK_MINUTES,
     LOGIN_RATE_MAX_ATTEMPTS,
     LOGIN_RATE_WINDOW_SECONDS,
@@ -28,6 +26,7 @@ from ventas_app.config import (
     SESSION_COOKIE_NAME,
     SESSION_IDLE_MINUTES,
 )
+from ventas_app.crypto import cifrar_texto, descifrar_texto
 from ventas_app.models import CodigoRecuperacion, SecurityEvent, Sesion, Usuario
 
 _PASSWORD_HASHER = PasswordHasher()
@@ -70,23 +69,12 @@ def comparar_hash(token: str, hash_guardado: str) -> bool:
     return hmac.compare_digest(hash_token(token), hash_guardado)
 
 
-def _fernet() -> Fernet:
-    if not APP_ENCRYPTION_KEY:
-        raise RuntimeError(
-            "Falta APP_ENCRYPTION_KEY; es obligatoria para MFA."
-        )
-    return Fernet(APP_ENCRYPTION_KEY.encode("ascii"))
-
-
 def cifrar_secreto(valor: str) -> str:
-    return _fernet().encrypt(valor.encode("utf-8")).decode("ascii")
+    return cifrar_texto(valor)
 
 
 def descifrar_secreto(valor: str) -> str:
-    try:
-        return _fernet().decrypt(valor.encode("ascii")).decode("utf-8")
-    except (InvalidToken, ValueError) as exc:
-        raise ValueError("No se pudo descifrar el secreto MFA.") from exc
+    return descifrar_texto(valor)
 
 
 def generar_secreto_totp() -> str:

@@ -2,7 +2,7 @@
 
 El auditor se conecta al servidor MCP por transporte ``stdio`` y reutiliza sus
 tres herramientas para listar pendientes, obtener el detalle y actualizar el
-estado. Las reglas de negocio R1–R7 son determinísticas y se aplican en el
+estado. Las reglas de negocio R1–R8 son determinísticas y se aplican en el
 cliente; el LLM opcional solo redacta un resumen de la corrida.
 
 Variables de entorno para el LLM compatible con OpenAI:
@@ -12,9 +12,11 @@ Variables de entorno para el LLM compatible con OpenAI:
   para Ollama. Por defecto ``https://api.openai.com/v1``.
 - ``OPENAI_MODEL``: modelo; por defecto ``gpt-4o-mini``.
 - ``OPENAI_TIMEOUT``: timeout en segundos; por defecto ``15``.
+- ``LLM_EXTERNAL_ENABLED``: opt-in explícito para endpoints externos.
 
 Los errores de red o de formato del LLM no interrumpen la auditoría: se emite
-una advertencia y se usa el resumen local.
+una advertencia y se usa el resumen local. El subproceso MCP recibe un entorno
+mínimo, sin claves de LLM ni claves de cifrado de campos.
 """
 
 from __future__ import annotations
@@ -24,14 +26,12 @@ import json
 import os
 import re
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from pydantic import TypeAdapter, ValidationError
@@ -45,6 +45,12 @@ from ventas_app.schemas import (
     Nombre,
     Provincia,
     Telefono,
+)
+from ventas_app.services.llm import (
+    ConfiguracionLLM,
+    ResultadoLLM,
+    configuracion_llm_desde_entorno,
+    generar_resumen_llm,
 )
 from ventas_app.services.pricing import (
     calcular_descuento_monto,
@@ -72,10 +78,6 @@ _REGIMENES_AFILIACION = frozenset(
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-_OPENAI_BASE_URL_DEFAULT = "https://api.openai.com/v1"
-_OPENAI_MODEL_DEFAULT = "gpt-4o-mini"
-_OPENAI_TIMEOUT_DEFAULT = 15.0
-
 _ADAPTADOR_NOMBRE = TypeAdapter(Nombre)
 _ADAPTADOR_DNI = TypeAdapter(Dni)
 _ADAPTADOR_EMAIL = TypeAdapter(Email)
@@ -88,25 +90,6 @@ _ADAPTADOR_PROVINCIA = TypeAdapter(Provincia)
 
 class ErrorMCP(RuntimeError):
     """Error al comunicarse con el servidor MCP o al invocar una herramienta."""
-
-
-@dataclass(frozen=True, slots=True)
-class ResultadoLLM:
-    """Resultado de una llamada opcional al proveedor compatible con OpenAI."""
-
-    resumen: str | None = None
-    ok: bool = False
-    advertencia: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ConfiguracionLLM:
-    """Configuración de un proveedor compatible con la API de OpenAI."""
-
-    api_key: str
-    base_url: str = _OPENAI_BASE_URL_DEFAULT
-    modelo: str = _OPENAI_MODEL_DEFAULT
-    timeout: float = _OPENAI_TIMEOUT_DEFAULT
 
 
 class ClienteMCP(Protocol):
@@ -131,15 +114,43 @@ class ClienteMCP(Protocol):
         """Actualiza el estado de una venta."""
 
 
+_ENTORNO_MCP_PERMITIDO = frozenset(
+    {
+        "ALLOWED_HOSTS",
+        "DATABASE_URL",
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "PATH",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "TMPDIR",
+        "TZ",
+        "VIRTUAL_ENV",
+    }
+)
+
+
 def _entorno_servidor() -> dict[str, str]:
-    """Prepara el entorno del subproceso MCP, preservando ``DATABASE_URL``."""
-    entorno = os.environ.copy()
+    """Prepara un entorno mínimo para el subproceso MCP local.
+
+    No copia ``OPENAI_API_KEY``, ``APP_ENCRYPTION_KEY`` ni otras credenciales.
+    El flag ``VENTAS_SKIP_DOTENV`` impide que el hijo vuelva a cargar secretos
+    desde ``.env``; el detalle de salud cifrado solo se expone como presencia.
+    """
+    entorno = {
+        clave: valor
+        for clave, valor in os.environ.items()
+        if clave in _ENTORNO_MCP_PERMITIDO
+    }
     ruta_src = str(_PROJECT_ROOT / "src")
     pythonpath = entorno.get("PYTHONPATH")
     entorno["PYTHONPATH"] = (
         f"{ruta_src}{os.pathsep}{pythonpath}" if pythonpath else ruta_src
     )
     entorno.setdefault("PYTHONUNBUFFERED", "1")
+    entorno["VENTAS_SKIP_DOTENV"] = "1"
     return entorno
 
 
@@ -826,139 +837,6 @@ def aplicar_reglas(
     errores.extend(validar_r8_regimen_aportes(detalle))
 
     return errores
-
-
-def configuracion_llm_desde_entorno(
-    entorno: Mapping[str, str] | None = None,
-) -> ConfiguracionLLM | None:
-    """Lee la configuración LLM; devuelve ``None`` si no hay API key."""
-    fuente = os.environ if entorno is None else entorno
-    api_key = fuente.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return None
-
-    base_url = (
-        fuente.get("OPENAI_BASE_URL", "").strip()
-        or _OPENAI_BASE_URL_DEFAULT
-    )
-    modelo = (
-        fuente.get("OPENAI_MODEL", "").strip() or _OPENAI_MODEL_DEFAULT
-    )
-    timeout_crudo = fuente.get("OPENAI_TIMEOUT", "").strip()
-    try:
-        timeout = (
-            float(timeout_crudo)
-            if timeout_crudo
-            else _OPENAI_TIMEOUT_DEFAULT
-        )
-    except ValueError:
-        timeout = _OPENAI_TIMEOUT_DEFAULT
-    if timeout <= 0:
-        timeout = _OPENAI_TIMEOUT_DEFAULT
-
-    return ConfiguracionLLM(
-        api_key=api_key,
-        base_url=base_url,
-        modelo=modelo,
-        timeout=timeout,
-    )
-
-
-def _redactar_para_llm(texto: str) -> str:
-    """Oculta números potencialmente sensibles antes de enviarlos a un LLM."""
-    return re.sub(r"\b\d{4,8}\b", "***", texto)
-
-
-def generar_resumen_llm(
-    aprobadas: int,
-    observadas: int,
-    errores: Sequence[str],
-    config: ConfiguracionLLM | None = None,
-    transport: httpx.BaseTransport | None = None,
-) -> ResultadoLLM:
-    """Genera un resumen narrativo con un proveedor compatible con OpenAI.
-
-    Esta función nunca decide el estado de una venta: las reglas determinísticas
-    son la fuente de verdad. Ante timeout, error HTTP o respuesta inválida,
-    devuelve un resultado con ``ok=False`` y una advertencia.
-    """
-    if config is None:
-        config = configuracion_llm_desde_entorno()
-    if config is None:
-        return ResultadoLLM(
-            ok=False,
-            advertencia="LLM no configurado; se usó el resumen local.",
-        )
-
-    url = f"{config.base_url.rstrip('/')}/chat/completions"
-    detalle_errores = (
-        "\n".join(_redactar_para_llm(error) for error in errores)
-        if errores
-        else "Sin observaciones."
-    )
-    carga = {
-        "model": config.modelo,
-        "temperature": 0,
-        "max_tokens": 300,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Sos el Agente Auditor de una obra social. Redactá en "
-                    "español un resumen operativo breve de la auditoría. "
-                    "No inventes datos, no cambies estados y no agregues "
-                    "reglas nuevas."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Resultado determinístico: {aprobadas} aprobadas y "
-                    f"{observadas} observadas.\n"
-                    f"Observaciones registradas:\n{detalle_errores}"
-                ),
-            },
-        ],
-    }
-
-    try:
-        with httpx.Client(
-            timeout=config.timeout,
-            transport=transport,
-        ) as cliente:
-            respuesta = cliente.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {config.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=carga,
-            )
-            respuesta.raise_for_status()
-            datos = respuesta.json()
-            contenido = datos["choices"][0]["message"]["content"]
-            if not isinstance(contenido, str) or not contenido.strip():
-                raise ValueError("respuesta vacía del LLM")
-            return ResultadoLLM(
-                resumen=contenido.strip(),
-                ok=True,
-                advertencia=None,
-            )
-    except (
-        httpx.HTTPError,
-        httpx.InvalidURL,
-        ValueError,
-        KeyError,
-        IndexError,
-        TypeError,
-    ) as exc:
-        return ResultadoLLM(
-            ok=False,
-            advertencia=(
-                "No se pudo obtener el resumen del LLM "
-                f"({type(exc).__name__}); se usó el resumen local."
-            ),
-        )
 
 
 async def auditar_ventas(

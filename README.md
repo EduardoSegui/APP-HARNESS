@@ -60,8 +60,10 @@ El auditor se conecta al servidor MCP por `stdio` y procesa las ventas pendiente
 uv run python -m ventas_app.auditor
 ```
 
-Las reglas `R1`–`R6` son determinísticas. Opcionalmente, si se configura un
-proveedor compatible con OpenAI, se agrega un resumen narrativo de la corrida.
+Las reglas `R1`–`R8` son determinísticas y el LLM solo redacta un resumen; nunca
+decide estados. El proveedor local (Ollama) es el valor por defecto. Un
+proveedor externo requiere `LLM_EXTERNAL_ENABLED=true` por decisión de ADMIN y
+solo recibe conteos/códigos R1–R8, nunca PII ni salud.
 
 ### Ollama local con `qwen2.5:7b`
 
@@ -74,11 +76,16 @@ cp .env.example .env
 ```dotenv
 APP_ENCRYPTION_KEY=<clave Fernet generada>
 COOKIE_SECURE=false
+LLM_EXTERNAL_ENABLED=false
 OPENAI_API_KEY=ollama
 OPENAI_BASE_URL=http://localhost:11434/v1
 OPENAI_MODEL=qwen2.5:7b
 OPENAI_TIMEOUT=60
 ```
+
+`ddjj_detalle` se cifra en SQLite; el MCP local no recibe la clave ni claves LLM.
+`sessionStorage` conserva solo el paso y el plan, nunca datos personales, salud
+o instrumentos de pago.
 
 La aplicación carga `.env` automáticamente al iniciar (mediante
 `python-dotenv`), sin sobrescribir variables ya exportadas. Con Ollama corriendo

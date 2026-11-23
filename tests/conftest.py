@@ -61,6 +61,7 @@ def aislar_llm(monkeypatch: pytest.MonkeyPatch) -> None:
         "OPENAI_BASE_URL",
         "OPENAI_MODEL",
         "OPENAI_TIMEOUT",
+        "LLM_EXTERNAL_ENABLED",
     ):
         monkeypatch.delenv(variable, raising=False)
 

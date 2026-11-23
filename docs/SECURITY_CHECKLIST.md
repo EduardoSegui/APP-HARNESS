@@ -50,3 +50,20 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 11 casos nuevos en `tests/test_security.py` (headers/CSP, docs, 422, 413, integrantes, búsqueda, export, lock, rate limit, logs, `onclick`) + 54 verificaciones manuales TestClient sobre base temporal.
 - [x] `./init.sh` y `uv run pytest` verdes: 377 passed.
 - [x] Sin Critical/High abiertos. Riesgos residuales medios: rate limit en memoria de un worker (el proxy complementa), límite de body basado en `Content-Length` (el proxy debe cortar chunked/timeouts) y CSP con CDN/`unsafe-inline` transitorios hasta F28.
+
+## F25 — Protección de PII/salud, secretos, MCP y LLM (2026-11-23)
+
+- [x] Datos: PII (nombre, DNI, CUIL, contacto, domicilio e instrumentos) y salud (`ddjj_detalle`); secretos LLM y clave de cifrado solo en entorno. Listado API con `VentaResumenOut`.
+- [x] Rutas: sin rutas públicas nuevas; `/api/ventas` autenticado devuelve resumen; detalle autenticado conserva datos; MCP local `stdio`; LLM externo opt-in.
+- [x] RBAC: sin cambios; habilitación externa por configuración de ADMIN; MCP no se expone por red.
+- [x] Validación server-side y límites: sin endpoints nuevos; se mantienen los límites F24 y la migración idempotente.
+- [x] CSRF: sin POST/PUT nuevos; matriz F23 intacta.
+- [x] Sin PII/salud en logs, errores 422, prompts externos ni sessionStorage: externo solo conteos R1–R8; local redacta secuencias numéricas; sessionStorage solo `paso`/`plan_id`; MCP salud como `[cifrado]`.
+- [x] Secretos fuera del repo/frontend/MCP: `.env` y DB ignorados y 600; subproceso MCP con allowlist, sin `OPENAI_API_KEY`/`APP_ENCRYPTION_KEY` y `VENTAS_SKIP_DOTENV=1`; API key solo en entorno.
+- [x] Cifrado/permisos: `.env`/DB 600 y `ddjj_detalle` cifrado con validación criptográfica del token, no por prefijo. Se corrigió el bypass de textos `gAAAA...` y la migración los cifra; test de borde con `descifrar_texto(crudo) == detalle` y respuesta 200.
+- [x] Rate limiting/abuso: sin rutas nuevas; se mantienen las políticas F24; LLM externo opt-in.
+- [x] Eventos: `LLM_EXTERNO` sin PII; ampliación de denegaciones/configuración en F27.
+- [x] Retención/legal hold: sin cambios; F27.
+- [x] Tests: 389 passed, 12 de `test_privacy.py` (incluye `gAAAA...` y migración) + verificaciones manuales TestClient/MCP/Node.
+- [x] `./init.sh` y `uv run pytest` verdes.
+- [x] Sin Critical/High abiertos: bypass de cifrado corregido y revalidado.

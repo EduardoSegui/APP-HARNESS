@@ -749,8 +749,8 @@ La política operativa vive en `docs/SECURITY.md` y el checklist por feature en 
 - **MFA:** TOTP obligatorio para ADMIN/AUDITOR, recovery codes; sin SMS.
 - **RBAC:** OPERADOR, AUDITOR y ADMIN con matriz de rutas testeada.
 - **HTTP:** CSP/headers, `TrustedHost`, HSTS opcional, límites de body/listas/export, rate limiting, lock de auditoría y 422 sanitizados; docs cerrados por defecto.
-- **Datos:** clasificación, minimización, cifrado de volumen/campos sensibles, permisos 600/700, backups cifrados.
-- **LLM/MCP:** local por defecto, externo opt-in, sin PII/salud, API key fuera del subproceso MCP.
+- **Datos:** clasificación, minimización, `ddjj_detalle` cifrado con `EncryptedText`/Fernet, permisos 600/700, backups cifrados; el listado API no expone salud/CUIL/pagos.
+- **LLM/MCP:** interfaz `LLMProvider`; local por defecto, externo opt-in (`LLM_EXTERNAL_ENABLED`) y auditado; payload externo solo conteos/códigos R1–R8. El subproceso MCP usa allowlist de entorno, no hereda claves LLM ni la clave de campos y no carga `.env`.
 - **Recuperación:** backup diario cifrado, retención 7+4+1, restore mensual, RPO 24 h/RTO 8 h.
 - **Privacidad:** retención configurable, legal hold, DSR, aviso y consentimiento; marco Ley 25.326.
 - **Despliegue:** LAN, reverse proxy TLS, firewall/VPN, sin exposición directa a Internet.

@@ -72,21 +72,33 @@ Reglas:
 
 - Salud y PII nunca en logs, errores, sessionStorage ni LLM externo.
 - `Cache-Control: no-store` en respuestas con PII.
-- No devolver detalle de salud/CUIL completo a integraciones que no lo necesiten.
+- El listado API devuelve un resumen sin salud, contacto, CUIL ni instrumentos;
+  el detalle completo queda para roles autorizados y el MCP local.
+- `sessionStorage` solo conserva `paso` y `plan_id`; nunca PII, salud ni pagos.
 - Archivos: `.env` y DB `600`; directorio `700`; usuario de servicio dedicado.
-- Cifrado de volumen/OS; cifrado de campos sensibles (`ddjj_detalle`, secreto MFA).
+- El arranque restringe `.env` y SQLite a `600`; el despliegue debe aplicar
+  propietario de servicio y directorio `700`, por ejemplo:
+  `install -d -m 700 -o ventas -g ventas /opt/ventas` y
+  `chown -R ventas:ventas /opt/ventas`.
+- Cifrado de volumen/OS; `ddjj_detalle` y secreto MFA cifrados con
+  `APP_ENCRYPTION_KEY`; migración idempotente de filas históricas.
 - Backups cifrados; nunca planos ni en Git.
 - Exportaciones solo ADMIN y auditadas.
 
 ## 8. LLM y MCP
 
 - Proveedor local Ollama por defecto; comportamiento actual preservado.
-- Interfaz `LLMProvider`; proveedor externo deshabilitado por defecto.
-- Habilitación externa solo ADMIN, auditada.
+- Interfaz `LLMProvider` (`services/llm.py`); proveedor externo deshabilitado
+  por defecto con `LLM_EXTERNAL_ENABLED=false`.
+- Habilitación externa solo ADMIN, auditada en `security_events`.
 - API key en secreto/entorno, nunca en DB, frontend ni MCP.
-- Payload externo: solo conteos/códigos R1–R8; nunca salud, DNI, CUIL, domicilio, email, teléfono ni instrumentos.
+- Payload externo: solo conteos y códigos R1–R8; nunca salud, DNI, CUIL,
+  domicilio, email, teléfono ni instrumentos. El proveedor local conserva
+  observaciones redactadas.
 - Fallback local ante error externo; el LLM nunca decide estados.
-- MCP solo `stdio`; entorno hijo con allowlist mínima y sin secretos.
+- MCP solo `stdio`; el subproceso usa allowlist de entorno, no hereda
+  `OPENAI_API_KEY`/`APP_ENCRYPTION_KEY` y no carga `.env` (`VENTAS_SKIP_DOTENV`);
+  el detalle de salud se expone solo como presencia (`[cifrado]`).
 
 ## 9. Retención, legal hold y derechos
 

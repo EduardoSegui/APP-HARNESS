@@ -14,12 +14,19 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    TypeDecorator,
     UniqueConstraint,
     func,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from ventas_app.crypto import (
+    cifrar_texto,
+    clave_disponible,
+    descifrar_texto,
+    es_token_valido,
+)
 from ventas_app.database import Base
 
 
@@ -46,6 +53,33 @@ class RolUsuario(str, Enum):
     OPERADOR = "OPERADOR"
     AUDITOR = "AUDITOR"
     ADMIN = "ADMIN"
+
+
+class EncryptedText(TypeDecorator[str]):
+    """Texto cifrado en reposo; tolera filas históricas en texto plano."""
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value: str | None, dialect) -> str | None:
+        if value is None:
+            return None
+        # No confiar en el prefijo: si no es un token auténtico, se cifra.
+        if es_token_valido(value):
+            return value
+        return cifrar_texto(value)
+
+    def process_result_value(self, value: str | None, dialect) -> str | None:
+        if value is None:
+            return None
+        if not clave_disponible():
+            # Un subproceso sin clave (MCP) no puede leer salud; solo su
+            # presencia. Tampoco debe exponer filas históricas en claro.
+            return "[cifrado]"
+        if not es_token_valido(value):
+            # Compatibilidad con filas históricas o valores no autenticados.
+            return value
+        return descifrar_texto(value)
 
 
 class MedioPago(str, Enum):
@@ -232,7 +266,10 @@ class Venta(Base):
         default=False,
         server_default=text("0"),
     )
-    ddjj_detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ddjj_detalle: Mapped[str | None] = mapped_column(
+        EncryptedText,
+        nullable=True,
+    )
     regimen_afiliacion: Mapped[str] = mapped_column(
         String(30),
         nullable=False,

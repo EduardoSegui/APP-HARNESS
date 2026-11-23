@@ -375,6 +375,24 @@ class IntegranteOut(BaseModel):
     parentesco: Parentesco
 
 
+class VentaResumenOut(BaseModel):
+    """Resumen de listado sin salud, contacto, CUIL ni instrumentos de pago."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre_titular: str
+    apellido_titular: str
+    dni_titular: str
+    plan_id: int
+    plan: PlanOut
+    medio_pago: MedioPago
+    estado: EstadoVenta
+    precio_total: int
+    creado_en: datetime
+    actualizado_en: datetime
+
+
 class VentaOut(BaseModel):
     """Representación pública de una venta persistida."""
 
@@ -439,7 +457,7 @@ class EventoOut(BaseModel):
 class PaginaVentasOut(BaseModel):
     """Resultado paginado de búsqueda de ventas."""
 
-    items: list[VentaOut]
+    items: list[VentaResumenOut]
     total: int
     pagina: int
     por_pagina: int

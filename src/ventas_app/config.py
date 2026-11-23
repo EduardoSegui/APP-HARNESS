@@ -9,9 +9,17 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = PROJECT_ROOT / ".env"
+_SKIP_DOTENV = os.getenv("VENTAS_SKIP_DOTENV") == "1"
 
-# Cargar .env antes de leer las constantes de seguridad.
-load_dotenv(dotenv_path=ENV_FILE, override=False)
+# Cargar .env antes de leer las constantes de seguridad. El subproceso MCP
+# usa VENTAS_SKIP_DOTENV=1 para no heredar claves LLM desde el archivo.
+if not _SKIP_DOTENV:
+    load_dotenv(dotenv_path=ENV_FILE, override=False)
+    if ENV_FILE.exists():
+        try:
+            ENV_FILE.chmod(0o600)
+        except OSError:
+            pass
 
 SESSION_COOKIE_NAME = "vos_session"
 SESSION_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
@@ -42,6 +50,15 @@ def cargar_entorno() -> bool:
     """Carga ``.env`` sin sobrescribir variables ya exportadas.
 
     Se usa una ruta absoluta para que funcione tanto al levantar Uvicorn como
-    al ejecutar el auditor o los scripts desde la raíz del repositorio.
+    al ejecutar el auditor o los scripts desde la raíz del repositorio. El
+    subproceso MCP puede desactivar la carga con ``VENTAS_SKIP_DOTENV=1``.
     """
-    return load_dotenv(dotenv_path=ENV_FILE, override=False)
+    if _SKIP_DOTENV:
+        return False
+    cargado = load_dotenv(dotenv_path=ENV_FILE, override=False)
+    if ENV_FILE.exists():
+        try:
+            ENV_FILE.chmod(0o600)
+        except OSError:
+            pass
+    return cargado
