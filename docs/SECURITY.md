@@ -102,13 +102,21 @@ Reglas:
 
 ## 9. Retención, legal hold y derechos
 
-- Seguridad: 365 días.
-- Comercial/salud: sin borrado automático hasta definir plazos legales; retención configurable.
-- `legal_hold` bloquea supresión/anonimización.
-- Flujo administrativo para acceso, rectificación, supresión y anonimización.
-- Aviso de privacidad versionado y consentimiento registrado.
-- Marco de referencia: Ley 25.326 y normativa de datos sensibles/salud; validar con asesoría legal.
-- Documentar obligaciones de inscripción ante AAIP.
+- Seguridad: `RETENCION_SEGURIDAD_DIAS=365`; job `scripts/privacidad.py retencion`.
+- Comercial/salud: `RETENCION_COMERCIAL_DIAS`/`RETENCION_SALUD_DIAS` vacíos por
+  defecto; no hay auto-borrado hasta definir plazos legales.
+- `legal_hold` bloquea supresión/anonimización; solo se libera por decisión
+  administrativa documentada.
+- Flujo administrativo/CLI para acceso, rectificación, supresión y anonimización
+  (`scripts/privacidad.py`), con DSR y eventos auditados.
+- La supresión se implementa como anonimización de PII/salud (incluida fecha de
+  nacimiento); no se borra el registro comercial ni el linaje. Un legal hold
+  activo la bloquea y se exige backup verificado + confirmación del custodio.
+- Aviso de privacidad versionado en `/privacidad`; consentimiento registrado en
+  `consentimientos_privacidad` al confirmar una venta.
+- Marco de referencia: Ley 25.326 y normativa de datos sensibles/salud; validar
+  con asesoría legal.
+- Documentar obligaciones de inscripción ante AAIP; ver `docs/PRIVACIDAD.md`.
 
 ## 10. Backups y recuperación
 
@@ -144,8 +152,10 @@ legajo cambió) y `venta_eventos` es append-only mediante triggers.
 
 ## 11. Logs y respuesta a incidentes
 
-- `security_events` sin PII, con usuario, resultado, request ID, IP minimizada y timestamp.
-- Eventos: login, MFA, denegaciones, exportaciones, credencial, auditoría, backups, configuración y legal hold.
+- `security_events` sin PII, con usuario, resultado, request ID, IP minimizada
+  (último octeto/prefijo) y timestamp.
+- Eventos: login, MFA, denegaciones, exportaciones, credencial, auditoría,
+  usuarios, backups, restores, retención, legal hold y DSR.
 - Retención de seguridad: 12 meses.
 - Incidente: detectar, contener, preservar evidencia, erradicar, recuperar, notificar y postmortem.
 - Contacto de seguridad y política de divulgación en `SECURITY.md` raíz.

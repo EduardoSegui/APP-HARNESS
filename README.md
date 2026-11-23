@@ -172,6 +172,7 @@ completa.
 - [Arquitectura](docs/ARQUITECTURA.md): diseño técnico, modelo de datos y flujo de estados.
 - [Seguridad y privacidad](docs/SECURITY.md): política, roles, datos, MFA, backups y retención.
 - [Checklist de seguridad](docs/SECURITY_CHECKLIST.md): controles obligatorios por feature.
+- [Privacidad y DSR](docs/PRIVACIDAD.md): retención, legal hold, derechos y AAIP.
 - [Índice de documentación](docs/INDEX.md): mapa de temas a secciones.
 - [Plan de diseño F12](docs/design/F12.md): dirección visual del wizard y el panel con `frontend-design`.
 - [AGENTS.md](AGENTS.md): punto de entrada del harness y roles de agentes.

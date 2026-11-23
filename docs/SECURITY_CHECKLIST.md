@@ -84,3 +84,22 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 397 passed, incluidos `tests/test_backup_restore.py` (WAL, backup, restore, corrupción, retención, offline, versión, triggers).
 - [x] `./init.sh` y `uv run pytest` verdes.
 - [x] Sin Critical/High abiertos; riesgos residuales documentados (medio offline físico y restore en mantenimiento).
+
+## F27 — Privacidad, retención, legal hold y seguridad operativa (2026-11-23)
+
+- [x] Datos: eventos de seguridad sin PII (IP minimizada), retención por categoría, legal hold y DSR; no se agrega PII a logs.
+- [x] Rutas: `/privacidad` público; retención/DSR/legal hold/anonimización solo por CLI/servicio administrativo; sin endpoints web de borrado.
+- [x] RBAC: denegaciones registradas con usuario y ruta, sin query ni PII; CLI bajo custodia del ADMIN.
+- [x] Validación: categorías de retención, tipos DSR, motivos de hold y estado de solicitudes validados; sin borrado automático de comercial/salud.
+- [x] CSRF/RBAC: matriz F23/F24 intacta; los nuevos flujos no agregan POST/PUT web.
+- [x] Logs/eventos: login, MFA, denegaciones, exportaciones, credencial, auditoría, usuarios y backups generan `security_events` sin PII.
+- [x] Cifrado/permisos: retención y legal hold no alteran backups/DB; anonimización elimina PII/salud (incluida `fecha_nacimiento_titular`) y conserva linaje comercial.
+- [x] Rate limiting: sin rutas nuevas; políticas F24 intactas.
+- [x] Retención: seguridad 365 días, comercial/salud sin auto-borrado; job elimina solo eventos vencidos y deja evidencia `RETENCION_SEGURIDAD`.
+- [x] Legal hold: bloquea anonimización y DSR de supresión; liberación auditada.
+- [x] DSR: acceso, rectificación, supresión y anonimización registrados/resueltos; bajo hold no se borra/anonimiza.
+- [x] Aviso: `/privacidad` versionado y consentimiento registrado en `consentimientos_privacidad`.
+- [x] Tests: 406 passed, incluidos retención, hold, DSR, eventos sin PII, aviso y consentimiento.
+- [x] `./init.sh` y `uv run pytest` verdes.
+- [x] Flujo de supresión/anonimización exige backup verificado y confirmación explícita (`--backup` + `--confirmar`), verificado por checksum/integridad.
+- [x] Sin Critical/High abiertos; documentación `docs/PRIVACIDAD.md` y runbook AAIP.

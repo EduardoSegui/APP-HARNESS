@@ -2,9 +2,9 @@
 
 > Generado por `uv run python scripts/contexto.py estado`. No editar a mano.
 
-- **Plan:** 26/28 features verificadas (`features.json`).
-- **Próximo paso:** F27 — Privacidad, retención, legal hold y seguridad operativa — packet: `features/F27.md`.
-- **Última sesión:** Sesión 25 — F26: durabilidad, backups, concurrencia e inmutabilidad (2026-11-23).
-- **Última entrada:** `CHECKPOINT.md#sesión-25`.
-- **Tests:** 397 passed.
+- **Plan:** 27/28 features verificadas (`features.json`).
+- **Próximo paso:** F28 — Cadena de suministro y SDD seguro — packet: `features/F28.md`.
+- **Última sesión:** Sesión 26 — F27: privacidad, retención, legal hold y DSR (2026-11-23).
+- **Última entrada:** `CHECKPOINT.md#sesión-26`.
+- **Tests:** 406 passed.
 - **Harness:** OK.

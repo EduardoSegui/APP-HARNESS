@@ -14,6 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from ventas_app.security import registrar_evento_global
 from ventas_app.services.backup import ErrorBackup, restaurar_backup
 
 
@@ -38,6 +39,11 @@ def main(argv: list[str] | None = None) -> int:
     except ErrorBackup as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+    registrar_evento_global(
+        tipo="RESTORE",
+        resultado="OK",
+        detalle="Restore de backup verificado.",
+    )
     print(f"Base restaurada en: {ruta}")
     print("Verificá la app y ejecutá ./init.sh antes de volver a producción.")
     return 0

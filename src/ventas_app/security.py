@@ -215,6 +215,18 @@ def verificar_codigo_recuperacion(
     return False
 
 
+def _ip_minimizada(ip: str | None) -> str | None:
+    """Reduce la IP a un prefijo de red para logs de seguridad."""
+    if not ip:
+        return None
+    if ":" in ip:
+        return (ip.split(":")[0] + ":…")[:45]
+    partes = ip.split(".")
+    if len(partes) == 4:
+        return f"{partes[0]}.{partes[1]}.{partes[2]}.x"
+    return ip[:45]
+
+
 def registrar_evento_seguridad(
     db: Session,
     *,
@@ -230,11 +242,36 @@ def registrar_evento_seguridad(
             tipo=tipo[:50],
             resultado=resultado[:20],
             usuario_id=usuario_id,
-            ip=ip[:45] if ip else None,
+            ip=_ip_minimizada(ip),
             request_id=request_id[:64] if request_id else None,
             detalle=detalle[:1000] if detalle else None,
         )
     )
+
+
+def registrar_evento_global(
+    *,
+    tipo: str,
+    resultado: str,
+    usuario_id: int | None = None,
+    detalle: str | None = None,
+) -> bool:
+    """Registra un evento desde CLI/script sin abrir una sesión al caller."""
+    try:
+        from ventas_app.database import SessionLocal
+
+        with SessionLocal() as db:
+            registrar_evento_seguridad(
+                db,
+                tipo=tipo,
+                resultado=resultado,
+                usuario_id=usuario_id,
+                detalle=detalle,
+            )
+            db.commit()
+        return True
+    except Exception:
+        return False
 
 
 class _RateLimiter:

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Aviso de privacidad | Ventas Obra Social{% endblock %}
+
+{% block content %}
+<main class="app-main">
+  <div class="page-head">
+    <div class="page-head__main">
+      <p class="page-context">Privacidad · versión {{ version }}</p>
+      <h1 class="page-title">Aviso de privacidad</h1>
+      <p class="page-sub">Tratamiento de datos personales y de salud en el sistema interno.</p>
+    </div>
+  </div>
+
+  <section class="sheet prose">
+    <h2>Finalidad</h2>
+    <p>Los datos se usan para gestionar altas, cotizaciones, afiliaciones, auditoría interna y obligaciones legales de la obra social. No se usan para publicidad ni se envían a proveedores externos sin una decisión administrativa expresa.</p>
+
+    <h2>Datos tratados</h2>
+    <p>Identificación y contacto del grupo familiar, domicilio, datos comerciales, instrumentos de pago enmascarados y declaración jurada de salud. Los datos de salud son sensibles y tienen acceso restringido.</p>
+
+    <h2>Conservación y seguridad</h2>
+    <p>Los eventos de seguridad se conservan 12 meses. Los registros comerciales y de salud no se borran automáticamente hasta definir los plazos legales aplicables. Los backups están cifrados y fuera del repositorio.</p>
+
+    <h2>Derechos</h2>
+    <p>Podés solicitar acceso, rectificación, supresión o anonimización de tus datos. Las solicitudes se registran y auditan; un legal hold puede impedir temporalmente una supresión o anonimización.</p>
+
+    <h2>Contacto</h2>
+    <p>El responsable de privacidad y seguridad de la organización recibe las solicitudes por el canal interno definido. Marco de referencia: Ley 25.326 y normativa aplicable de datos sensibles y salud.</p>
+
+    <p class="auth-hint">Versión del aviso: {{ version }}. La constancia de aceptación se registra al confirmar una venta cuando corresponde.</p>
+  </section>
+</main>
+{% endblock %}

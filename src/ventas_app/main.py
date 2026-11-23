@@ -22,8 +22,10 @@ from ventas_app.middleware import (
 )
 from ventas_app.routers.api import router as api_router
 from ventas_app.routers.auth import router as auth_router
+from ventas_app.routers.privacidad import router as privacidad_router
 from ventas_app.routers.web import STATIC_DIR, router as web_router
 from ventas_app.seed import seed_planes
+from ventas_app.services.privacidad import asegurar_politicas_default
 
 
 class _UvicornAccessFilter(logging.Filter):
@@ -51,6 +53,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     init_db()
     with SessionLocal() as db:
         seed_planes(db)
+        asegurar_politicas_default(db)
     yield
 
 
@@ -71,6 +74,7 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(ALLOWED_HOSTS))
 app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(auth_router)
+app.include_router(privacidad_router)
 app.include_router(api_router)
 app.include_router(web_router)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

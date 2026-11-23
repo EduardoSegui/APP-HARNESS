@@ -13,9 +13,10 @@ from ventas_app.config import SESSION_COOKIE_NAME
 from ventas_app.database import get_db
 from ventas_app.models import RolUsuario, Sesion, Usuario
 from ventas_app.security import (
+    ahora_utc,
     comparar_hash,
     obtener_sesion_valida,
-    ahora_utc,
+    registrar_evento_seguridad,
 )
 
 SessionDep = Annotated[Session, Depends(get_db)]
@@ -106,13 +107,32 @@ def _roles(valores: tuple[RolUsuario, ...]) -> set[str]:
     return {rol.value for rol in valores}
 
 
+def _registrar_denegacion(
+    db: Session,
+    request: Request,
+    usuario: Usuario,
+) -> None:
+    registrar_evento_seguridad(
+        db,
+        tipo="ACCESO_DENEGADO",
+        resultado="FALLO",
+        usuario_id=usuario.id,
+        ip=request.client.host if request.client else None,
+        detalle=f"Ruta denegada: {request.url.path[:300]}",
+    )
+    db.commit()
+
+
 def require_web_roles(*roles: RolUsuario) -> Callable:
     permitidos = _roles(roles)
 
     async def dependencia(
+        request: Request,
+        db: SessionDep,
         usuario: Annotated[Usuario, Depends(require_web_user)],
     ) -> Usuario:
         if usuario.rol not in permitidos:
+            _registrar_denegacion(db, request, usuario)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tenés permisos para esta acción.",
@@ -126,9 +146,12 @@ def require_api_roles(*roles: RolUsuario) -> Callable:
     permitidos = _roles(roles)
 
     async def dependencia(
+        request: Request,
+        db: SessionDep,
         usuario: Annotated[Usuario, Depends(require_api_user)],
     ) -> Usuario:
         if usuario.rol not in permitidos:
+            _registrar_denegacion(db, request, usuario)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tenés permisos para esta acción.",

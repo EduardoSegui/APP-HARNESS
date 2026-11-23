@@ -8,6 +8,7 @@ import sys
 
 from ventas_app.database import SessionLocal, init_db
 from ventas_app.models import RolUsuario
+from ventas_app.security import registrar_evento_global
 from ventas_app.services.usuarios import (
     PasswordDebilError,
     UsuarioYaExisteError,
@@ -45,6 +46,12 @@ def _bootstrap() -> int:
         except (UsuarioYaExisteError, PasswordDebilError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
+    registrar_evento_global(
+        tipo="USUARIO",
+        resultado="ALTA",
+        usuario_id=usuario.id,
+        detalle="Alta de ADMIN por CLI.",
+    )
     print(f"ADMIN '{usuario.username}' creado. El próximo login exigirá MFA.")
     return 0
 
@@ -69,6 +76,12 @@ def _crear() -> int:
         except (UsuarioYaExisteError, PasswordDebilError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
+    registrar_evento_global(
+        tipo="USUARIO",
+        resultado="ALTA",
+        usuario_id=usuario.id,
+        detalle=f"Alta de usuario con rol {usuario.rol}.",
+    )
     print(f"Usuario '{usuario.username}' creado con rol {usuario.rol}.")
     return 0
 
@@ -86,6 +99,12 @@ def _reset() -> int:
         except (PasswordDebilError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
+    registrar_evento_global(
+        tipo="USUARIO",
+        resultado="RESET_PASSWORD",
+        usuario_id=usuario.id,
+        detalle="Reset de contraseña por CLI.",
+    )
     print("Contraseña actualizada; las sesiones existentes deben revocarse.")
     return 0
 
@@ -101,6 +120,12 @@ def _desactivar(activar: bool) -> int:
             activar_usuario(db, usuario)
         else:
             desactivar_usuario(db, usuario)
+    registrar_evento_global(
+        tipo="USUARIO",
+        resultado="ACTIVADO" if activar else "DESACTIVADO",
+        usuario_id=usuario.id,
+        detalle="Cambio de estado de usuario por CLI.",
+    )
     print(("Usuario activado." if activar else "Usuario desactivado."))
     return 0
 

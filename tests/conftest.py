@@ -37,10 +37,14 @@ from ventas_app.database import (  # noqa: E402
 from ventas_app.main import app  # noqa: E402
 from ventas_app.models import (  # noqa: E402
     CodigoRecuperacion,
+    ConsentimientoPrivacidad,
     Integrante,
+    LegalHold,
     Plan,
+    RetencionPolitica,
     SecurityEvent,
     Sesion,
+    SolicitudDerecho,
     Usuario,
     Venta,
     VentaEvento,
@@ -83,6 +87,10 @@ def limpiar_tablas(base_de_datos_temporal: None) -> Iterator[None]:
             db.execute(delete(SecurityEvent))
             db.execute(delete(CodigoRecuperacion))
             db.execute(delete(Sesion))
+            db.execute(delete(ConsentimientoPrivacidad))
+            db.execute(delete(SolicitudDerecho))
+            db.execute(delete(LegalHold))
+            db.execute(delete(RetencionPolitica))
             db.execute(delete(VentaEvento))
             db.execute(delete(Integrante))
             db.execute(delete(Venta))

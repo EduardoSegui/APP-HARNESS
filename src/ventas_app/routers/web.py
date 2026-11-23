@@ -25,6 +25,7 @@ from ventas_app.models import (
     Venta,
 )
 from ventas_app.schemas import VentaOut
+from ventas_app.security import registrar_evento_seguridad
 from ventas_app.services.eventos import listar_eventos
 from ventas_app.services.metricas import calcular_metricas
 from ventas_app.services.ventas import (
@@ -330,6 +331,15 @@ def mostrar_credencial(
             status_code=404,
             detail="La credencial solo está disponible para ventas aprobadas.",
         )
+    registrar_evento_seguridad(
+        db,
+        tipo="CREDENCIAL",
+        resultado="OK",
+        usuario_id=getattr(request.state.usuario, "id", None),
+        ip=request.client.host if request.client else None,
+        detalle=f"Credencial emitida para venta {venta.id}.",
+    )
+    db.commit()
     return templates.TemplateResponse(
         request=request,
         name="credencial.html",

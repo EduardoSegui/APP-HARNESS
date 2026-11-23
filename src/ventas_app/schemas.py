@@ -241,6 +241,7 @@ class _VentaDatosIn(BaseModel):
     regimen_afiliacion: RegimenAfiliacion = RegimenAfiliacion.PARTICULAR
     cuil_titular: Cuil | None = None
     aporte_estimado: int = Field(default=0, ge=0)
+    consentimiento_privacidad: bool = False
     integrantes: list[IntegranteIn] = Field(
         default_factory=list,
         max_length=MAX_INTEGRANTES,

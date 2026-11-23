@@ -60,6 +60,7 @@ Mapa de consulta rápida. Leé solo la sección que necesitás; no cargues los d
 | Política de seguridad y privacidad | `docs/SECURITY.md` |
 | Checklist de seguridad por feature | `docs/SECURITY_CHECKLIST.md` |
 | Arquitectura de seguridad | `docs/ARQUITECTURA.md` §17 |
+| Privacidad, retención y DSR | `docs/PRIVACIDAD.md` |
 | Estado actual y próximo paso | `STATE.md` |
 | Plan y progreso | `features.json` |
 | Reglas duras | `AGENTS.md` |

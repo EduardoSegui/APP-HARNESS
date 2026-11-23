@@ -177,7 +177,7 @@
       "titulo": "Privacidad, retención, legal hold y seguridad operativa",
       "descripcion": "Security events, retención configurable, legal hold, DSR y aviso de privacidad.",
       "packet": "features/F27.md",
-      "passes": false
+      "passes": true
     },
     {
       "id": "F28",

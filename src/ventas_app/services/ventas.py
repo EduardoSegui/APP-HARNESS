@@ -243,6 +243,10 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
             actor="operador",
             estado_nuevo=venta.estado,
         )
+        if datos.consentimiento_privacidad:
+            from ventas_app.services.privacidad import registrar_consentimiento
+
+            registrar_consentimiento(db, venta_id=venta.id)
         db.commit()
     except Exception:
         db.rollback()
@@ -314,6 +318,10 @@ def actualizar_venta(
             estado_anterior=estado_anterior,
             estado_nuevo=venta.estado,
         )
+        if datos.consentimiento_privacidad:
+            from ventas_app.services.privacidad import registrar_consentimiento
+
+            registrar_consentimiento(db, venta_id=venta.id)
         db.commit()
     except StaleDataError as exc:
         db.rollback()

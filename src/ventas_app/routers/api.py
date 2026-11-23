@@ -7,13 +7,14 @@ from datetime import date
 from threading import Lock
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from ventas_app.auditor import ejecutar_auditoria
 from ventas_app.database import get_db
 from ventas_app.dependencies import require_api_roles, require_api_user
 from ventas_app.models import RolUsuario, Venta
+from ventas_app.security import registrar_evento_seguridad
 from ventas_app.schemas import (
     AuditoriaOut,
     EventoOut,
@@ -59,7 +60,10 @@ _AUDITORIA_LOCK = Lock()
         Depends(require_api_roles(RolUsuario.AUDITOR, RolUsuario.ADMIN))
     ],
 )
-def auditar_endpoint() -> dict[str, Any]:
+def auditar_endpoint(
+    request: Request,
+    db: SessionDep,
+) -> dict[str, Any]:
     """Ejecuta el Agente Auditor sobre las ventas pendientes."""
     if not _AUDITORIA_LOCK.acquire(blocking=False):
         raise HTTPException(
@@ -67,11 +71,34 @@ def auditar_endpoint() -> dict[str, Any]:
             detail="Ya hay una auditoría en curso.",
         )
     try:
-        return ejecutar_auditoria()
+        resultado = ejecutar_auditoria()
+        registrar_evento_seguridad(
+            db,
+            tipo="AUDITORIA",
+            resultado="OK",
+            usuario_id=getattr(request.state.usuario, "id", None),
+            ip=request.client.host if request.client else None,
+            detalle=(
+                f"Procesadas: {resultado.get('procesadas', 0)}; "
+                f"aprobadas: {resultado.get('aprobadas', 0)}; "
+                f"observadas: {resultado.get('observadas', 0)}."
+            ),
+        )
+        db.commit()
+        return resultado
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Falló la ejecución del Agente Auditor")
+        registrar_evento_seguridad(
+            db,
+            tipo="AUDITORIA",
+            resultado="FALLO",
+            usuario_id=getattr(request.state.usuario, "id", None),
+            ip=request.client.host if request.client else None,
+            detalle="Falló la ejecución de la auditoría.",
+        )
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo ejecutar la auditoría.",
@@ -141,6 +168,7 @@ def metricas_endpoint(
     dependencies=[Depends(require_api_roles(RolUsuario.ADMIN))],
 )
 def exportar_endpoint(
+    request: Request,
     tipo: Literal["padron", "cobranzas"],
     db: SessionDep,
     formato: Literal["csv", "json"] = "csv",
@@ -165,6 +193,15 @@ def exportar_endpoint(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
+    registrar_evento_seguridad(
+        db,
+        tipo="EXPORTACION",
+        resultado="OK",
+        usuario_id=getattr(request.state.usuario, "id", None),
+        ip=request.client.host if request.client else None,
+        detalle=f"Exportación {tipo}/{formato}.",
+    )
+    db.commit()
     return Response(
         content=contenido,
         media_type=media_type,

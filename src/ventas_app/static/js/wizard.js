@@ -1133,6 +1133,15 @@
         validarInstrumentoPago(errores);
       }
 
+      const privacidad = document.querySelector("#privacidad-aceptada");
+      if (!privacidad?.checked) {
+        registrarError(
+          privacidad,
+          "Tenés que aceptar el aviso de privacidad para confirmar la venta.",
+          errores,
+        );
+      }
+
       const regimen = document.querySelector("#regimen-afiliacion");
       const cuil = document.querySelector("#cuil-titular");
       const aporte = document.querySelector("#aporte-estimado");
@@ -1239,6 +1248,9 @@
         declaracion_confirmada: estado.ddjj.declaracion_confirmada,
       },
       regimen_afiliacion: estado.regimen_afiliacion || "PARTICULAR",
+      consentimiento_privacidad: Boolean(
+        document.querySelector("#privacidad-aceptada")?.checked,
+      ),
       cuil_titular:
         estado.regimen_afiliacion === "PARTICULAR"
           ? null

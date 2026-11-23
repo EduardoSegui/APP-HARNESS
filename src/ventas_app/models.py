@@ -574,3 +574,123 @@ class SecurityEvent(Base):
         server_default=func.now(),
         index=True,
     )
+
+
+class RetencionPolitica(Base):
+    """Plazo de retención por categoría; ``dias=None`` no borra automáticamente."""
+
+    __tablename__ = "retencion_politicas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    categoria: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    dias: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("1"),
+    )
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+        onupdate=_utcnow,
+    )
+
+
+class LegalHold(Base):
+    """Bloqueo de supresión/anonimización para una venta."""
+
+    __tablename__ = "legal_holds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    venta_id: Mapped[int] = mapped_column(
+        ForeignKey("ventas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    motivo: Mapped[str] = mapped_column(Text, nullable=False)
+    creado_por: Mapped[str] = mapped_column(String(60), nullable=False)
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("1"),
+        index=True,
+    )
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )
+    liberado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class SolicitudDerecho(Base):
+    """Solicitud de acceso, rectificación, supresión o anonimización."""
+
+    __tablename__ = "solicitudes_derecho"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    venta_id: Mapped[int] = mapped_column(
+        ForeignKey("ventas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="PENDIENTE",
+        server_default=text("'PENDIENTE'"),
+        index=True,
+    )
+    detalle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    creado_por: Mapped[str] = mapped_column(String(60), nullable=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )
+    resuelto_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class ConsentimientoPrivacidad(Base):
+    """Constancia del aviso de privacidad aceptado al crear/editar una venta."""
+
+    __tablename__ = "consentimientos_privacidad"
+    __table_args__ = (
+        UniqueConstraint(
+            "venta_id",
+            "version",
+            name="uq_consentimiento_venta_version",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    venta_id: Mapped[int] = mapped_column(
+        ForeignKey("ventas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[str] = mapped_column(String(30), nullable=False)
+    aceptado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        server_default=func.now(),
+    )

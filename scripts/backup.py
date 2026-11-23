@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from ventas_app.config import BACKUP_DIR, BACKUP_OFFLINE_DIR
+from ventas_app.security import registrar_evento_global
 from ventas_app.services.backup import (
     ErrorBackup,
     aplicar_retencion,
@@ -68,6 +69,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.comando == "crear":
             info = crear_backup(tipo=args.tipo, directorio=directorio)
             aplicar_retencion(directorio, tipo=args.tipo)
+            registrar_evento_global(
+                tipo="BACKUP",
+                resultado="OK",
+                detalle=f"Backup {args.tipo} creado y verificado.",
+            )
             print(f"Backup creado: {info.ruta}")
             print(f"Checksum: {info.checksum}")
             return 0
@@ -86,6 +92,11 @@ def main(argv: list[str] | None = None) -> int:
             info = copiar_offline(
                 directorio_semanal=directorio,
                 directorio_offline=offline_dir,
+            )
+            registrar_evento_global(
+                tipo="BACKUP",
+                resultado="OFFLINE",
+                detalle="Copia semanal offline verificada.",
             )
             print(f"Copia offline: {info.ruta}")
             return 0
