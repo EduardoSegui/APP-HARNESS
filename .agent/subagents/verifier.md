@@ -14,6 +14,7 @@ Verificás la feature implementada contra los criterios de aceptación y los pri
 
 ## Verificación (Paso 7 SDD)
 
+0. Para features con auth, PII, salud, exportaciones, LLM o backups: revisar `docs/SECURITY.md` y `docs/SECURITY_CHECKLIST.md`; no aprobar con Critical/High abiertos.
 1. Confirmá que la feature es la primera pendiente.
 2. Revisá el diff: sin cambios ajenos ni `passes` adelantados.
 3. Verificá los criterios de aceptación y que las tareas del WBS estén completadas.

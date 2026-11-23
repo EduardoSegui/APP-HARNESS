@@ -54,6 +54,7 @@ uv run python -m ventas_app.auditor
 | Mapa de documentación | `docs/INDEX.md` |
 | Rol de implementación | `.agent/subagents/builder.md` |
 | Rol de verificación | `.agent/subagents/verifier.md` |
+| Seguridad y privacidad | `docs/SECURITY.md`, `docs/SECURITY_CHECKLIST.md` |
 | Presupuesto de contexto | `uv run python scripts/contexto.py --check` |
 
 ## Fuente de verdad

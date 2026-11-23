@@ -143,6 +143,48 @@
       "descripcion": "KPIs separados, porcentajes y barras de proporción, grilla compacta de motivos y exportaciones sincronizadas con filtros.",
       "packet": "features/F22.md",
       "passes": true
+    },
+    {
+      "id": "F23",
+      "titulo": "Autenticación local, MFA, sesiones y RBAC",
+      "descripcion": "Usuarios locales, Argon2id, sesiones, CSRF, TOTP, bootstrap admin, CLI de usuarios y autorización por roles.",
+      "packet": "features/F23.md",
+      "passes": false
+    },
+    {
+      "id": "F24",
+      "titulo": "Hardening HTTP, errores seguros y anti-abuso",
+      "descripcion": "Headers/CSP, límites, rate limiting, lock de auditoría, docs cerrados y 422 sanitizados.",
+      "packet": "features/F24.md",
+      "passes": false
+    },
+    {
+      "id": "F25",
+      "titulo": "Protección de PII/salud, secretos, MCP y LLM",
+      "descripcion": "Permisos/cifrado, minimización, LLMProvider local/externo, redacción y aislamiento de secretos.",
+      "packet": "features/F25.md",
+      "passes": false
+    },
+    {
+      "id": "F26",
+      "titulo": "Durabilidad, backups, concurrencia e inmutabilidad",
+      "descripcion": "WAL, backups cifrados/restore, control optimista y eventos append-only.",
+      "packet": "features/F26.md",
+      "passes": false
+    },
+    {
+      "id": "F27",
+      "titulo": "Privacidad, retención, legal hold y seguridad operativa",
+      "descripcion": "Security events, retención configurable, legal hold, DSR y aviso de privacidad.",
+      "packet": "features/F27.md",
+      "passes": false
+    },
+    {
+      "id": "F28",
+      "titulo": "Cadena de suministro y SDD seguro",
+      "descripcion": "Lock check, scanners, CI, gates de seguridad y pinning de assets.",
+      "packet": "features/F28.md",
+      "passes": false
     }
   ]
 }

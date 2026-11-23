@@ -35,3 +35,12 @@ Ninguna feature puede implementarse como un bloque monolítico indiscriminado. C
 Todo archivo del harness debe respetar su presupuesto de tamaño (`scripts/contexto.py --check`):
 - Ningún prompt ni agente debe cargar documentación completa innecesaria (`PRD.md` o `ARQUITECTURA.md` completos). Se consulta únicamente la sección referenciada.
 - La historia y bitácoras se compactan sistemáticamente (`CHECKPOINT.md` preserva solo las últimas 2 sesiones; el resto se archiva en `docs/journal/`).
+
+## Principio VIII — Seguridad y Privacidad por Defecto
+Ninguna feature puede exponer datos personales o de salud sin autenticación, autorización y controles proporcionales al riesgo:
+- Denegar por defecto; toda ruta y acción debe clasificarse y testearse.
+- Validar en servidor, minimizar datos y no registrar PII/salud/PAN/CVV en logs, errores, prompts externos ni almacenamiento del navegador.
+- Secretos fuera del repositorio, del frontend y de subprocesos que no los necesiten.
+- Backups cifrados, restauración probada y evidencia de auditoría no repudiable.
+- Ninguna feature con autenticación, PII, salud, exportaciones, LLM o backups puede marcarse `passes` con hallazgos Critical/High abiertos.
+Las decisiones y controles operativos se documentan en `docs/SECURITY.md` y `docs/SECURITY_CHECKLIST.md`.

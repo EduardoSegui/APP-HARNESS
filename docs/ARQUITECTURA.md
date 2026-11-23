@@ -723,9 +723,35 @@ No se escribe código hasta que la ficha exista y esté commiteada. El Builder n
 | F17 | Régimen, CUIL y aportes. | Pricing neto, migración, R8 y tests de API/UI. |
 | F18 | Búsqueda, filtros, linaje y credencial. | `VentaEvento`, filtros, ficha, timeline y credencial. |
 | F19 | Tablero y exportaciones. | Métricas SQL, CSV/JSON, filtros y privacidad. |
+| F20 | DDJJ con respuestas Sí/No. | Radios, detalle condicional y tests de UI. |
+| F21 | Wizard sticky y navegación libre. | Sidebar sticky, checks, confirmación final y checkbox. |
+| F22 | Tablero con KPIs y filtros. | Porcentajes, barras, estado y export filtrado. |
+| F23 | Auth local, MFA, sesiones y RBAC. | Argon2id, TOTP, CSRF, matriz de roles y CLI. |
+| F24 | Hardening HTTP y anti-abuso. | Headers/CSP, límites, rate limit, 422 seguro y docs cerrados. |
+| F25 | PII/salud, secretos, MCP y LLM. | Cifrado, minimización, env allowlist y LLMProvider. |
+| F26 | Backups, durabilidad y concurrencia. | WAL, backup/restore, versión optimista y triggers. |
+| F27 | Privacidad, retención y seguridad operativa. | Security events, legal hold, DSR y logs. |
+| F28 | Cadena de suministro y SDD seguro. | Lock check, scanners, CI y pinning/SRI. |
 
 ---
 
 ## 16. Estado del proyecto
 
 El estado vigente y el próximo paso están en `STATE.md`. Este documento describe el diseño estable y no mantiene una copia del estado; la historia de las sesiones está en `CHECKPOINT.md` y `docs/journal/`.
+
+---
+
+## 17. Seguridad y privacidad
+
+La política operativa vive en `docs/SECURITY.md` y el checklist por feature en `docs/SECURITY_CHECKLIST.md`.
+
+- **Autenticación:** cuentas locales, Argon2id, sesiones opacas, cookies `HttpOnly`/`Secure`/`SameSite`, CSRF y expiración.
+- **MFA:** TOTP obligatorio para ADMIN/AUDITOR, recovery codes; sin SMS.
+- **RBAC:** OPERADOR, AUDITOR y ADMIN con matriz de rutas testeada.
+- **Datos:** clasificación, minimización, cifrado de volumen/campos sensibles, permisos 600/700, backups cifrados.
+- **LLM/MCP:** local por defecto, externo opt-in, sin PII/salud, API key fuera del subproceso MCP.
+- **Recuperación:** backup diario cifrado, retención 7+4+1, restore mensual, RPO 24 h/RTO 8 h.
+- **Privacidad:** retención configurable, legal hold, DSR, aviso y consentimiento; marco Ley 25.326.
+- **Despliegue:** LAN, reverse proxy TLS, firewall/VPN, sin exposición directa a Internet.
+
+Ninguna feature con auth, PII, salud, exportaciones, LLM o backups puede aprobarse con hallazgos Critical/High abiertos.

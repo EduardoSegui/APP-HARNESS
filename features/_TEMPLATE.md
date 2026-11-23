@@ -28,6 +28,17 @@ Qué problema resuelve y para qué (Paso 2 SDD: Especificación). Dos o tres ora
 - [x] **Duda / Pregunta 1:** [Descripción de la ambigüedad] → **Decisión:** [Respuesta consensuada con el usuario].
 - [x] **Duda / Pregunta 2:** [Caso de borde o diseño no especificado] → **Decisión:** [Respuesta consensuada con el usuario].
 
+## Seguridad y privacidad
+
+> **Paso 3/4 SDD: controles de seguridad**
+> Completar `docs/SECURITY_CHECKLIST.md` cuando la feature toque auth, PII, salud, exportaciones, LLM o backups.
+
+- Datos involucrados y clasificación: ...
+- Rutas/acciones y roles autorizados: ...
+- Amenazas y abuso (CSRF, IDOR, XSS, DoS, filtración): ...
+- Secretos, logs, retención y egress: ...
+- Tests de seguridad negativos: ...
+
 ## Criterios de aceptación
 
 - [ ] Criterio observable 1 (comportamiento visible o contrato de datos).

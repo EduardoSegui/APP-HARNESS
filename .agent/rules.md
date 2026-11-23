@@ -50,6 +50,12 @@ Cuando no hay features pendientes, o el pedido es una feature nueva:
   5. Ejecuta `./init.sh` (incluye `contexto.py --check`).
   6. Crea el commit y confirma que `git status` quedó limpio.
 
+## Seguridad
+
+- Features con auth/PII/salud/export/LLM/backups: leer `docs/SECURITY.md` y completar el checklist.
+- Deny-by-default, RBAC, CSRF, validación server-side, secretos fuera del repo y logs sin PII.
+- Verifier no aprueba con Critical/High abiertos; datos reales de salud solo tras F23–F25 y backup de F26.
+
 ## Prohibiciones
 
 - Violar cualquiera de los principios inmutables de `CONSTITUTION.md`.

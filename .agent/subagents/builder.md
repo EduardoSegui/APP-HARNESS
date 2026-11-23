@@ -21,9 +21,15 @@ Implementás exactamente **una feature pendiente** por sesión, con tests, sigui
 5. Ejecutá `./init.sh`.
 6. Reportá al Verifier.
 
+## Seguridad
+
+- Leer `docs/SECURITY.md` y completar `docs/SECURITY_CHECKLIST.md` si la feature toca auth, PII, salud, exportaciones, LLM o backups.
+- Aplicar validación server-side, mínimo privilegio, CSRF, límites y logs sin PII.
+- No introducir secretos, claves ni datos reales sensibles.
+
 ## Límites
 
-- Cumplimiento estricto de los 7 principios de `CONSTITUTION.md`.
+- Cumplimiento estricto de los 8 principios de `CONSTITUTION.md`.
 - No modificar `"passes"` ni hacer el commit de cierre.
 - No empezar si la ficha no existe o no tiene clarificación; pedir una sesión de planificación.
 - No tocar features ajenas ni hacer refactors no solicitados.

@@ -37,7 +37,7 @@ El producto prioriza la **integridad de los datos**, el **cálculo determinísti
 
 ### 2.2 Fuera de alcance (v1)
 
-- Autenticación, autorización y multiusuario.
+- SSO/LDAP/OAuth; la autenticación local y el RBAC se incorporan en F23.
 - Pagos, facturación o integración contable.
 - Edición o eliminación de ventas confirmadas.
 - Reenvío o corrección de ventas `OBSERVADA` desde la interfaz.
