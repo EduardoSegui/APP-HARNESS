@@ -50,6 +50,8 @@ Reglas:
 - Secretos TOTP cifrados con `APP_ENCRYPTION_KEY`.
 - Sin SMS.
 - ADMIN/AUDITOR deben enrolar en el primer acceso.
+- Los intentos de `/mfa` tienen rate limit y la sesión pendiente se revoca
+  tras `MFA_MAX_FAILED_ATTEMPTS` fallos.
 
 ## 6. CSRF, abuso y límites
 
@@ -82,6 +84,9 @@ Reglas:
   `chown -R ventas:ventas /opt/ventas`.
 - Cifrado de volumen/OS; `ddjj_detalle` y secreto MFA cifrados con
   `APP_ENCRYPTION_KEY`; migración idempotente de filas históricas.
+- Un token que no descifra con la clave activa **no se re-cifra**: el arranque
+  falla de forma segura para evitar corrupción. La rotación requiere un
+  procedimiento explícito con clave vieja/nueva.
 - Backups cifrados; nunca planos ni en Git.
 - Exportaciones solo ADMIN y auditadas.
 
@@ -147,8 +152,10 @@ offline debe ser un dispositivo distinto y desconectado; no dejarlo montado.
 Después de restaurar, ejecutar smoke (`/health`, login, legajo) y `./init.sh`.
 
 SQLite usa WAL, `busy_timeout`, `synchronous=FULL`, claves foráneas y
-`integrity_check` al iniciar. Las ediciones usan `Venta.version` (409 si el
-legajo cambió) y `venta_eventos` es append-only mediante triggers.
+`integrity_check` al iniciar. Las ediciones usan `Venta.version` obligatoria
+(409 si el legajo cambió) y `venta_eventos` es append-only mediante triggers.
+La ficha de legajo enmascara CUIL e instrumentos de pago; los DTOs internos
+completos quedan reservados a los flujos que realmente los necesitan.
 
 ## 11. Logs y respuesta a incidentes
 
@@ -156,6 +163,9 @@ legajo cambió) y `venta_eventos` es append-only mediante triggers.
   (último octeto/prefijo) y timestamp.
 - Eventos: login, MFA, denegaciones, exportaciones, credencial, auditoría,
   usuarios, backups, restores, retención, legal hold y DSR.
+- `venta_eventos` redacta DNI/CUIL/email/teléfono antes de guardar y registra el
+  username real en altas/ediciones. La anonimización DSR redacta además los
+  eventos históricos de esa venta mediante una operación controlada.
 - Retención de seguridad: 12 meses.
 - Incidente: detectar, contener, preservar evidencia, erradicar, recuperar, notificar y postmortem.
 - Contacto de seguridad y política de divulgación en `SECURITY.md` raíz.

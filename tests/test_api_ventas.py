@@ -74,6 +74,7 @@ def payload_venta(
         "codigo_postal": "1043",
         "plan_id": plan_id,
         "medio_pago": medio_pago,
+        "version": 1,
         "ddjj": {
             "preexistencias": False,
             "internaciones_ultimos_12m": False,
@@ -761,15 +762,31 @@ def test_actualizar_venta_observada_vuelve_a_pendiente(
     venta_id = creada.json()["id"]
     _cambiar_estado(venta_id, "OBSERVADA", "R3: Falta el email del titular.")
 
+    payload = payload_venta(plan_id, 0)
+    payload["version"] = 2
     respuesta = client.put(
         f"/api/ventas/{venta_id}",
-        json=payload_venta(plan_id, 0),
+        json=payload,
     )
 
     assert respuesta.status_code == 200, respuesta.text
     datos = respuesta.json()
     assert datos["estado"] == "PENDIENTE_VERIFICACION"
     assert datos["observaciones"] is None
+
+
+def test_actualizar_venta_exige_version(client: TestClient) -> None:
+    plan_id = obtener_plan_id("Plan Esencial")
+    creada = client.post("/api/ventas", json=payload_venta(plan_id, 0))
+    assert creada.status_code == 201, creada.text
+    payload = payload_venta(plan_id, 0)
+    payload.pop("version")
+    respuesta = client.put(
+        f"/api/ventas/{creada.json()['id']}",
+        json=payload,
+    )
+    assert respuesta.status_code == 422
+    assert "version" in respuesta.text
 
 
 def test_actualizar_venta_aprobada_devuelve_409(client: TestClient) -> None:

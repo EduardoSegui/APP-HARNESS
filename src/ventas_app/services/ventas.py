@@ -193,7 +193,12 @@ def _construir_integrantes(
     ]
 
 
-def crear_venta(db: Session, datos: VentaIn) -> Venta:
+def crear_venta(
+    db: Session,
+    datos: VentaIn,
+    *,
+    actor: str = "operador",
+) -> Venta:
     """Crea una venta y sus integrantes en una única transacción.
 
     El precio total se calcula en el servidor con los precios vigentes del
@@ -240,7 +245,7 @@ def crear_venta(db: Session, datos: VentaIn) -> Venta:
             venta,
             TipoEventoVenta.CREADA,
             detalle=f"Alta de venta con plan {plan.nombre}.",
-            actor="operador",
+            actor=actor,
             estado_nuevo=venta.estado,
         )
         if datos.consentimiento_privacidad:
@@ -259,12 +264,14 @@ def actualizar_venta(
     db: Session,
     venta_id: int,
     datos: VentaUpdateIn,
+    *,
+    actor: str = "operador",
 ) -> Venta:
     """Reemplaza un legajo editable y lo devuelve a pendiente de auditoría."""
     venta = obtener_venta(db, venta_id)
     if venta.estado == EstadoVenta.APROBADA.value:
         raise VentaNoEditableError(venta_id)
-    if datos.version is not None and datos.version != venta.version:
+    if datos.version != venta.version:
         raise VentaVersionDesincronizadaError(venta_id)
 
     estado_anterior = venta.estado
@@ -314,7 +321,7 @@ def actualizar_venta(
                 f"Legajo actualizado: plan {plan.nombre}, "
                 f"{len(datos.integrantes)} adherentes."
             ),
-            actor="operador",
+            actor=actor,
             estado_anterior=estado_anterior,
             estado_nuevo=venta.estado,
         )

@@ -116,3 +116,19 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 411 passed; `./init.sh` ejecuta gate y suite.
 - [x] `./init.sh` y `uv run pytest` verdes.
 - [x] Sin Critical/High abiertos; excepciones Medium/Low documentadas.
+
+## F29 — Hardening de seguridad y datos (2026-11-24)
+
+- [x] Datos: eventos de venta/seguridad sin DNI/CUIL/email/teléfono; legajo enmascara CUIL e instrumento; no se agregan campos sensibles.
+- [x] Rutas: sin rutas públicas nuevas; `/mfa` sigue siendo sesión pendiente; API/HTML autenticados sin cambios de RBAC.
+- [x] RBAC: matriz F23 intacta; actor real del usuario autenticado en alta/edición y `mcp-auditor` en MCP.
+- [x] Validación server-side: `VentaUpdateIn.version` obligatoria (422 sin versión, 409 obsoleta); errores 422 sin PII.
+- [x] CSRF: `/mfa` y PUT conservan validación; sin cambios en la matriz F23/F24.
+- [x] Sin PII/salud en logs, errores, prompts ni sessionStorage: redacción nueva e histórica; eventos conservan códigos R1–R8.
+- [x] Secretos/cifrado: token de otra clave no se re-cifra; arranque falla seguro y ORM no devuelve el token; claves solo en entorno.
+- [x] Rate limiting/abuso: MFA con ventana y máximo por IP+usuario; 5 fallos revocan la sesión pendiente; sexto intento redirige a login.
+- [x] Eventos de seguridad: MFA FALLO/RATE_LIMIT sin PII; alta/edición con username real; DSR redacta históricos con backup verificado y triggers restaurados.
+- [x] Retención/legal hold: sin cambios; la redacción histórica solo ocurre en el flujo DSR controlado.
+- [x] Tests: 416 passed; 32 comprobaciones manuales TestClient/SQLite sobre base temporal (clave ajena, MFA, redacción, actor, 422/409, CUIL, regresiones F23–F28).
+- [x] `./init.sh` y `uv run pytest` verdes.
+- [x] Sin Critical/High abiertos; documentación y `.env.example` actualizados.

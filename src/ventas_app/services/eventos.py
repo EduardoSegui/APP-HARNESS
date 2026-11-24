@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ventas_app.models import TipoEventoVenta, Venta, VentaEvento
+from ventas_app.redaction import redactar_pii
 
 
 def _normalizar_tipo(tipo: TipoEventoVenta | str) -> TipoEventoVenta:
@@ -31,8 +32,8 @@ def registrar_evento(
         tipo=_normalizar_tipo(tipo).value,
         estado_anterior=estado_anterior,
         estado_nuevo=estado_nuevo,
-        detalle=detalle,
-        actor=actor,
+        detalle=redactar_pii(detalle),
+        actor=actor[:30],
     )
     db.add(evento)
     return evento
@@ -52,4 +53,38 @@ def listar_eventos(db: Session, venta_id: int) -> list[VentaEvento]:
     )
 
 
-__all__ = ["listar_eventos", "registrar_evento"]
+def redactar_eventos_venta(venta_id: int) -> int:
+    """Redacta PII histórica de eventos bajo una operación DSR controlada.
+
+    Es la única excepción deliberada a los triggers append-only: se ejecuta
+    después de un backup verificado y confirmación del custodio, y vuelve a
+    activar los triggers al terminar.
+    """
+    from ventas_app.database import (
+        activar_triggers_eventos,
+        desactivar_triggers_eventos,
+        engine,
+    )
+
+    desactivar_triggers_eventos()
+    try:
+        with engine.begin() as conexion:
+            filas = conexion.exec_driver_sql(
+                "SELECT id, detalle FROM venta_eventos WHERE venta_id = ?",
+                (venta_id,),
+            ).fetchall()
+            cambiados = 0
+            for evento_id, detalle in filas:
+                redactado = redactar_pii(detalle)
+                if redactado != detalle:
+                    conexion.exec_driver_sql(
+                        "UPDATE venta_eventos SET detalle = ? WHERE id = ?",
+                        (redactado, evento_id),
+                    )
+                    cambiados += 1
+        return cambiados
+    finally:
+        activar_triggers_eventos()
+
+
+__all__ = ["listar_eventos", "redactar_eventos_venta", "registrar_evento"]

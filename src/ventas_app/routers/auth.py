@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ventas_app.config import (
     MFA_ISSUER,
+    MFA_MAX_FAILED_ATTEMPTS,
     SESSION_ABSOLUTE_HOURS,
     SESSION_COOKIE_NAME,
     SESSION_COOKIE_SECURE,
@@ -31,6 +32,7 @@ from ventas_app.security import (
     hash_password,
     limpiar_bloqueo,
     login_rate_limiter,
+    mfa_rate_limiter,
     registrar_evento_seguridad,
     revocar_sesion,
     verificar_codigo_recuperacion,
@@ -294,6 +296,27 @@ def mostrar_mfa(
     )
 
 
+def _registrar_fallo_mfa(
+    db: Session,
+    sesion: Sesion,
+    usuario: Usuario,
+    request: Request,
+) -> None:
+    """Incrementa intentos, revoca la sesión pendiente y audita sin PII."""
+    sesion.mfa_failed_attempts = (sesion.mfa_failed_attempts or 0) + 1
+    if sesion.mfa_failed_attempts >= MFA_MAX_FAILED_ATTEMPTS:
+        revocar_sesion(db, sesion)
+    registrar_evento_seguridad(
+        db,
+        tipo="MFA",
+        resultado="FALLO",
+        usuario_id=usuario.id,
+        ip=_ip(request),
+        detalle="Intento de código MFA inválido.",
+    )
+    db.commit()
+
+
 @router.post("/mfa")
 def confirmar_mfa(
     request: Request,
@@ -303,10 +326,34 @@ def confirmar_mfa(
     db: Session = Depends(get_db),
 ):
     sesion, usuario = sesion_usuario
+    if not mfa_rate_limiter.permitir(
+        f"mfa:{_ip(request)}:{usuario.id}"
+    ):
+        registrar_evento_seguridad(
+            db,
+            tipo="MFA",
+            resultado="RATE_LIMIT",
+            usuario_id=usuario.id,
+            ip=_ip(request),
+        )
+        db.commit()
+        return templates.TemplateResponse(
+            request=request,
+            name="mfa.html",
+            context={
+                "modo_setup": not usuario.mfa_enabled,
+                "csrf_token": request.cookies.get("vos_csrf", ""),
+                "next": _destino_seguro(next),
+                "error": "Demasiados intentos. Esperá un minuto.",
+            },
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
     if not usuario.mfa_enabled:
         try:
             secreto = descifrar_secreto(usuario.mfa_secret_enc or "")
         except ValueError:
+            _registrar_fallo_mfa(db, sesion, usuario, request)
             return templates.TemplateResponse(
                 request=request,
                 name="mfa.html",
@@ -324,6 +371,7 @@ def confirmar_mfa(
             ultimo_contador=usuario.mfa_last_counter,
         )
         if contador is None:
+            _registrar_fallo_mfa(db, sesion, usuario, request)
             return templates.TemplateResponse(
                 request=request,
                 name="mfa.html",
@@ -362,14 +410,7 @@ def confirmar_mfa(
         if not valido:
             valido = verificar_codigo_recuperacion(db, usuario, codigo)
         if not valido:
-            registrar_evento_seguridad(
-                db,
-                tipo="MFA",
-                resultado="FALLO",
-                usuario_id=usuario.id,
-                ip=_ip(request),
-            )
-            db.commit()
+            _registrar_fallo_mfa(db, sesion, usuario, request)
             return templates.TemplateResponse(
                 request=request,
                 name="mfa.html",

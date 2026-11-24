@@ -185,6 +185,13 @@
       "descripcion": "Lock check, scanners, CI, gates de seguridad y pinning de assets.",
       "packet": "features/F28.md",
       "passes": true
+    },
+    {
+      "id": "F29",
+      "titulo": "Hardening de seguridad y datos",
+      "descripcion": "Protección de clave de cifrado, rate limit MFA, redacción de eventos, actor real y versión obligatoria.",
+      "packet": "features/F29.md",
+      "passes": true
     }
   ]
 }

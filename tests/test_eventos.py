@@ -37,6 +37,7 @@ def _payload(plan_id: int) -> dict[str, Any]:
         "codigo_postal": "1043",
         "plan_id": plan_id,
         "medio_pago": "PAGO_FACIL",
+        "version": 1,
         "ddjj": {
             "preexistencias": False,
             "internaciones_ultimos_12m": False,
@@ -73,7 +74,7 @@ def test_creacion_registra_evento(client: TestClient) -> None:
     assert len(eventos) == 1
     evento = eventos[0]
     assert evento.tipo == TipoEventoVenta.CREADA.value
-    assert evento.actor == "operador"
+    assert evento.actor == "admin-test"
     assert evento.estado_anterior is None
     assert evento.estado_nuevo == "PENDIENTE_VERIFICACION"
     assert "Plan Integral" in (evento.detalle or "")
@@ -95,10 +96,25 @@ def test_edicion_registra_evento_en_orden(client: TestClient) -> None:
 
     with SessionLocal() as db:
         evento = listar_eventos(db, venta["id"])[0]
-    assert evento.actor == "operador"
+    assert evento.actor == "admin-test"
     assert evento.estado_anterior == "PENDIENTE_VERIFICACION"
     assert evento.estado_nuevo == "PENDIENTE_VERIFICACION"
     assert "Plan Esencial" in (evento.detalle or "")
+
+
+def test_eventos_redactan_pii_en_observaciones(client: TestClient) -> None:
+    venta = _crear_venta(client)
+    with SessionLocal() as db:
+        cambiar_estado_venta(
+            db,
+            venta["id"],
+            "OBSERVADA",
+            "R2: DNI 30111222 repetido; email ana.eventos@example.com.",
+        )
+        evento = listar_eventos(db, venta["id"])[0]
+        assert "30111222" not in (evento.detalle or "")
+        assert "ana.eventos@example.com" not in (evento.detalle or "")
+        assert "***" in (evento.detalle or "")
 
 
 def test_auditoria_registra_evento(client: TestClient) -> None:

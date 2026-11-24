@@ -56,7 +56,7 @@
           <span class="credential__value">
             {{ venta.pago_marca_entidad }} •••• {{ venta.pago_ultimos_4 }}
             {% if venta.pago_vencimiento %} · Vto {{ venta.pago_vencimiento }}{% endif %}
-            {% if venta.pago_cuil %} · CUIL {{ venta.pago_cuil }}{% endif %}
+            {% if venta.pago_cuil %} · CUIL {{ venta.pago_cuil[:2] }}••••••{{ venta.pago_cuil[-2:] }}{% endif %}
           </span>
         </div>
         {% endif %}

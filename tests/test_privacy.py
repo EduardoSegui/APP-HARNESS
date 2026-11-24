@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 import pytest
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -86,7 +87,7 @@ def test_ddjj_detalle_cifrado_en_reposo_y_legible_por_orm(
     assert detalle_api.json()["ddjj_detalle"] == detalle
 
 
-def test_detalle_con_prefijo_gAAAA_tambien_se_cifra(
+def test_detalle_con_prefijo_gAAAA_no_se_re_cifra_silenciosamente(
     client: TestClient,
 ) -> None:
     detalle = "gAAAA" + ("A" * 100)
@@ -109,26 +110,23 @@ def test_detalle_con_prefijo_gAAAA_tambien_se_cifra(
         ).scalar()
     assert crudo_despues == crudo
 
-    # Simula una fila histórica que quedó en claro con el prefijo engañoso.
-    legacy = "gAAAA" + ("B" * 100)
+    # Un token de otra clave o corrupto debe fallar de forma segura, no
+    # re-cifrarse y dejar el dato inaccesible.
+    ajeno = Fernet(Fernet.generate_key()).encrypt(detalle.encode()).decode()
     with engine.begin() as conexion:
         conexion.exec_driver_sql(
             "UPDATE ventas SET ddjj_detalle = ? WHERE id = ?",
-            (legacy, creada["id"]),
+            (ajeno, creada["id"]),
         )
-    init_db()
+    with pytest.raises(RuntimeError, match="APP_ENCRYPTION_KEY"):
+        init_db()
+
     with engine.connect() as conexion:
-        crudo_legacy = conexion.exec_driver_sql(
+        crudo_ajeno = conexion.exec_driver_sql(
             "SELECT ddjj_detalle FROM ventas WHERE id = ?",
             (creada["id"],),
         ).scalar()
-    assert isinstance(crudo_legacy, str)
-    assert crudo_legacy != legacy
-    assert descifrar_texto(crudo_legacy) == legacy
-
-    detalle_api = client.get(f"/api/ventas/{creada['id']}")
-    assert detalle_api.status_code == 200
-    assert detalle_api.json()["ddjj_detalle"] == legacy
+    assert crudo_ajeno == ajeno
 
 
 def test_migracion_cifra_detalle_historico(client: TestClient) -> None:

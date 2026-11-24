@@ -27,7 +27,10 @@ from ventas_app.models import (
 )
 from ventas_app.security import ahora_utc, registrar_evento_seguridad
 from ventas_app.services.backup import ErrorBackup, verificar_backup
-from ventas_app.services.eventos import registrar_evento
+from ventas_app.services.eventos import (
+    redactar_eventos_venta,
+    registrar_evento,
+)
 from ventas_app.services.ventas import VentaNoEncontradaError, obtener_venta
 
 CATEGORIA_SEGURIDAD = "SEGURIDAD"
@@ -281,6 +284,7 @@ def anonimizar_venta(
     )
     db.commit()
     db.refresh(venta)
+    redactar_eventos_venta(venta.id)
     return venta
 
 

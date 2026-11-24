@@ -115,10 +115,18 @@ def auditar_endpoint(
         Depends(require_api_roles(RolUsuario.OPERADOR, RolUsuario.ADMIN))
     ],
 )
-def crear_venta_endpoint(payload: VentaIn, db: SessionDep) -> Venta:
+def crear_venta_endpoint(
+    request: Request,
+    payload: VentaIn,
+    db: SessionDep,
+) -> Venta:
     """Crea una venta completa y devuelve el comprobante persistido."""
     try:
-        return crear_venta(db, payload)
+        return crear_venta(
+            db,
+            payload,
+            actor=getattr(request.state.usuario, "username", "sistema"),
+        )
     except PlanNoDisponibleError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -286,13 +294,19 @@ def listar_eventos_endpoint(venta_id: int, db: SessionDep) -> list[EventoOut]:
     ],
 )
 def actualizar_venta_endpoint(
+    request: Request,
     venta_id: int,
     payload: VentaUpdateIn,
     db: SessionDep,
 ) -> Venta:
     """Edita un legajo pendiente u observado y lo devuelve a auditoría."""
     try:
-        return actualizar_venta(db, venta_id, payload)
+        return actualizar_venta(
+            db,
+            venta_id,
+            payload,
+            actor=getattr(request.state.usuario, "username", "sistema"),
+        )
     except VentaNoEncontradaError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -49,7 +49,12 @@ from ventas_app.models import (  # noqa: E402
     Venta,
     VentaEvento,
 )
-from ventas_app.security import crear_sesion, hash_password  # noqa: E402
+from ventas_app.security import (  # noqa: E402
+    crear_sesion,
+    hash_password,
+    login_rate_limiter,
+    mfa_rate_limiter,
+)
 
 _TEST_ADMIN_HASH = hash_password("admin-test-password-123")
 
@@ -81,6 +86,8 @@ def aislar_llm(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def limpiar_tablas(base_de_datos_temporal: None) -> Iterator[None]:
     """Deja las tablas vacías antes de cada test."""
+    login_rate_limiter.limpiar()
+    mfa_rate_limiter.limpiar()
     desactivar_triggers_eventos()
     try:
         with SessionLocal() as db:

@@ -11,7 +11,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from ventas_app.config import APP_ENCRYPTION_KEY
-from ventas_app.crypto import cifrar_texto, es_token_valido
+from ventas_app.crypto import cifrar_texto, es_token_cifrado, es_token_valido
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATABASE_PATH = PROJECT_ROOT / "ventas.db"
@@ -270,11 +270,22 @@ def _migrar_campos_sensibles(engine_objetivo: Engine = engine) -> None:
             "WHERE ddjj_detalle IS NOT NULL AND ddjj_detalle <> ''"
         ).fetchall()
         for venta_id, valor in filas:
-            if isinstance(valor, str) and not es_token_valido(valor):
-                conexion.exec_driver_sql(
-                    "UPDATE ventas SET ddjj_detalle = ? WHERE id = ?",
-                    (cifrar_texto(valor), venta_id),
-                )
+            if not isinstance(valor, str):
+                continue
+            if es_token_cifrado(valor):
+                if not es_token_valido(valor):
+                    raise RuntimeError(
+                        "ddjj_detalle contiene un token cifrado que no "
+                        "corresponde a APP_ENCRYPTION_KEY; no se re-cifra "
+                        "automáticamente. Revisá la clave o restaurá el "
+                        "backup correcto."
+                    )
+                continue
+            # Solo los valores históricos en texto plano se cifran.
+            conexion.exec_driver_sql(
+                "UPDATE ventas SET ddjj_detalle = ? WHERE id = ?",
+                (cifrar_texto(valor), venta_id),
+            )
 
 
 _TRIGGER_EVENTOS_NO_UPDATE = """
@@ -330,6 +341,32 @@ def verificar_integridad_db(engine_objetivo: Engine = engine) -> bool:
     return integridad == "ok" and not claves
 
 
+def _migrar_sesiones(engine_objetivo: Engine = engine) -> None:
+    """Agrega contadores de MFA a bases anteriores a F29."""
+    if engine_objetivo.dialect.name != "sqlite":
+        return
+    with engine_objetivo.begin() as conexion:
+        tablas = {
+            fila[0]
+            for fila in conexion.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        if "sesiones" not in tablas:
+            return
+        columnas = {
+            fila[1]
+            for fila in conexion.exec_driver_sql(
+                "PRAGMA table_info(sesiones)"
+            )
+        }
+        if "mfa_failed_attempts" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE sesiones ADD COLUMN mfa_failed_attempts "
+                "INTEGER NOT NULL DEFAULT 0"
+            )
+
+
 def _endurecer_permisos_db(engine_objetivo: Engine = engine) -> None:
     """Restringe la base SQLite al usuario del servicio."""
     if engine_objetivo.dialect.name != "sqlite":
@@ -353,6 +390,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _migrar_ventas_sqlite()
+    _migrar_sesiones()
     _migrar_campos_sensibles()
     activar_triggers_eventos()
     _endurecer_permisos_db()

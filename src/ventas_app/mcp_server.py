@@ -105,6 +105,7 @@ def actualizar_estado_venta(
                 venta_id,
                 estado_destino,
                 observaciones,
+                actor="mcp-auditor",
             )
         except (VentaNoEncontradaError, ErrorEstadoVenta) as exc:
             raise ToolError(str(exc)) from exc

@@ -74,6 +74,8 @@ def cambiar_estado_venta(
     venta_id: int,
     nuevo_estado: EstadoVenta | str,
     observaciones: str | None = None,
+    *,
+    actor: str = "auditor",
 ) -> Venta:
     """Aplica y persiste una transición de estado de forma atómica.
 
@@ -109,7 +111,7 @@ def cambiar_estado_venta(
             venta,
             tipo,
             detalle=detalle,
-            actor="auditor",
+            actor=actor,
             estado_anterior=estado_anterior,
             estado_nuevo=estado_final.value,
         )

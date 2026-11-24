@@ -414,6 +414,23 @@ def test_detalle_venta_muestra_lectura_y_enmascaramiento(
     assert "Editar legajo" not in aprobada.text
 
 
+def test_detalle_venta_enmascara_cuil_del_instrumento(
+    client: TestClient,
+) -> None:
+    venta = _crear_venta(
+        client,
+        plan="Plan Integral",
+        medio_pago="CBU",
+        regimen_afiliacion="RELACION_DEPENDENCIA",
+        cuil_titular="20123456789",
+        aporte_estimado=10_000,
+    )
+
+    html = client.get(f"/ventas/{venta['id']}").text
+    assert "20123456789" not in html
+    assert "20••••••89" in html
+
+
 def test_detalle_venta_muestra_regimen_y_aporte(client: TestClient) -> None:
     venta = _crear_venta(
         client,

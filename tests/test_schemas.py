@@ -341,6 +341,7 @@ def test_venta_in_rechaza_instrumento_incoherente() -> None:
     with pytest.raises(ValidationError, match="No envíes datos de CBU"):
         VentaIn.model_validate(
             payload_valido(
+                version=1,
                 medio_pago="TARJETA_CREDITO",
                 cbu=dict(CBU_VALIDO),
             )
@@ -357,6 +358,7 @@ def test_venta_in_rechaza_instrumento_incoherente() -> None:
     with pytest.raises(ValidationError, match="no admite datos"):
         VentaIn.model_validate(
             payload_valido(
+                version=1,
                 medio_pago="PAGO_FACIL",
                 tarjeta=dict(TARJETA_VALIDA),
             )
@@ -484,6 +486,7 @@ def test_venta_in_rechaza_cuil_invalido() -> None:
 def test_venta_update_hereda_regimen_y_aporte() -> None:
     venta = VentaUpdateIn.model_validate(
         payload_valido(
+            version=1,
             regimen_afiliacion="RELACION_DEPENDENCIA",
             cuil_titular="20123456789",
             aporte_estimado=5_000,
@@ -495,10 +498,10 @@ def test_venta_update_hereda_regimen_y_aporte() -> None:
 
 
 def test_venta_update_permite_omitir_instrumento_para_conservarlo() -> None:
-    tarjeta = payload_valido(medio_pago="TARJETA_CREDITO", tarjeta=None)
+    tarjeta = payload_valido(version=1, medio_pago="TARJETA_CREDITO", tarjeta=None)
     assert VentaUpdateIn.model_validate(tarjeta).tarjeta is None
 
-    cbu = payload_valido(medio_pago="CBU", cbu=None)
+    cbu = payload_valido(version=1, medio_pago="CBU", cbu=None)
     assert VentaUpdateIn.model_validate(cbu).cbu is None
 
 
@@ -506,6 +509,7 @@ def test_venta_update_rechaza_instrumento_incoherente() -> None:
     with pytest.raises(ValidationError, match="Solo podés enviar tarjeta"):
         VentaUpdateIn.model_validate(
             payload_valido(
+                version=1,
                 medio_pago="PAGO_FACIL",
                 tarjeta=dict(TARJETA_VALIDA),
             )
@@ -514,6 +518,7 @@ def test_venta_update_rechaza_instrumento_incoherente() -> None:
     with pytest.raises(ValidationError, match="Solo podés enviar CBU"):
         VentaUpdateIn.model_validate(
             payload_valido(
+                version=1,
                 medio_pago="PAGO_FACIL",
                 cbu=dict(CBU_VALIDO),
             )
@@ -522,6 +527,7 @@ def test_venta_update_rechaza_instrumento_incoherente() -> None:
     with pytest.raises(ValidationError, match="tarjeta y CBU"):
         VentaUpdateIn.model_validate(
             payload_valido(
+                version=1,
                 medio_pago="TARJETA_CREDITO",
                 cbu=dict(CBU_VALIDO),
             )

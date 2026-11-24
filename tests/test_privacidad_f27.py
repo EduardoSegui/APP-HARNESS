@@ -17,9 +17,11 @@ from ventas_app.models import (
     SecurityEvent,
     SolicitudDerecho,
     Venta,
+    VentaEvento,
 )
 from ventas_app.security import crear_sesion
 from ventas_app.services.backup import crear_backup
+from ventas_app.services.estados import cambiar_estado_venta
 from ventas_app.services.privacidad import (
     ErrorPrivacidad,
     anonimizar_venta,
@@ -205,6 +207,38 @@ def test_anonimizacion_exige_backup_y_confirmacion(
         )
         assert anonimizada.fecha_nacimiento_titular.year == 1900
         assert anonimizada.dni_titular == "00000000"
+
+
+def test_anonimizacion_redacta_eventos_historicos(
+    client: TestClient,
+    tmp_path,
+) -> None:
+    venta = _crear(client)
+    with SessionLocal() as db:
+        cambiar_estado_venta(
+            db,
+            venta["id"],
+            "OBSERVADA",
+            "R2: DNI 30111222 repetido.",
+        )
+    with SessionLocal() as db:
+        backup = crear_backup(directorio=tmp_path)
+        anonimizar_venta(
+            db,
+            venta["id"],
+            actor="admin",
+            archivo_backup=backup.ruta,
+            confirmar=True,
+        )
+    with SessionLocal() as db:
+        detalles = [
+            evento.detalle or ""
+            for evento in db.scalars(
+                select(VentaEvento).where(VentaEvento.venta_id == venta["id"])
+            )
+        ]
+    assert all("30111222" not in detalle for detalle in detalles)
+    assert any("***" in detalle for detalle in detalles)
 
 
 def test_dsr_acceso_y_rectificacion_quedan_auditados(

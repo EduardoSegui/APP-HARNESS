@@ -10,11 +10,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from ventas_app.database import SessionLocal
-from ventas_app.models import RolUsuario, Usuario
+from ventas_app.models import RolUsuario, Sesion, Usuario
 from ventas_app.security import (
     _codigo_totp,
     hash_password,
     login_rate_limiter,
+    mfa_rate_limiter,
     verify_password,
 )
 from ventas_app.services.usuarios import crear_usuario
@@ -132,6 +133,59 @@ def test_mfa_admin_setup_y_acceso(anon_client: TestClient) -> None:
     assert anon_client.get("/").status_code == 200
     assert anon_client.get("/dashboard").status_code == 200
     assert anon_client.get("/api/exportar/padron?formato=json").status_code == 200
+
+
+def test_mfa_bloquea_sesion_pendiente_tras_cinco_fallos(
+    anon_client: TestClient,
+) -> None:
+    _crear_usuario("admin-mfa-bloqueo", RolUsuario.ADMIN)
+    mfa_rate_limiter.limpiar()
+    respuesta = _login(anon_client, "admin-mfa-bloqueo")
+    assert respuesta.status_code == 303
+    assert "/mfa" in respuesta.headers["location"]
+    page = anon_client.get("/mfa")
+    assert page.status_code == 200
+    csrf = anon_client.cookies.get("vos_csrf")
+
+    with SessionLocal() as db:
+        usuario = db.scalar(
+            select(Usuario).where(
+                Usuario.username == "admin-mfa-bloqueo"
+            )
+        )
+        assert usuario is not None
+        sesion = db.scalar(
+            select(Sesion)
+            .where(Sesion.usuario_id == usuario.id)
+            .order_by(Sesion.id.desc())
+        )
+        assert sesion is not None
+        sesion_id = sesion.id
+
+    for indice in range(5):
+        respuesta = anon_client.post(
+            "/mfa",
+            data={
+                "codigo": "000000" if indice == 0 else "999999",
+                "csrf_token": csrf,
+                "next": "/",
+            },
+            follow_redirects=False,
+        )
+        assert respuesta.status_code == 401, respuesta.text
+
+    with SessionLocal() as db:
+        sesion = db.get(Sesion, sesion_id)
+        assert sesion is not None
+        assert sesion.mfa_failed_attempts == 5
+        assert sesion.revocada_en is not None
+
+    siguiente = anon_client.post(
+        "/mfa",
+        data={"codigo": "123456", "csrf_token": csrf, "next": "/"},
+        follow_redirects=False,
+    )
+    assert siguiente.status_code == 303
 
 
 def test_rbac_auditor_y_operador(anon_client: TestClient) -> None:

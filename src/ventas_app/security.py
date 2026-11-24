@@ -22,12 +22,15 @@ from ventas_app.config import (
     LOGIN_LOCK_MINUTES,
     LOGIN_RATE_MAX_ATTEMPTS,
     LOGIN_RATE_WINDOW_SECONDS,
+    MFA_RATE_MAX_ATTEMPTS,
+    MFA_RATE_WINDOW_SECONDS,
     SESSION_ABSOLUTE_HOURS,
     SESSION_COOKIE_NAME,
     SESSION_IDLE_MINUTES,
 )
 from ventas_app.crypto import cifrar_texto, descifrar_texto
 from ventas_app.models import CodigoRecuperacion, SecurityEvent, Sesion, Usuario
+from ventas_app.redaction import redactar_pii
 
 _PASSWORD_HASHER = PasswordHasher()
 _TOTP_PERIOD = 30
@@ -244,7 +247,7 @@ def registrar_evento_seguridad(
             usuario_id=usuario_id,
             ip=_ip_minimizada(ip),
             request_id=request_id[:64] if request_id else None,
-            detalle=detalle[:1000] if detalle else None,
+            detalle=redactar_pii(detalle)[:1000] if detalle else None,
         )
     )
 
@@ -275,17 +278,24 @@ def registrar_evento_global(
 
 
 class _RateLimiter:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_attempts: int = LOGIN_RATE_MAX_ATTEMPTS,
+        window_seconds: int = LOGIN_RATE_WINDOW_SECONDS,
+    ) -> None:
         self._eventos: dict[str, deque[float]] = {}
         self._lock = threading.Lock()
+        self._max_attempts = max_attempts
+        self._window_seconds = window_seconds
 
     def permitir(self, clave: str) -> bool:
         ahora = time.monotonic()
         with self._lock:
             cola = self._eventos.setdefault(clave, deque())
-            while cola and ahora - cola[0] > LOGIN_RATE_WINDOW_SECONDS:
+            while cola and ahora - cola[0] > self._window_seconds:
                 cola.popleft()
-            if len(cola) >= LOGIN_RATE_MAX_ATTEMPTS:
+            if len(cola) >= self._max_attempts:
                 return False
             cola.append(ahora)
             return True
@@ -296,6 +306,10 @@ class _RateLimiter:
 
 
 login_rate_limiter = _RateLimiter()
+mfa_rate_limiter = _RateLimiter(
+    max_attempts=MFA_RATE_MAX_ATTEMPTS,
+    window_seconds=MFA_RATE_WINDOW_SECONDS,
+)
 
 
 def bloquear_usuario(usuario: Usuario) -> None:

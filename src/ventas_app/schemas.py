@@ -292,6 +292,10 @@ class _VentaDatosIn(BaseModel):
 class VentaIn(_VentaDatosIn):
     """Payload de creación de una venta completa."""
 
+    # Se acepta por compatibilidad de clientes que reutilizan el DTO de
+    # edición; la creación siempre inicia en versión 1.
+    version: int | None = Field(default=None, ge=1)
+
     @model_validator(mode="after")
     def validar_instrumento_pago(self) -> Self:
         if self.medio_pago is MedioPago.TARJETA_CREDITO:
@@ -319,7 +323,7 @@ class VentaIn(_VentaDatosIn):
 class VentaUpdateIn(_VentaDatosIn):
     """Payload de edición; el instrumento puede omitirse para conservarlo."""
 
-    version: int | None = Field(default=None, ge=1)
+    version: int = Field(ge=1)
 
     @model_validator(mode="after")
     def validar_instrumento_opcional(self) -> Self:

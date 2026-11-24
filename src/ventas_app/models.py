@@ -25,6 +25,7 @@ from ventas_app.crypto import (
     cifrar_texto,
     clave_disponible,
     descifrar_texto,
+    es_token_cifrado,
     es_token_valido,
 )
 from ventas_app.database import Base
@@ -76,10 +77,16 @@ class EncryptedText(TypeDecorator[str]):
             # Un subproceso sin clave (MCP) no puede leer salud; solo su
             # presencia. Tampoco debe exponer filas históricas en claro.
             return "[cifrado]"
-        if not es_token_valido(value):
-            # Compatibilidad con filas históricas o valores no autenticados.
+        if not es_token_cifrado(value):
+            # Compatibilidad de lectura con filas históricas en texto plano.
             return value
-        return descifrar_texto(value)
+        try:
+            return descifrar_texto(value)
+        except ValueError as exc:
+            raise ValueError(
+                "El dato cifrado no pertenece a la clave activa o está "
+                "corrupto; no se re-cifra automáticamente."
+            ) from exc
 
 
 class MedioPago(str, Enum):
@@ -497,6 +504,12 @@ class Sesion(Base):
         Boolean,
         nullable=False,
         default=False,
+        server_default=text("0"),
+    )
+    mfa_failed_attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
         server_default=text("0"),
     )
     creado_en: Mapped[datetime] = mapped_column(
