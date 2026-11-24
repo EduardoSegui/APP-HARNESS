@@ -204,7 +204,7 @@ instalados, también en local.
 - [STATE.md](STATE.md): estado actual y próximo paso.
 - [CHECKPOINT.md](CHECKPOINT.md): ventana de las últimas 2 sesiones.
 - [Bitácora histórica](docs/journal/2026.md): sesiones anteriores.
-- [features.json](features.json): plan atómico F01–F28.
+- [features.json](features.json): plan atómico F01–F31.
 - [Plantilla de ficha](features/_TEMPLATE.md): plantilla SDD para planificar features.
 
 ## Estado
