@@ -285,6 +285,25 @@ a {
   padding: 48px 0;
 }
 
+.admin-dialog {
+  width: min(560px, calc(100% - 32px));
+  border: 1px solid var(--linea);
+  border-radius: var(--radio-hoja);
+  padding: 24px;
+  background: var(--blanco);
+  color: var(--tinta);
+  box-shadow: var(--sombra-hoja);
+}
+
+.admin-dialog::backdrop {
+  background: rgb(22 33 30 / 45%);
+}
+
+.admin-dialog__form {
+  display: grid;
+  gap: 14px;
+}
+
 .auth-card {
   width: min(460px, 100%);
   padding: clamp(22px, 4vw, 34px);

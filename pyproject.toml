@@ -32,10 +32,14 @@ module-name = "ventas_app"
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not e2e'"
+markers = [
+    "e2e: flujo de navegador Playwright (requiere Chrome/Chromium)",
+]
 
 [dependency-groups]
 dev = [
     "bandit>=1.9.4",
     "pip-audit>=2.10.1",
+    "playwright>=1.65.2",
 ]

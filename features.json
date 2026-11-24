@@ -199,6 +199,13 @@
       "descripcion": "Reapertura de aprobadas con motivo y reauditoría; baja lógica con legal hold y auditoría.",
       "packet": "features/F30.md",
       "passes": true
+    },
+    {
+      "id": "F31",
+      "titulo": "E2E Playwright y video demo",
+      "descripcion": "Automatización del flujo con admin TOTP, base temporal y grabación de una demo ficticia.",
+      "packet": "features/F31.md",
+      "passes": true
     }
   ]
 }

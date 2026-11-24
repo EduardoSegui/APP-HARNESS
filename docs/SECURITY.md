@@ -183,6 +183,8 @@ completos quedan reservados a los flujos que realmente los necesitan.
 - Assets: Tailwind 3.4.17 y fuentes Bricolage/Public Sans self-hosted; hashes en
   `src/ventas_app/static/ASSETS.lock`; CSP solo `'self'` para scripts/fuentes.
 - CI: `.github/workflows/security.yml`; pre-commit: `.pre-commit-config.yaml`.
+- E2E/demo: Playwright con Chrome, SQLite temporal, admin ficticio con TOTP
+  efímero y video sin datos reales; ver `docs/E2E.md`.
 - `./init.sh` ejecuta lock check, pip-audit, bandit, hashes, secretos y tests.
 - Excepciones de scanners Medium/Low se documentan con justificación y fecha; no
   se aprueba con High/Critical abiertos.

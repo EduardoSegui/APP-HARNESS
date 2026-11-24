@@ -67,6 +67,25 @@
     <a href="/privacidad">Aviso de privacidad</a>
   </footer>
 
+  {% if request.state.usuario is defined and request.state.usuario.rol == "ADMIN" %}
+  <dialog id="admin-venta-dialog" class="admin-dialog">
+    <form method="dialog" class="admin-dialog__form">
+      <p class="page-context">Administración excepcional</p>
+      <h2 id="admin-venta-titulo" class="page-title">Confirmar acción</h2>
+      <p id="admin-venta-mensaje" class="page-sub"></p>
+      <div class="field">
+        <label for="admin-venta-motivo" class="field-label">Motivo</label>
+        <textarea id="admin-venta-motivo" class="field-input" rows="3" maxlength="500" required></textarea>
+      </div>
+      <p id="admin-venta-error" class="notice notice--warning hidden" role="alert"></p>
+      <div class="form-actions">
+        <button type="button" id="admin-venta-cancelar" class="btn btn--secondary">Cancelar</button>
+        <button type="button" id="admin-venta-confirmar" class="btn btn--primary">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+  {% endif %}
+
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -22,6 +22,9 @@ backups/
 *.db.enc
 *.db.enc.sha256
 
+# Artefactos crudos de demo (se publican GIF/MP4 finales)
+docs/demo/*.webm
+
 # Testing y cobertura
 .pytest_cache/
 .coverage

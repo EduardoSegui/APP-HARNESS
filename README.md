@@ -38,6 +38,28 @@ El primer login de ADMIN/AUDITOR exige configurar TOTP. Los operadores se crean 
 Abrí `http://localhost:8000/` para cargar una venta y `http://localhost:8000/ventas`
 para ver el panel y ejecutar la auditoría.
 
+## Demo automatizada
+
+Demo generada con Playwright, datos ficticios y una base temporal. No contiene
+datos reales ni credenciales productivas.
+
+![Demo de la aplicación](docs/demo/demo.gif)
+
+[Ver video completo (MP4)](docs/demo/demo.mp4)
+
+Para regenerarla:
+
+```bash
+uv sync --all-groups
+uv run playwright install chromium   # o usar Google Chrome instalado
+uv run python scripts/record_demo.py
+uv run pytest -m e2e
+```
+
+El flujo E2E inicia un servidor aislado, crea un `demo-admin` con TOTP efímero y
+recorre login, alta, auditoría, tablero, reapertura de aprobada y baja lógica.
+El `pytest` normal excluye los tests `e2e` para no requerir navegador.
+
 ## Panel y auditoría en vivo
 
 El panel de ventas muestra el estado y la columna **Observaciones** con el motivo
@@ -175,6 +197,7 @@ instalados, también en local.
 - [Seguridad y privacidad](docs/SECURITY.md): política, roles, datos, MFA, backups y retención.
 - [Checklist de seguridad](docs/SECURITY_CHECKLIST.md): controles obligatorios por feature.
 - [Privacidad y DSR](docs/PRIVACIDAD.md): retención, legal hold, derechos y AAIP.
+- [E2E y demo](docs/E2E.md): Playwright, TOTP efímero y regeneración del video.
 - [Índice de documentación](docs/INDEX.md): mapa de temas a secciones.
 - [Plan de diseño F12](docs/design/F12.md): dirección visual del wizard y el panel con `frontend-design`.
 - [AGENTS.md](AGENTS.md): punto de entrada del harness y roles de agentes.

@@ -139,7 +139,7 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Rutas: `POST /api/ventas/{id}/reabrir` y `DELETE /api/ventas/{id}` autenticadas y solo ADMIN; sin rutas públicas ni borrado físico.
 - [x] RBAC: ADMIN 200; OPERADOR/AUDITOR 403 en reapertura y baja; anónimo 401; botones ocultos fuera de ADMIN y verificados por acceso directo.
 - [x] Validación server-side: `VentaAdminAccionIn` exige motivo de 5–500 caracteres y versión ≥ 1; 422 sin motivo/versión, 409 por versión obsoleta o estado no aprobado, sin cambios.
-- [x] Confirmación explícita en UI (prompt de motivo + `window.confirm`); cancelar no envía la acción. CSRF obligatorio en POST y DELETE: ausente/inválido → 403 sin cambios.
+- [x] Confirmación explícita en UI (diálogo modal con motivo y confirmación); cancelar no envía la acción. CSRF obligatorio en POST y DELETE: ausente/inválido → 403 sin cambios.
 - [x] Sin PII/salud en logs, errores 422, prompts LLM ni sessionStorage: el motivo del evento pasa por `redactar_pii`; se registra el actor real.
 - [x] Secretos: sin variables ni credenciales nuevas; `.env`/DB fuera del repo, del frontend y del subproceso MCP.
 - [x] Cifrado/permisos: no se alteran cifrados ni backups; la baja conserva la fila y el linaje; legal hold activo bloquea la baja.
@@ -150,3 +150,14 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 425 passed; 89 comprobaciones manuales TestClient/SQLite/MCP sobre base temporal (reapertura, RBAC/CSRF, 422/409, baja, filtros, hold, UI, regresiones F23–F29 y migración).
 - [x] `./init.sh` y `uv run pytest` verdes (425 passed; gate de seguridad OK).
 - [x] Sin Critical/High abiertos; riesgo residual bajo documentado en rate limiting de DELETE.
+
+## F31 — E2E Playwright y video demo (2026-11-24)
+
+- [x] Datos: base SQLite temporal, fixtures ficticios, admin demo efímero y sin datos reales.
+- [x] Credenciales: usuario, contraseña y secreto TOTP ficticios de test, válidos solo contra la DB temporal; no se usan en producción; la contraseña está enmascarada y el secreto no se muestra en README/video.
+- [x] Rutas: Playwright usa la app real con login/MFA, CSRF y roles; no endpoints nuevos.
+- [x] Aislamiento: servidor en 127.0.0.1, `ALLOWED_HOSTS` local, `COOKIE_SECURE=false` solo demo; proceso detenido y DB en el directorio temporal de pytest (sin `ventas.db`).
+- [x] E2E separado por marker; `pytest` normal y `./init.sh` no requieren navegador.
+- [x] Video: GIF + MP4 sin secretos productivos ni PII real; el código TOTP visible es efímero y de test. Flujo login/TOTP/alta/auditoría/tablero/reapertura/baja.
+- [x] Tests: 425 normales + 1 E2E; script de grabación reproducible.
+- [x] Documentación `docs/E2E.md` y README; sin Critical/High abiertos. Riesgos residuales bajos: credenciales de test fijas y DB temporal bajo retención estándar de pytest, sin datos reales.
