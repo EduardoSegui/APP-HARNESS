@@ -253,8 +253,14 @@
               {% if venta.estado == "APROBADA" %}
               <a href="{{ url_for('detalle_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Ver legajo</a>
               <a href="{{ url_for('credencial_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Credencial</a>
+              {% if request.state.usuario.rol == "ADMIN" %}
+              <button type="button" class="btn btn--quiet btn--sm" data-admin-venta="reabrir" data-venta-id="{{ venta.id }}" data-version="{{ venta.version }}">Reabrir</button>
+              {% endif %}
               {% else %}
               <a href="{{ url_for('editar_venta', venta_id=venta.id) }}" class="btn btn--quiet btn--sm">Editar legajo</a>
+              {% endif %}
+              {% if request.state.usuario.rol == "ADMIN" %}
+              <button type="button" class="btn btn--quiet btn--sm" data-admin-venta="eliminar" data-venta-id="{{ venta.id }}" data-version="{{ venta.version }}">Eliminar</button>
               {% endif %}
             </td>
           </tr>
@@ -302,4 +308,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', path='js/auditoria.js') }}" defer></script>
+<script src="{{ url_for('static', path='js/admin_ventas.js') }}" defer></script>
 {% endblock %}

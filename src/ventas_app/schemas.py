@@ -336,6 +336,15 @@ class VentaUpdateIn(_VentaDatosIn):
         return self
 
 
+class VentaAdminAccionIn(BaseModel):
+    """Motivo y versión de una acción administrativa excepcional."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(min_length=5, max_length=500)
+    version: int = Field(ge=1)
+
+
 class PlanOut(BaseModel):
     """Representación pública de un plan."""
 
@@ -443,6 +452,9 @@ class VentaOut(BaseModel):
     precio_total: int
     estado: EstadoVenta
     observaciones: str | None
+    eliminada_en: datetime | None = None
+    eliminada_por: str | None = None
+    motivo_baja: str | None = None
     integrantes: list[IntegranteOut]
     creado_en: datetime
     actualizado_en: datetime

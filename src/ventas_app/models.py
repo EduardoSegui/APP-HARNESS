@@ -308,6 +308,16 @@ class Venta(Base):
         index=True,
     )
     observaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
+    eliminada_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+    eliminada_por: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    motivo_baja: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

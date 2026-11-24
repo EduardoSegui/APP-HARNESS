@@ -55,7 +55,7 @@ def construir_filtros(
     if desde is not None and hasta is not None and desde > hasta:
         raise ValueError("La fecha 'desde' no puede ser posterior a 'hasta'.")
 
-    filtros = []
+    filtros = [Venta.eliminada_en.is_(None)]
     texto = (q or "").strip()
     if texto:
         patron = f"%{texto}%"

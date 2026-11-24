@@ -9,12 +9,14 @@ from sqlalchemy.orm.exc import StaleDataError
 from ventas_app.models import (
     EstadoVenta,
     Integrante,
+    LegalHold,
     MedioPago,
     Plan,
     RegimenAfiliacion,
     TipoEventoVenta,
     Venta,
 )
+from ventas_app.security import ahora_utc
 from ventas_app.schemas import VentaIn, VentaUpdateIn
 from ventas_app.services.eventos import registrar_evento
 from ventas_app.services.pricing import CotizacionDetalle, calcular_cotizacion
@@ -63,6 +65,14 @@ class VentaVersionDesincronizadaError(ValueError):
 
 class AporteInvalidoError(ValueError):
     """El aporte estimado no es compatible con la base bonificada."""
+
+
+class VentaReaperturaInvalidaError(ValueError):
+    """La venta no está en un estado que permita reabrirla."""
+
+
+class VentaBajaInvalidaError(ValueError):
+    """La baja lógica no es posible para la venta."""
 
 
 def _pago_vacio() -> dict[str, str | None]:
@@ -341,6 +351,108 @@ def actualizar_venta(
     return venta
 
 
+def reabrir_venta(
+    db: Session,
+    venta_id: int,
+    *,
+    version: int,
+    motivo: str,
+    actor: str,
+) -> Venta:
+    """Reabre una venta aprobada para corregirla y reauditarla."""
+    venta = obtener_venta(db, venta_id)
+    if version != venta.version:
+        raise VentaVersionDesincronizadaError(venta_id)
+    if venta.estado != EstadoVenta.APROBADA.value:
+        raise VentaReaperturaInvalidaError(
+            "Solo una venta aprobada puede reabrirse para edición."
+        )
+    motivo_normalizado = motivo.strip()
+    if len(motivo_normalizado) < 5:
+        raise VentaReaperturaInvalidaError(
+            "La reapertura requiere un motivo de al menos 5 caracteres."
+        )
+
+    estado_anterior = venta.estado
+    venta.estado = EstadoVenta.PENDIENTE_VERIFICACION.value
+    venta.observaciones = None
+    try:
+        registrar_evento(
+            db,
+            venta,
+            TipoEventoVenta.EDITADA,
+            detalle=f"Reapertura administrativa: {motivo_normalizado}",
+            actor=actor,
+            estado_anterior=estado_anterior,
+            estado_nuevo=venta.estado,
+        )
+        db.commit()
+    except StaleDataError as exc:
+        db.rollback()
+        raise VentaVersionDesincronizadaError(venta_id) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(venta)
+    return venta
+
+
+def dar_baja_venta(
+    db: Session,
+    venta_id: int,
+    *,
+    version: int,
+    motivo: str,
+    actor: str,
+) -> Venta:
+    """Aplica baja lógica sin destruir la fila ni su linaje."""
+    venta = obtener_venta(db, venta_id)
+    if version != venta.version:
+        raise VentaVersionDesincronizadaError(venta_id)
+    if venta.eliminada_en is not None:
+        raise VentaBajaInvalidaError("La venta ya está dada de baja.")
+    hold = db.scalar(
+        select(LegalHold.id).where(
+            LegalHold.venta_id == venta_id,
+            LegalHold.activo.is_(True),
+        )
+    )
+    if hold is not None:
+        raise VentaBajaInvalidaError(
+            "La venta tiene legal hold activo; no se puede dar de baja."
+        )
+    motivo_normalizado = motivo.strip()
+    if len(motivo_normalizado) < 5:
+        raise VentaBajaInvalidaError(
+            "La baja requiere un motivo de al menos 5 caracteres."
+        )
+
+    venta.eliminada_en = ahora_utc()
+    venta.eliminada_por = actor[:50]
+    venta.motivo_baja = motivo_normalizado
+    try:
+        registrar_evento(
+            db,
+            venta,
+            TipoEventoVenta.EDITADA,
+            detalle=f"Baja lógica administrativa: {motivo_normalizado}",
+            actor=actor,
+            estado_anterior=venta.estado,
+            estado_nuevo=venta.estado,
+        )
+        db.commit()
+    except StaleDataError as exc:
+        db.rollback()
+        raise VentaVersionDesincronizadaError(venta_id) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(venta)
+    return venta
+
+
 def obtener_venta(db: Session, venta_id: int) -> Venta:
     """Obtiene una venta con su plan e integrantes precargados."""
     venta = db.scalar(
@@ -349,7 +461,10 @@ def obtener_venta(db: Session, venta_id: int) -> Venta:
             joinedload(Venta.plan),
             selectinload(Venta.integrantes),
         )
-        .where(Venta.id == venta_id)
+        .where(
+            Venta.id == venta_id,
+            Venta.eliminada_en.is_(None),
+        )
     )
 
     if venta is None:
@@ -365,7 +480,8 @@ def listar_ventas_pendientes(db: Session) -> list[Venta]:
             select(Venta)
             .options(joinedload(Venta.plan))
             .where(
-                Venta.estado == EstadoVenta.PENDIENTE_VERIFICACION.value
+                Venta.estado == EstadoVenta.PENDIENTE_VERIFICACION.value,
+                Venta.eliminada_en.is_(None),
             )
             .order_by(Venta.creado_en.asc(), Venta.id.asc())
         ).all()
@@ -392,7 +508,7 @@ def buscar_ventas(
     if por_pagina < 1:
         raise ValueError("El tamaño de página debe ser mayor o igual a 1.")
 
-    filtros = []
+    filtros = [Venta.eliminada_en.is_(None)]
     texto = (q or "").strip()
     if texto:
         patron = f"%{texto}%"
@@ -473,6 +589,7 @@ def listar_ventas(db: Session) -> list[tuple[Venta, int]]:
     filas = db.execute(
         select(Venta, cantidad_integrantes.label("cantidad_integrantes"))
         .options(joinedload(Venta.plan))
+        .where(Venta.eliminada_en.is_(None))
         .order_by(Venta.creado_en.desc(), Venta.id.desc())
     ).all()
 

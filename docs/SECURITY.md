@@ -1,7 +1,7 @@
 # Seguridad y privacidad — Ventas Obra Social
 
 > Documento operativo de seguridad. Complementa `CONSTITUTION.md` y `.agent/rules.md`.
-> Última actualización: 2026-11-23.
+> Última actualización: 2026-11-24.
 
 ## 1. Contexto y alcance
 
@@ -117,6 +117,10 @@ Reglas:
 - La supresión se implementa como anonimización de PII/salud (incluida fecha de
   nacimiento); no se borra el registro comercial ni el linaje. Un legal hold
   activo la bloquea y se exige backup verificado + confirmación del custodio.
+- Un ADMIN puede reabrir una venta aprobada con motivo; vuelve a
+  `PENDIENTE_VERIFICACION` y requiere reauditoría. La baja de ventas es lógica,
+  con motivo, solo ADMIN, bloqueada por legal hold y fuera de listados/métricas;
+  nunca borra filas ni eventos.
 - Aviso de privacidad versionado en `/privacidad`; consentimiento registrado en
   `consentimientos_privacidad` al confirmar una venta.
 - Marco de referencia: Ley 25.326 y normativa de datos sensibles/salud; validar

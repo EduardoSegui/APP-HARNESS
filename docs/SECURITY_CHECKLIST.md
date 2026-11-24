@@ -132,3 +132,21 @@ Completar en la ficha o en el reporte del Builder/Verifier.
 - [x] Tests: 416 passed; 32 comprobaciones manuales TestClient/SQLite sobre base temporal (clave ajena, MFA, redacción, actor, 422/409, CUIL, regresiones F23–F28).
 - [x] `./init.sh` y `uv run pytest` verdes.
 - [x] Sin Critical/High abiertos; documentación y `.env.example` actualizados.
+
+## F30 — Administración excepcional de ventas (2026-11-24)
+
+- [x] Datos: venta/PII/salud existentes; la baja lógica no anonimiza ni borra, conserva fila, linaje y holds. Solo agrega actor, motivo y timestamp de baja.
+- [x] Rutas: `POST /api/ventas/{id}/reabrir` y `DELETE /api/ventas/{id}` autenticadas y solo ADMIN; sin rutas públicas ni borrado físico.
+- [x] RBAC: ADMIN 200; OPERADOR/AUDITOR 403 en reapertura y baja; anónimo 401; botones ocultos fuera de ADMIN y verificados por acceso directo.
+- [x] Validación server-side: `VentaAdminAccionIn` exige motivo de 5–500 caracteres y versión ≥ 1; 422 sin motivo/versión, 409 por versión obsoleta o estado no aprobado, sin cambios.
+- [x] Confirmación explícita en UI (prompt de motivo + `window.confirm`); cancelar no envía la acción. CSRF obligatorio en POST y DELETE: ausente/inválido → 403 sin cambios.
+- [x] Sin PII/salud en logs, errores 422, prompts LLM ni sessionStorage: el motivo del evento pasa por `redactar_pii`; se registra el actor real.
+- [x] Secretos: sin variables ni credenciales nuevas; `.env`/DB fuera del repo, del frontend y del subproceso MCP.
+- [x] Cifrado/permisos: no se alteran cifrados ni backups; la baja conserva la fila y el linaje; legal hold activo bloquea la baja.
+- [x] Rate limiting/abuso: la reapertura entra en la política `POST /api/ventas` (30/min); DELETE exige ADMIN + CSRF + versión y queda sin política específica (riesgo residual bajo, no Critical/High).
+- [x] Eventos: `venta_eventos` de reapertura/baja con actor real, estado y detalle redactado; append-only y sin borrado físico. Las denegaciones siguen auditadas por F27.
+- [x] Retención/legal hold: hold activo bloquea baja (409) sin modificar fila ni eventos; la baja no anonimiza ni borra y la retención F27 queda intacta.
+- [x] Filtrado: panel, API de listado/detalle, métricas, exportaciones y MCP excluyen ventas dadas de baja.
+- [x] Tests: 425 passed; 89 comprobaciones manuales TestClient/SQLite/MCP sobre base temporal (reapertura, RBAC/CSRF, 422/409, baja, filtros, hold, UI, regresiones F23–F29 y migración).
+- [x] `./init.sh` y `uv run pytest` verdes (425 passed; gate de seguridad OK).
+- [x] Sin Critical/High abiertos; riesgo residual bajo documentado en rate limiting de DELETE.

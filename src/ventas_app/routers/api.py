@@ -20,6 +20,7 @@ from ventas_app.schemas import (
     EventoOut,
     MetricasOut,
     PaginaVentasOut,
+    VentaAdminAccionIn,
     VentaIn,
     VentaOut,
     VentaUpdateIn,
@@ -31,13 +32,17 @@ from ventas_app.services.ventas import (
     AporteInvalidoError,
     DatosPagoInvalidosError,
     PlanNoDisponibleError,
+    VentaBajaInvalidaError,
     VentaNoEditableError,
     VentaNoEncontradaError,
+    VentaReaperturaInvalidaError,
     VentaVersionDesincronizadaError,
     actualizar_venta,
     buscar_ventas,
     crear_venta,
+    dar_baja_venta,
     obtener_venta,
+    reabrir_venta,
 )
 
 logger = logging.getLogger(__name__)
@@ -332,3 +337,61 @@ def actualizar_venta_endpoint(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
+
+
+@router.post(
+    "/ventas/{venta_id}/reabrir",
+    response_model=VentaOut,
+    dependencies=[Depends(require_api_roles(RolUsuario.ADMIN))],
+)
+def reabrir_venta_endpoint(
+    request: Request,
+    venta_id: int,
+    payload: VentaAdminAccionIn,
+    db: SessionDep,
+) -> Venta:
+    """Reabre una venta aprobada con motivo y auditoría."""
+    try:
+        return reabrir_venta(
+            db,
+            venta_id,
+            version=payload.version,
+            motivo=payload.motivo,
+            actor=getattr(request.state.usuario, "username", "sistema"),
+        )
+    except VentaNoEncontradaError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        VentaVersionDesincronizadaError,
+        VentaReaperturaInvalidaError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/ventas/{venta_id}",
+    response_model=VentaOut,
+    dependencies=[Depends(require_api_roles(RolUsuario.ADMIN))],
+)
+def dar_baja_venta_endpoint(
+    request: Request,
+    venta_id: int,
+    payload: VentaAdminAccionIn,
+    db: SessionDep,
+) -> Venta:
+    """Aplica baja lógica a una venta; no borra filas ni eventos."""
+    try:
+        return dar_baja_venta(
+            db,
+            venta_id,
+            version=payload.version,
+            motivo=payload.motivo,
+            actor=getattr(request.state.usuario, "username", "sistema"),
+        )
+    except VentaNoEncontradaError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        VentaVersionDesincronizadaError,
+        VentaBajaInvalidaError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

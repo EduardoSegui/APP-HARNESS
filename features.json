@@ -192,6 +192,13 @@
       "descripcion": "Protección de clave de cifrado, rate limit MFA, redacción de eventos, actor real y versión obligatoria.",
       "packet": "features/F29.md",
       "passes": true
+    },
+    {
+      "id": "F30",
+      "titulo": "Administración excepcional de ventas",
+      "descripcion": "Reapertura de aprobadas con motivo y reauditoría; baja lógica con legal hold y auditoría.",
+      "packet": "features/F30.md",
+      "passes": true
     }
   ]
 }

@@ -159,6 +159,18 @@ def _migrar_ventas_sqlite(engine_objetivo: Engine = engine) -> None:
                 "ALTER TABLE ventas ADD COLUMN version "
                 "INTEGER NOT NULL DEFAULT 1"
             )
+        if "eliminada_en" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN eliminada_en DATETIME"
+            )
+        if "eliminada_por" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN eliminada_por VARCHAR(50)"
+            )
+        if "motivo_baja" not in columnas:
+            conexion.exec_driver_sql(
+                "ALTER TABLE ventas ADD COLUMN motivo_baja TEXT"
+            )
 
         if "precio_total" in columnas:
             conexion.exec_driver_sql(

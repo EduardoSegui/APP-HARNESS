@@ -14,8 +14,14 @@
       <a href="/ventas" class="btn btn--secondary">Volver al panel</a>
       {% if venta.estado == "APROBADA" %}
       <a href="{{ url_for('credencial_venta', venta_id=venta.id) }}" class="btn btn--primary">Imprimir credencial</a>
+      {% if request.state.usuario.rol == "ADMIN" %}
+      <button type="button" class="btn btn--secondary" data-admin-venta="reabrir" data-venta-id="{{ venta.id }}" data-version="{{ venta.version }}">Editar aprobada</button>
+      {% endif %}
       {% else %}
       <a href="{{ url_for('editar_venta', venta_id=venta.id) }}" class="btn btn--primary">Editar legajo</a>
+      {% endif %}
+      {% if request.state.usuario.rol == "ADMIN" %}
+      <button type="button" class="btn btn--quiet" data-admin-venta="eliminar" data-venta-id="{{ venta.id }}" data-version="{{ venta.version }}">Eliminar</button>
       {% endif %}
     </div>
   </div>
@@ -219,4 +225,8 @@
   </section>
   {% endif %}
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/admin_ventas.js') }}" defer></script>
 {% endblock %}
